@@ -10,6 +10,7 @@ import { DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_ROUTE } from "./ids.ts";
 import { GROK_BUILD_MODELS_URL, grokBuildBaselineModels, grokBuildFingerprintHeaders } from "./provider.ts";
 
 const BODY_LIMIT_BYTES = 4 * 1024 * 1024;
+const BODY_LIMIT_ERROR = "Grok Build model listing exceeded the 4 MiB read ceiling";
 const PI_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 export type CatalogSource = "live" | "cache" | "fallback";
@@ -117,7 +118,7 @@ export function extractModelIds(body: unknown): string[] {
 function titleCaseId(id: string): string {
 	return id
 		.split(/[-_]/g)
-		.map((part) => (part.length === 0 ? part : part[0]!.toUpperCase() + part.slice(1)))
+		.map((part) => (part.length === 0 ? part : (part[0] ?? "").toUpperCase() + part.slice(1)))
 		.join(" ");
 }
 
@@ -185,6 +186,33 @@ export function preferredGrokBuildModelFrom(models: readonly { id: string }[]): 
 	return models[0]?.id ?? DEFAULT_GROK_BUILD_MODEL;
 }
 
+async function readBoundedResponse(response: Response): Promise<Buffer> {
+	const declared = response.headers.get("content-length");
+	if (declared !== null && /^\d+$/u.test(declared) && Number(declared) > BODY_LIMIT_BYTES) {
+		await response.body?.cancel().catch(() => undefined);
+		throw new Error(BODY_LIMIT_ERROR);
+	}
+	if (response.body === null) return Buffer.alloc(0);
+	const reader = response.body.getReader();
+	const chunks: Buffer[] = [];
+	let size = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			size += value.byteLength;
+			if (size > BODY_LIMIT_BYTES) {
+				await reader.cancel().catch(() => undefined);
+				throw new Error(BODY_LIMIT_ERROR);
+			}
+			chunks.push(Buffer.from(value));
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	return Buffer.concat(chunks, size);
+}
+
 /**
  * Fetch the account-visible models from `/v1/models-v2` with the CLI
  * fingerprint headers. Throws a secret-free error on failure.
@@ -198,15 +226,18 @@ export async function fetchLiveModels(accessToken: string, signal?: AbortSignal)
 				authorization: `Bearer ${accessToken}`,
 				...grokBuildFingerprintHeaders(),
 			},
-			...(signal === undefined ? {} : { signal }),
+			...(signal !== undefined ? { signal } : {}),
 		});
 	} catch {
 		if (signal?.aborted) throw new Error("Live model listing was cancelled");
 		throw new Error("Grok Build model listing is unreachable (proxy required on some networks)");
 	}
-	const raw = Buffer.from(await response.arrayBuffer());
-	if (raw.byteLength > BODY_LIMIT_BYTES) {
-		throw new Error("Grok Build model listing exceeded the 4 MiB read ceiling");
+	let raw: Buffer;
+	try {
+		raw = await readBoundedResponse(response);
+	} catch (error) {
+		if (error instanceof Error && error.message === BODY_LIMIT_ERROR) throw error;
+		throw new Error("Grok Build model listing response could not be read");
 	}
 	let body: unknown;
 	try {

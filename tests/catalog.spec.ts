@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	extractLiveModels,
 	extractModelIds,
+	fetchLiveModels,
 	materializeLiveModel,
 	mergeLiveCatalog,
 	preferredGrokBuildModelFrom,
@@ -11,6 +12,11 @@ import { GROK_BUILD_ROUTE } from "../src/ids.ts";
 import { grokBuildBaselineModels } from "../src/provider.ts";
 
 const catalog = grokBuildBaselineModels();
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
 
 describe("extractModelIds", () => {
 	it("reads OpenAI-shaped data arrays", () => {
@@ -51,19 +57,20 @@ describe("mergeLiveCatalog", () => {
 	});
 
 	it("applies live reasoning_efforts so xhigh is not inherited from a 4.5 template", () => {
+		const thinkingLevelMap = thinkingLevelMapFromLiveEfforts([
+			{ id: "xhigh", value: "xhigh" },
+			{ id: "high", value: "high" },
+			{ id: "medium", value: "medium" },
+			{ id: "low", value: "low" },
+		]);
 		const merged = mergeLiveCatalog(
 			catalog,
 			["grok-4.6"],
 			[
 				{
 					id: "grok-4.6",
-					thinkingLevelMap: thinkingLevelMapFromLiveEfforts([
-						{ id: "xhigh", value: "xhigh" },
-						{ id: "high", value: "high" },
-						{ id: "medium", value: "medium" },
-						{ id: "low", value: "low" },
-					])!,
 					reasoning: true,
+					...(thinkingLevelMap === undefined ? {} : { thinkingLevelMap }),
 				},
 			],
 		);
@@ -135,6 +142,58 @@ describe("extractLiveModels", () => {
 			reasoning: true,
 		});
 		expect(model?.thinkingLevelMap?.xhigh).toBe("xhigh");
+	});
+});
+
+describe("fetchLiveModels", () => {
+	it("parses a streamed models-v2 response", async () => {
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new TextEncoder().encode('{"data":[{"id":"grok-4.6",'));
+				controller.enqueue(new TextEncoder().encode('"reasoning_efforts":[{"id":"xhigh"}]}]}'));
+				controller.close();
+			},
+		});
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response(body, { status: 200 })),
+		);
+		await expect(fetchLiveModels("example-token")).resolves.toMatchObject([
+			{ id: "grok-4.6", reasoning: true, thinkingLevelMap: { xhigh: "xhigh" } },
+		]);
+	});
+
+	it("cancels a streamed body as soon as it crosses the 4 MiB ceiling", async () => {
+		let cancelled = false;
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new Uint8Array(3 * 1024 * 1024));
+				controller.enqueue(new Uint8Array(2 * 1024 * 1024));
+			},
+			cancel() {
+				cancelled = true;
+			},
+		});
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response(body, { status: 200 })),
+		);
+		await expect(fetchLiveModels("example-token")).rejects.toThrow(/4 MiB read ceiling/);
+		expect(cancelled).toBe(true);
+	});
+
+	it("rejects an oversized content-length before reading the body", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response("ignored", {
+						status: 200,
+						headers: { "content-length": String(4 * 1024 * 1024 + 1) },
+					}),
+			),
+		);
+		await expect(fetchLiveModels("example-token")).rejects.toThrow(/4 MiB read ceiling/);
 	});
 });
 

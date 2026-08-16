@@ -8,6 +8,7 @@ import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
 import { grokBuildAuthStatus, importGrokBuildSession, loginGrokBuildSession } from "./auth.ts";
 import type { CatalogSource } from "./catalog.ts";
 import { probeGrokAuth } from "./grok-import.ts";
+import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug, XAI_PI_PROVIDER } from "./ids.ts";
 import { loginGrokBuildPkce } from "./oauth.ts";
 import type { SubscriptionLoginMethod } from "./oauth-providers.ts";
@@ -556,14 +557,6 @@ function trustedRequest(req: IncomingMessage): boolean {
 	}
 }
 
-async function readJson(req: IncomingMessage): Promise<unknown> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-	const text = Buffer.concat(chunks).toString("utf8").trim();
-	if (text.length === 0) return {};
-	return JSON.parse(text) as unknown;
-}
-
 function json(res: ServerResponse, status: number, value: unknown): void {
 	res.writeHead(status, {
 		"content-type": "application/json; charset=utf-8",
@@ -604,9 +597,9 @@ export function registerGrokBuildAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						json(res, 200, await auth.signIn(readLoginMethod(await readJson(req))));
+						json(res, 200, await auth.signIn(readLoginMethod(await readJsonRequest(req))));
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -617,7 +610,7 @@ export function registerGrokBuildAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const code = typeof body === "object" && body !== null && "code" in body ? body.code : undefined;
 						if (typeof code !== "string" || code.trim().length === 0) {
 							return json(res, 400, { error: "code must be a non-empty string" });
@@ -625,7 +618,7 @@ export function registerGrokBuildAuthRoutes(
 						await auth.submitCode(code);
 						json(res, 200, { ok: true });
 					} catch (error: unknown) {
-						json(res, 409, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 409), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -660,7 +653,7 @@ export function registerGrokBuildAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const selected =
 							typeof body === "object" && body !== null && "selected" in body ? body.selected : undefined;
 						if (!Array.isArray(selected) || selected.some((id) => typeof id !== "string")) {
@@ -669,7 +662,7 @@ export function registerGrokBuildAuthRoutes(
 						await auth.setModels(selected);
 						json(res, 200, await auth.status());
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -787,7 +780,7 @@ export function registerCodingOAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						const value = recordBody(body);
 						if (slug === "grok") {
@@ -802,7 +795,7 @@ export function registerCodingOAuthRoutes(
 								: auth.session.definition.recommendedLoginMethod;
 						json(res, 200, await auth.signIn(method));
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -813,7 +806,7 @@ export function registerCodingOAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						const code = recordBody(body)["code"];
 						if (typeof code !== "string" || code.trim().length === 0) {
@@ -823,7 +816,7 @@ export function registerCodingOAuthRoutes(
 						else await subscription(slug).submitCode(code);
 						json(res, 200, { ok: true });
 					} catch (error: unknown) {
-						json(res, 409, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 409), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -834,13 +827,13 @@ export function registerCodingOAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						if (slug === "grok") await grok.cancel();
 						else await subscription(slug).cancel();
 						json(res, 200, await allStatus());
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -851,7 +844,7 @@ export function registerCodingOAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						const selected = recordBody(body)["selected"];
 						if (!Array.isArray(selected) || selected.some((id) => typeof id !== "string")) {
@@ -861,7 +854,7 @@ export function registerCodingOAuthRoutes(
 						else await subscription(slug).setModels(selected);
 						json(res, 200, await allStatus());
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
@@ -872,13 +865,13 @@ export function registerCodingOAuthRoutes(
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
 					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
-						const body = await readJson(req);
+						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						if (slug === "grok") await grok.signOut();
 						else await subscription(slug).signOut();
 						json(res, 200, await allStatus());
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),
