@@ -89,6 +89,18 @@ describe("GrokBuildSession.provider", () => {
 		expect(notify).toHaveBeenCalledOnce();
 		expect(session.catalogSource).toBe("fallback");
 	});
+
+	it("contains token-refresh failures and exposes only a redacted catalog diagnostic", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-refresh-failure-"));
+		const notify = vi.fn();
+		const session = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "auth.json")), notify);
+		vi.spyOn(session.models, "getAuth").mockRejectedValue(new Error("Bearer EXAMPLE_ACCESS_TOKEN"));
+		await expect(session.refreshLiveCatalog()).resolves.toBeUndefined();
+		expect(session.catalogSource).toBe("fallback");
+		expect(session.catalogError).toContain("[redacted]");
+		expect(session.catalogError).not.toContain("EXAMPLE_ACCESS_TOKEN");
+		expect(notify).toHaveBeenCalledOnce();
+	});
 });
 
 describe("createCodingOAuthAdapter model discovery", () => {
@@ -216,7 +228,7 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		);
 		const kimi = subscriptions.find((session) => session.definition.route === KIMI_CODE_OAUTH_ROUTE)!;
 		vi.spyOn(kimi.models, "getAuth").mockRejectedValue(
-			new Error("OAuth refresh failed for kimi-coding: 401 invalid_grant"),
+			new Error("OAuth refresh failed for kimi-coding: Bearer EXAMPLE_ACCESS_TOKEN access_token=EXAMPLE_REFRESH_TOKEN"),
 		);
 		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined);
 		const consume = async (): Promise<void> => {
@@ -231,7 +243,13 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		await expect(consume()).rejects.toThrow(/sign in/i);
 		await consume().then(
 			() => expect.unreachable("stream must reject"),
-			(error: unknown) => expect((error as { code?: string }).code).toBe("MISSING_CREDENTIAL"),
+			(error: unknown) => {
+				expect((error as { code?: string }).code).toBe("MISSING_CREDENTIAL");
+				expect((error as Error).message).toContain("[redacted]");
+				expect((error as Error).message).not.toContain("EXAMPLE_ACCESS_TOKEN");
+				expect((error as Error).message).not.toContain("EXAMPLE_REFRESH_TOKEN");
+				expect((error as { cause?: unknown }).cause).toBeUndefined();
+			},
 		);
 	});
 });
