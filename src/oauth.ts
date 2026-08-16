@@ -212,7 +212,9 @@ async function listenForCode(
       })
       // Swallow late errors after a successful settle of the wait promise.
       wait.catch(() => {})
-      return { server, port: candidate, wait }
+      const address = server.address()
+      const boundPort = typeof address === 'object' && address !== null ? address.port : candidate
+      return { server, port: boundPort, wait }
     } catch (error) {
       lastError = error
       server.removeAllListeners()
@@ -254,6 +256,7 @@ async function postTokenForm(
   tokenEndpoint: string,
   fields: Record<string, string>,
   signal?: AbortSignal,
+  previousRefresh?: string,
 ): Promise<OAuthCredential> {
   let response: Response
   try {
@@ -281,21 +284,22 @@ async function postTokenForm(
     const detail = typeof body.error_description === 'string' ? `: ${body.error_description}` : ''
     throw new GrokBuildOAuthError('token_exchange', `token endpoint rejected the request (${code})${detail}`)
   }
-  return credentialFromTokenResponse(body)
+  return credentialFromTokenResponse(body, previousRefresh)
 }
 
 /** Exchange a refresh token for a fresh credential (rotation-tolerant). */
 export async function refreshGrokBuildToken(
   refreshToken: string,
-  params: GrokBuildOAuthParams = resolveOAuthParams(),
+  overrides: Partial<GrokBuildOAuthParams> = {},
   signal?: AbortSignal,
 ): Promise<OAuthCredential> {
+  const params = resolveOAuthParams(overrides)
   const endpoints = await discoverOAuthEndpoints(params.issuer, signal)
   return postTokenForm(endpoints.token_endpoint, {
     grant_type: 'refresh_token',
     client_id: params.clientId,
     refresh_token: refreshToken,
-  }, signal)
+  }, signal, refreshToken)
 }
 
 export interface PkceLoginCallbacks {
