@@ -4,7 +4,7 @@
  * content hash, or a signed upstream URL.
  * @module dsh-coding-subscription-oauth/media-store
  */
-/** Hard ceiling for one stored artifact. Callers cannot raise this. */
+/** Hard ceiling for one artifact and for aggregate stored object bytes. */
 export declare const MEDIA_STORE_MAX_BYTES: number;
 /** Hard ceiling for artifact retention. Callers cannot raise this. */
 export declare const MEDIA_STORE_RETENTION_MS: number;
@@ -48,7 +48,10 @@ export interface MediaCleanupReport {
 }
 export interface MediaStoreOptions {
     now?: () => number;
+    /** Per-artifact ceiling, capped at {@link MEDIA_STORE_MAX_BYTES}. */
     maxBytes?: number;
+    /** Aggregate unique-object ceiling, capped at {@link MEDIA_STORE_MAX_BYTES}. */
+    maxTotalBytes?: number;
     retentionMs?: number;
     randomId?: () => string;
 }
@@ -92,11 +95,14 @@ export declare function assertTrustedImagineAuthz(authz: TrustedImagineAuthz): v
 export declare class MediaStore {
     readonly root: string;
     readonly maxBytes: number;
-    readonly retentionMs: number;
+    readonly maxTotalBytes: number;
+    retentionMs: number;
     private readonly now;
     private readonly randomId;
     private tail;
     constructor(root: string, options?: MediaStoreOptions);
+    /** Apply a live retention setting to future artifacts, clamped to the hard ceiling. */
+    setRetentionMs(retentionMs: number): number;
     save(input: SaveMediaInput): Promise<MediaArtifactMeta>;
     lookup(artifactId: string): Promise<MediaArtifactMeta | undefined>;
     read(artifactId: string): Promise<StoredMedia>;

@@ -3,8 +3,8 @@
  * @module dsh-coding-subscription-oauth/oauth-session
  */
 import type { Api, AuthInteraction, Credential, Model, MutableModels, OAuthCredential, Provider } from "@earendil-works/pi-ai";
-import type { OAuthProviderDefinition } from "./oauth-providers.ts";
-import { OAuthCredentialFileStore } from "./store.ts";
+import type { OAuthProviderDefinition } from "./oauth-providers.js";
+import { OAuthCredentialFileStore } from "./store.js";
 export declare function oauthModelsCachePath(basename: string, dshHome?: string): string;
 export interface OAuthProviderStatus {
     authenticated: boolean;

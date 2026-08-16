@@ -4,7 +4,7 @@
  * stay outside this module so the parent can wire them later.
  * @module dsh-coding-subscription-oauth/oauth-sources
  */
-import { type CodingOAuthProviderSlug } from "./ids.ts";
+import { type CodingOAuthProviderSlug } from "./ids.js";
 /** Hard ceiling for a CLI source or destination document. */
 export declare const OAUTH_SOURCE_MAX_BYTES: number;
 /** In-memory preview tickets are one-use and live five minutes. */
@@ -74,6 +74,8 @@ export interface OAuthDestinationInspection {
     identity?: OAuthSourceFileIdentity;
     /** Internal. Never serialize this field to a client. */
     credential?: OAuthSourceCredential;
+    /** Internal digest of unreadable dest bytes. Never serialize this field to a client. */
+    payloadMac?: string;
 }
 export interface OAuthImportPreview {
     previewId: string;
@@ -102,8 +104,15 @@ export interface OAuthImportPreviewInput extends OAuthSourcePathOptions {
 }
 export interface OAuthImportCommitInput extends OAuthSourcePathOptions {
     previewId: string;
+    /** When set, must match the ticket kind; a mismatch does not consume the ticket. */
+    kind?: OAuthSourceKind;
     confirmOverwrite?: boolean;
     destination?: OAuthImportDestinationView;
+}
+/** Secret-free preview claim used to route a ticket to its destination store. */
+export interface OAuthImportPreviewClaim {
+    kind: OAuthSourceKind;
+    ticketExpiresAt: number;
 }
 /** Stable allowlist metadata for parent route/store wiring. */
 export declare const OAUTH_SOURCE_SPECS: readonly OAuthSourceSpec[];
@@ -157,12 +166,19 @@ export declare function probeOAuthSource(kind: OAuthSourceKind, options?: OAuthS
 export declare function discoverOAuthSources(options?: OAuthSourcePathOptions): Promise<OAuthSourceDiscovery[]>;
 /**
  * In-memory two-phase import controller. Preview IDs are random, one-use, and
- * expire after five minutes. HMAC fingerprints and persist material stay internal.
+ * expire after five minutes. `peekPreview` exposes only kind + ticket expiry so
+ * routes can bind a destination without a second ticket map. HMAC fingerprints
+ * and persist material stay internal.
  */
 export declare class OAuthImportSession {
     #private;
     constructor(options?: OAuthImportSessionOptions);
     discover(options?: OAuthSourcePathOptions): Promise<OAuthSourceDiscovery[]>;
+    /**
+     * Secret-free peek. Does not consume a live ticket. An expired ticket is
+     * deleted and reported as {@link OAuthSourceError} `preview_expired` once.
+     */
+    peekPreview(previewId: string): OAuthImportPreviewClaim;
     preview(input: OAuthImportPreviewInput): Promise<OAuthImportPreview>;
     /**
      * Consume the preview, reopen the allowlisted source, and compare the

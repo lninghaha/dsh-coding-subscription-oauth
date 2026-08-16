@@ -3,8 +3,8 @@
  * @module dsh-coding-subscription-oauth/session
  */
 import type { Api, Model, MutableModels, Provider } from "@earendil-works/pi-ai";
-import { type CatalogSource } from "./catalog.ts";
-import { GrokBuildCredentialStore } from "./store.ts";
+import { type CatalogSource } from "./catalog.js";
+import { GrokBuildCredentialStore } from "./store.js";
 /** One process-local owner of the credential and the account model list. */
 export declare class GrokBuildSession {
     readonly store: GrokBuildCredentialStore;

@@ -13,8 +13,8 @@
  *
  * @module dsh-coding-subscription-oauth/codex-model-capabilities
  */
-import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.ts";
-import { CODEX_OAUTH_FAST_ROUTE } from "./ids.ts";
+import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.js";
+import { CODEX_OAUTH_FAST_ROUTE } from "./ids.js";
 /** Distinct optional Harness route; parent owns dynamic registration. */
 export { CODEX_OAUTH_FAST_ROUTE };
 export declare const CODEX_MODELS_URL = "https://chatgpt.com/backend-api/codex/models";
@@ -38,6 +38,7 @@ export interface CodexModelCapabilitiesOptions {
 }
 export interface CodexModelCapabilities {
     refresh(signal?: AbortSignal): Promise<readonly CodexModelCapability[]>;
+    clear(): void;
     getCached(): readonly CodexModelCapability[] | undefined;
     serviceTiers(modelId: string): readonly string[];
     isPriorityEligible(modelId: string): boolean;

@@ -1,10 +1,10 @@
 /** Same-origin Web settings routes for Grok Build OAuth. */
 import type { Context } from "@deepseek-ai/cordis";
-import type { CatalogSource } from "./catalog.ts";
-import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug } from "./ids.ts";
-import type { SubscriptionLoginMethod } from "./oauth-providers.ts";
-import type { OAuthProviderSession } from "./oauth-session.ts";
-import type { GrokBuildSession } from "./session.ts";
+import type { CatalogSource } from "./catalog.js";
+import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug } from "./ids.js";
+import type { SubscriptionLoginMethod } from "./oauth-providers.js";
+import type { OAuthProviderSession } from "./oauth-session.js";
+import type { GrokBuildSession } from "./session.js";
 export declare const GROK_BUILD_AUTH_STATUS_PATH = "/plugins/dsh-grok-build/auth/status";
 export declare const GROK_BUILD_AUTH_LOGIN_PATH = "/plugins/dsh-grok-build/auth/login";
 export declare const GROK_BUILD_AUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/auth/login/code";

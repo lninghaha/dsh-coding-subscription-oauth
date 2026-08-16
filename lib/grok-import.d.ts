@@ -5,7 +5,7 @@
  * @module dsh-coding-subscription-oauth/grok-import
  */
 import type { OAuthCredential } from "@earendil-works/pi-ai";
-import type { GrokBuildCredentialStore } from "./store.ts";
+import type { GrokBuildCredentialStore } from "./store.js";
 export interface GrokImportProbe {
     available: boolean;
     path: string;

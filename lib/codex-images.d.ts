@@ -9,7 +9,7 @@
  * @module dsh-coding-subscription-oauth/codex-images
  */
 import type { ImageAttachmentRef, ImageMediaType, SaveImageAttachment, StoredImageAttachment } from "@deepseek-ai/dsh-attachment";
-import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.ts";
+import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.js";
 export declare const CODEX_IMAGE_GENERATION_URL = "https://chatgpt.com/backend-api/codex/images/generations";
 export declare const CODEX_IMAGE_EDIT_URL = "https://chatgpt.com/backend-api/codex/images/edits";
 export declare const CODEX_IMAGE_MODEL = "gpt-image-2";

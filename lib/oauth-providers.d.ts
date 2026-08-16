@@ -3,7 +3,7 @@
  * @module dsh-coding-subscription-oauth/oauth-providers
  */
 import type { Api, Provider } from "@earendil-works/pi-ai";
-import { type CodingOAuthProviderSlug } from "./ids.ts";
+import { type CodingOAuthProviderSlug } from "./ids.js";
 export type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, "grok">;
 export type SubscriptionLoginMethod = "browser" | "device";
 export interface OAuthProviderDefinition {

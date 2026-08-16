@@ -37,7 +37,7 @@ export type CapabilitySettingsPatch = Partial<CapabilitySettings>;
 export declare const CAPABILITY_SETTINGS_BOUNDS: {
     readonly searchResults: {
         readonly min: 1;
-        readonly max: 8;
+        readonly max: 20;
         readonly default: 5;
     };
     readonly imageCount: {
@@ -46,7 +46,7 @@ export declare const CAPABILITY_SETTINGS_BOUNDS: {
         readonly default: 1;
     };
     readonly videoArtifactTtlMs: {
-        readonly min: 60000;
+        readonly min: number;
         readonly max: number;
         readonly default: number;
     };

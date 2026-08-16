@@ -17,6 +17,14 @@ export declare class OAuthCredentialFileStore implements CredentialStore {
     readonly filename: string;
     constructor(providerId: string, filename: string, label: string);
     private readCurrent;
+    /**
+     * Hardened load. `read`/`list` keep parse failures loud. `modify` treats a
+     * safe-but-unparseable document as absent so a confirmed replace can proceed.
+     * Unsafe/symlink/wrong-owner/too-large files still throw.
+     */
+    private loadCurrent;
+    /** Refuse a dest that became unsafe after the lock was taken and before rename. */
+    private assertDestinationReplaceable;
     read(providerId: string): Promise<Credential | undefined>;
     list(): Promise<readonly CredentialInfo[]>;
     modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>): Promise<Credential | undefined>;

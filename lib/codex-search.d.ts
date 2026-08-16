@@ -4,7 +4,7 @@
  *
  * @module dsh-coding-subscription-oauth/codex-search
  */
-import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.ts";
+import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.js";
 /** Stable search-provider id. Parent must not write this into `web.searchProvider` by default. */
 export declare const CODEX_SEARCH_PROVIDER_ID = "codex-oauth-search";
 /** Official Codex standalone search endpoint. */

@@ -5,7 +5,7 @@
  * a signed upstream URL.
  * @module dsh-coding-subscription-oauth/grok-imagine
  */
-import { IMAGINE_MEDIA_ROUTE_PREFIX, imagineMediaPath, isTrustedImaginePeer, type MediaArtifactMeta, type MediaStore, type MediaStoreVideoType, type TrustedImagineAuthz } from "./media-store.ts";
+import { IMAGINE_MEDIA_ROUTE_PREFIX, imagineMediaPath, isTrustedImaginePeer, type MediaArtifactMeta, type MediaStore, type MediaStoreVideoType, type TrustedImagineAuthz } from "./media-store.js";
 export declare const XAI_API_ORIGIN = "https://api.x.ai";
 export declare const GROK_IMAGINE_IMAGE_PATH = "/v1/images/generations";
 export declare const GROK_IMAGINE_VIDEO_START_PATH = "/v1/videos/generations";

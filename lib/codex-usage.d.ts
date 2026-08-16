@@ -13,7 +13,7 @@
  *
  * @module dsh-coding-subscription-oauth/codex-usage
  */
-import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.ts";
+import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.js";
 /** Official ChatGPT rate-limit usage endpoint used by the Codex client. */
 export declare const CODEX_USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 export interface CodexRateLimitWindow {

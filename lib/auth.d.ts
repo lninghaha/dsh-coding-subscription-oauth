@@ -3,8 +3,8 @@
  * @module dsh-coding-subscription-oauth/auth
  */
 import type { AuthInteraction } from "@earendil-works/pi-ai";
-import type { GrokBuildSession } from "./session.ts";
-import { GrokBuildCredentialStore } from "./store.ts";
+import type { GrokBuildSession } from "./session.js";
+import { GrokBuildCredentialStore } from "./store.js";
 /** Non-secret login state shown by the launcher. */
 export interface GrokBuildAuthStatus {
     authenticated: boolean;

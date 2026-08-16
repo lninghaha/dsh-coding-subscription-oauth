@@ -3,8 +3,8 @@ import type { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import type { RetryPolicyConfig } from "@deepseek-ai/dsh-llm";
 import { type LlmAdapter } from "@deepseek-ai/dsh-llm";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
-import type { OAuthProviderSession } from "./oauth-session.ts";
-import type { GrokBuildSession } from "./session.ts";
+import type { OAuthProviderSession } from "./oauth-session.js";
+import type { GrokBuildSession } from "./session.js";
 /** Prefer grok-4.6 when the current (live or baseline) list has it. */
 export declare function preferredGrokBuildModel(models?: readonly {
     id: string;

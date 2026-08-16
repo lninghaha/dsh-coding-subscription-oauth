@@ -5,7 +5,7 @@
  * @module dsh-coding-subscription-oauth/capability-routes
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { type CapabilitySettings, type CapabilitySettingsPatch, type CapabilitySettingsSnapshot } from "./capability-settings.ts";
+import { type CapabilitySettings, type CapabilitySettingsPatch, type CapabilitySettingsSnapshot } from "./capability-settings.js";
 export declare const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
 export declare const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
 export declare const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
@@ -18,9 +18,9 @@ export interface CapabilityRouteContext {
             handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
         }): () => void;
     };
-    effect(callback: () => void | (() => void | Promise<void>), label?: string): unknown;
+    effect(callback: () => () => void | Promise<void>, label?: string): unknown;
 }
-/** Owner-facing subset of {@link import("./capability-settings.ts").CapabilitySettingsController}. */
+/** Owner-facing subset of {@link import("./capability-settings.js").CapabilitySettingsController}. */
 export interface CapabilityRouteController {
     snapshot(): CapabilitySettingsSnapshot;
     current(): CapabilitySettings;
