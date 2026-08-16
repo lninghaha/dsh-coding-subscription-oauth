@@ -1,7 +1,7 @@
 /**
  * Optional xAI Grok Build bundle with OAuth, account model catalog,
  * and an account section inside dsh Settings.
- * @module dsh-grok-build
+ * @module dsh-coding-subscription-oauth
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -9,6 +9,8 @@ import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-llm'
+import { RetryPolicySchema } from '@deepseek-ai/dsh-llm'
+import type { RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
 import { createCodingOAuthAdapter } from './adapter.ts'
 import { registerCodingOAuthRoutes } from './auth-routes.ts'
 import { CODING_OAUTH_ROUTES } from './ids.ts'
@@ -58,13 +60,16 @@ export type {
   SubscriptionWebAuthStatus,
 } from './auth-routes.ts'
 export {
+  extractLiveModels,
   extractModelIds,
   fetchLiveModelIds,
+  fetchLiveModels,
   materializeLiveModel,
   mergeLiveCatalog,
   preferredGrokBuildModelFrom,
+  thinkingLevelMapFromLiveEfforts,
 } from './catalog.ts'
-export type { CatalogSource } from './catalog.ts'
+export type { CatalogSource, LiveModelDescriptor } from './catalog.ts'
 export { grokAuthPath, importGrokAuth, parseGrokAuthDocument, probeGrokAuth } from './grok-import.ts'
 export type { GrokImportProbe } from './grok-import.ts'
 export {
@@ -97,6 +102,7 @@ export {
   grokBuildBaselineModels,
   grokBuildFingerprintHeaders,
   grokBuildProvider,
+  grokBuildReasoningMap,
 } from './provider.ts'
 export {
   buildAuthorizeUrl,
@@ -151,11 +157,20 @@ export interface Config {
   proxy?: string
   /** Kimi China traffic stays direct unless explicitly opted into the proxy. */
   proxyKimi?: boolean
+  /**
+   * Optional provider retry policy override for the four OAuth routes. When
+   * omitted, the plugin retries transient failures (rate limit, server,
+   * timeout, transport, empty response) plus AUTH — the latter is safe because
+   * the stored credential is invalidated on every AUTH finish, so the retried
+   * step refreshes before reuse. Quota exhaustion is never retried.
+   */
+  retryPolicy?: RetryPolicyConfig
 }
 
 export const Config: z<Config> = z.object({
   proxy: z.string(),
   proxyKimi: z.boolean().default(false),
+  retryPolicy: RetryPolicySchema,
 })
 
 /**
@@ -186,7 +201,7 @@ export function apply(ctx: Context, config: Config): void {
   ]).then(() => grok.refreshLiveCatalog())
   ctx.llm.registerAdapter(
     [...CODING_OAUTH_ROUTES],
-    createCodingOAuthAdapter(grok, subscriptions, () => ctx.get('attachments')),
+    createCodingOAuthAdapter(grok, subscriptions, () => ctx.get('attachments'), config.retryPolicy),
   )
   ctx.inject(['webServer'], webCtx => registerCodingOAuthRoutes(webCtx, grok, subscriptions))
 }

@@ -2,14 +2,14 @@
 <!-- banner -->
 <div align="center">
 
-# 🔐 dsh-grok-build
+# 🔐 dsh-coding-subscription-oauth
 
-**v0.2.0**
+**v0.3.0** · 原名 `dsh-grok-build`
 
-**面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 用你已付费的订阅凭据一键登录——然后在 DSH 设置页或 CLI 中使用对应模型。**无需把 token 粘贴到聊天中。**
+**面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
-[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -21,12 +21,28 @@
 
 ## ✨ 特性
 
-- 🧾 **自带订阅** —— 使用你已经购买的编码计划，无需另开 API-key。
-- 🔑 **本地 OAuth，不用贴 key** —— 在设置页或 CLI 完成授权；token 不会进入聊天。
-- 🧩 **一个插件，五大供应商** —— Grok Build、Codex、Kimi、Claude 与 Google Antigravity。
+- 🧾 **自带订阅** —— SuperGrok、ChatGPT Plus/Pro、Kimi Code、Claude Pro/Max，不必另开按量 API-key。
+- 🔑 **本地 OAuth，不用贴 key** —— 在设置页或 CLI 完成授权；access/refresh token 不进聊天、日志和 HTTP 状态。
+- 🧩 **一个插件，五大供应商** —— Grok Build（`cli-chat-proxy.grok.com`）、Codex、Kimi Code、Claude Code 与 Google Antigravity。
 - 🛡️ **安全设计** —— 凭据文件均为 owner-only `0600`、原子写、跨进程文件锁。
-- ⚙️ **动态目录** —— 模型选择器只列出已认证的供应商。
-- 🌐 **代理感知** —— 仅代理审核过的可信订阅域名。
+- ⚙️ **动态目录** —— 选择器只列出已登录路由并标注 `(OAuth)`，含 grok-4.6 的 `xhigh`。
+- 🌐 **代理感知** —— 只代理审核过的订阅域名；Kimi 中国流量默认直连。
+
+## 本插件解决的接入问题
+
+下面这些搜索词和 DSH 报错，通常就是会搜到这个仓库的原因。
+
+| 你搜到 / 看到的 | 实际坏在哪 | 本插件怎么处理 |
+|---|---|---|
+| SuperGrok / X Premium 接入 DSH、「Grok Build 和 `api.x.ai` 不是一路」 | 内置 `xai` 路由是**按量 API**。编码订阅走 `cli-chat-proxy.grok.com` | 独立 `grok-build` 路由 + 官方 CLI 指纹头（`X-XAI-Token-Auth`、`x-grok-client-identifier`、`x-grok-client-version`），避免静默 403 |
+| `本轮运行失败` **API key is invalid** / `AUTH` | GUI 把所有 `AUTH` 都显示成这句。常见原因是 OAuth access token 到期（Kimi 约 15 分钟） | 过期前 **5 分钟**主动刷新；遇到 401 先作废本地 token，刷新后再**重试该 step** |
+| 第二轮 Codex / Kimi 报 `INVALID_REPLAY_STATE` | replay state 仍带着 pi-ai 原生 provider id | 保持 Harness route id，并修复历史被污染的 replay |
+| grok-4.6 没有 **xhigh** / Extra High Effort | 线上 `GET /v1/models-v2` 已返回含 `xhigh` 的 `reasoning_efforts`；套用 grok-4.5 模板会被 pi-ai 藏掉 | 解析 live `reasoning_efforts`。4.6 有 `xhigh`，4.5 仍是 low/medium/high |
+| Kimi Code 401，或请求变成 Anthropic `x-api-key` | OAuth token 被当成 Anthropic key 发出 | `api.kimi.com/coding` **只**走 `Authorization: Bearer` |
+| 没登录的 Grok / Codex / Claude 仍出现在模型选择器 | 所有已注册路由都被列出来 | 未认证路由模型列表为空；已登录名称带 `(OAuth)` |
+| **远程 / 无头** DSH 没法浏览器登录 | PKCE 回不到本机 `localhost` | Grok/Codex/Kimi 走设备码；Claude 可粘贴完整 localhost 回调 URL |
+| 开了代理 Grok 通了、国内 Kimi 挂了 | 全局 `HTTPS_PROXY` 一刀切 | 白名单代理；Kimi 默认**直连**（`proxyKimi: true` 才走代理）。`auth.kimi.com` ≠ `api.moonshot.cn` |
+| 想在 DSH 用 ChatGPT Plus / Claude Pro，又不想再买 API | 另开 OpenAI / Anthropic API-key | `codex-oauth` / `claude-code-oauth` 本地 OAuth，与现有 `openai` / `kimi-coding` API-key 路由共存 |
 
 ## 支持的供应商
 
@@ -44,7 +60,7 @@
 
 ```bash
 # 1. 安装到 web profile
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -57,11 +73,13 @@ systemctl --user restart dsh-web.service
 
 ## 📚 目录
 
+- [本插件解决的接入问题](#本插件解决的接入问题)
 - [安装](#安装)
 - [设置页](#设置页)
 - [CLI](#cli)
 - [Kimi 中国说明](#kimi-中国说明)
 - [网络代理](#网络代理)
+- [弹性重试](#弹性重试)
 - [凭据](#凭据)
 - [架构](#架构)
 - [技术方案](#技术方案)
@@ -76,10 +94,10 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 从 GitHub
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 或本地开发目录
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 安装后重启 `dsh web`。对实际部署的验证：
@@ -114,12 +132,12 @@ npm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用�
 
 ```bash
 # 旧命令（默认 provider 为 Grok）—— 仍兼容
-dsh-grok-build login [--pkce] | import | status | logout
+dsh-coding-oauth login [--pkce] | import | status | logout
 
 # 新供应商
-dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
-dsh-grok-build status all
-dsh-grok-build logout codex
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth status all
+dsh-coding-oauth logout codex
 
 # Antigravity（先安装到 web profile）
 pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
@@ -143,6 +161,22 @@ Kimi Code 订阅 OAuth 使用 `https://auth.kimi.com`；推理使用 `https://ap
 ```
 
 插件只代理审核过的订阅域名（xAI/Grok、OpenAI Codex、Claude/Anthropic、Google Antigravity）；其余 DSH 流量保持原 dispatcher。Kimi 默认直连，仅当 `proxyKimi: true` 时才进入代理。
+
+## 弹性重试
+
+OAuth access token 会在本地记录过期时间前 **5 分钟**主动刷新（pi-ai 0.84+），避免请求踩到令牌寿命的最后几秒。若服务端仍以 401/403 拒绝一个本地尚未过期的令牌（服务端提前吊销或时钟偏差），插件会把凭据的 `expires` 回写到过去，重试的 step 会先刷新再发请求——用户无感知自愈，而不是本轮直接失败。
+
+请求重试走 harness 的 retry 策略：瞬时故障（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**以及 `AUTH`** 会按指数退避重试（默认 2 次，500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效**不**重试——会立刻给出真实错误和重新登录提示。部署级覆盖：
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
 
 ## 凭据
 
@@ -173,8 +207,8 @@ flowchart LR
 
 ## 技术方案
 
-- **Grok Build**：自定义 `cli-chat-proxy.grok.com/v1` Responses provider、CLI 指纹头、动态模型目录。
-- **Codex/Kimi/Claude**：pi-ai 原生 provider 负责 OAuth 与刷新；路由别名适配器映射到原生 id，模型内部身份不变。
+- **Grok Build**：`cli-chat-proxy.grok.com/v1` 的 Responses API（不是 `api.x.ai`）、CLI 指纹头、live `/v1/models-v2`（含 grok-4.6 的 `reasoning.effort: xhigh`）。
+- **Codex/Kimi/Claude**：pi-ai 原生 provider 负责 OAuth 与刷新；路由别名适配器映射到原生 id，避免多轮 `INVALID_REPLAY_STATE`。
 - Kimi access token 显式转为 `Authorization: Bearer`——绝不会误发成 Anthropic `x-api-key`。
 - Google Antigravity **不**在本项目逆向，使用固定版本的专用 DSH 插件。
 

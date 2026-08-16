@@ -1,6 +1,6 @@
 /**
  * Scoped egress proxy for coding-subscription OAuth and inference traffic.
- * @module dsh-grok-build/proxy
+ * @module dsh-coding-subscription-oauth/proxy
  */
 
 import { Dispatcher, getGlobalDispatcher, ProxyAgent, setGlobalDispatcher } from 'undici'

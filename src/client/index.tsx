@@ -20,7 +20,7 @@ export const inject = ['slots', 'locale']
 
 export function apply(ctx: ClientContext): void {
   const namespace = 'settings.grok-build'
-  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), 'dsh-grok-build: settings copy')
+  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), 'dsh-coding-subscription-oauth: settings copy')
   const t = ctx.locale.bind(namespace) as GrokBuildSettingsInjected['t']
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

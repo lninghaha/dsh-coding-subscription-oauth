@@ -1,6 +1,6 @@
 /**
  * Grok Build OAuth orchestration shared by the plugin and standalone CLI.
- * @module dsh-grok-build/auth
+ * @module dsh-coding-subscription-oauth/auth
  */
 
 import { createModels } from '@earendil-works/pi-ai'

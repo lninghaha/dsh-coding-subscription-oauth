@@ -2,14 +2,14 @@
 <!-- banner -->
 <div align="center">
 
-# 🔐 dsh-grok-build
+# 🔐 dsh-coding-subscription-oauth
 
-**v0.2.0**
+**v0.3.0** · formerly `dsh-grok-build`
 
-**Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Sign in once with the subscriptions you already pay for — then chat and use your subscriptions' models from the DSH settings page or CLI. **No token is ever pasted into chat.**
+**Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -21,12 +21,30 @@
 
 ## ✨ Features
 
-- 🧾 **Bring your own subscription** — use the coding plans you already pay for instead of separate API keys.
-- 🔑 **Local OAuth, no key-pasting** — authorize in the settings page or CLI; tokens never enter your chat.
-- 🧩 **One plugin, five providers** — Grok Build, Codex, Kimi, Claude and Google Antigravity.
+- 🧾 **Bring your own subscription** — SuperGrok, ChatGPT Plus/Pro, Kimi Code, Claude Pro/Max; no extra pay-as-you-go key.
+- 🔑 **Local OAuth, no key-pasting** — authorize in Settings or CLI; access/refresh tokens never enter chat, logs or HTTP status.
+- 🧩 **One plugin, five providers** — Grok Build (`cli-chat-proxy.grok.com`), Codex, Kimi Code, Claude Code and Google Antigravity.
 - 🛡️ **Secure by design** — credential files are owner-only `0600`, atomically written, cross-process locked.
-- ⚙️ **Dynamic catalog** — the model selector lists exactly the providers you have authenticated.
-- 🌐 **Proxy-aware** — reviews and proxies only trusted subscription domains.
+- ⚙️ **Dynamic catalog** — the selector lists only signed-in routes, labelled `(OAuth)`, including grok-4.6 `xhigh`.
+- 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
+
+## Problems this plugin solves
+
+These are the searches and DSH errors that usually lead here. If one of them is your tab title, you are in the right repo.
+
+| You searched / saw | What was actually broken | What this plugin does |
+|---|---|---|
+| SuperGrok / X Premium in DSH, “Grok Build vs `api.x.ai`” | The built-in `xai` route is the **pay-as-you-go API**. Coding-plan inference is `cli-chat-proxy.grok.com` | Dedicated `grok-build` route + official CLI fingerprint headers (`X-XAI-Token-Auth`, `x-grok-client-identifier`, `x-grok-client-version`) so you do not get a silent 403 |
+| `本轮运行失败` **API key is invalid** / `AUTH` mid-turn | The GUI maps **every** `AUTH` code to that banner. Often the OAuth access token just expired (Kimi ~15 min) | Refresh **5 minutes** before expiry; on a 401, invalidate the stored token and **retry the step** after refresh |
+| `INVALID_REPLAY_STATE` on the second Codex / Kimi turn | Replay state still carried the native pi-ai provider id after the Harness route alias | Keep the Harness route id in replay state and heal older poisoned messages |
+| grok-4.6 **xhigh** / Extra High Effort missing | Live `GET /v1/models-v2` already returns `reasoning_efforts` including `xhigh`; cloning the grok-4.5 template hides it (pi-ai treats absent `xhigh` as unsupported) | Parse live `reasoning_efforts` into `thinkingLevelMap`. grok-4.6 gets `xhigh`; grok-4.5 stays low/medium/high |
+| Kimi Code 401, or requests going out as Anthropic `x-api-key` | The OAuth token was attached as an Anthropic key | Wire **only** `Authorization: Bearer` on `api.kimi.com/coding` |
+| Unsigned-in Grok / Codex / Claude still in the model picker | Every registered route was listed | Unauthenticated routes expose **no models**; signed-in names show `(OAuth)` |
+| Device login on a **remote / headless** DSH | Browser PKCE cannot reach `localhost` | Device-code for Grok, Codex and Kimi; Claude accepts a pasted localhost redirect URL |
+| Proxy works for Grok/Codex but breaks Kimi in China | One global `HTTPS_PROXY` | Allowlisted proxy; Kimi stays **direct** unless `proxyKimi: true`. `auth.kimi.com` ≠ `api.moonshot.cn` |
+| ChatGPT Plus / Claude Pro in DSH without another API bill | Separate OpenAI / Anthropic API keys | Local OAuth on `codex-oauth` / `claude-code-oauth`, coexist with existing `openai` / `kimi-coding` API-key routes |
+
+Grok Build device login, live `/v1/models-v2` and Responses streaming are verified on real deployments. Codex / Kimi / Claude reuse `@earendil-works/pi-ai` native OAuth instead of re-implementing vendor flows.
 
 ## Supported providers
 
@@ -44,7 +62,7 @@
 
 ```bash
 # 1. install the plugin into the web profile
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -57,11 +75,13 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 
 ## 📚 Table of contents
 
+- [Problems this plugin solves](#problems-this-plugin-solves)
 - [Install](#install)
 - [Settings page](#settings-page)
 - [CLI](#cli)
 - [Kimi in China](#kimi-in-china)
 - [Network proxy](#network-proxy)
+- [Resilience](#resilience)
 - [Credentials](#credentials)
 - [Architecture](#architecture)
 - [Technical notes](#technical-notes)
@@ -76,10 +96,10 @@ Requires DeepSeek Harness `0.1.0-rc.6+` and Node.js 22.19+. Full details in the 
 
 ```bash
 # from GitHub
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # or a local dev checkout
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 Restart `dsh web` after installing. Verification against a live deployment:
@@ -113,13 +133,13 @@ The selector only lists routes that completed authentication; unauthenticated pr
 ## CLI
 
 ```bash
-# legacy (default provider is Grok) — still supported
-dsh-grok-build login [--pkce] | import | status | logout
+# `dsh-grok-build` remains a command alias
+dsh-coding-oauth login [--pkce] | import | status | logout
 
 # newer providers
-dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
-dsh-grok-build status all
-dsh-grok-build logout codex
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth status all
+dsh-coding-oauth logout codex
 
 # Antigravity (install into web profile first)
 pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
@@ -143,6 +163,22 @@ Priority: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HT
 ```
 
 Only reviewed subscription domains are proxied (xAI/Grok, OpenAI Codex, Claude/Anthropic, Google Antigravity); all other DSH traffic keeps its original dispatcher. Kimi stays direct by default and only uses the proxy when `proxyKimi: true`.
+
+## Resilience
+
+OAuth access tokens refresh proactively **five minutes** before their stored expiry (pi-ai 0.84+), so a request never rides a token into its final seconds. If an upstream still rejects a locally-valid token with 401/403 — server-side revocation or clock skew — the plugin backdates the stored credential and the retried step refreshes before reuse, recovering transparently instead of failing the turn.
+
+Request retries use the harness retry policy: transient failures (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **and `AUTH`** retry with exponential backoff (default 2 retries, 500 ms → 10 s, 10% jitter). Quota exhaustion and a dead refresh token are **not** retried — they fail fast with the real message and a sign-in prompt. Override per deployment:
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
 
 ## Credentials
 
@@ -173,8 +209,8 @@ flowchart LR
 
 ## Technical notes
 
-- **Grok Build**: custom Responses provider on `cli-chat-proxy.grok.com/v1`, CLI fingerprint headers, dynamic model catalog.
-- **Codex/Kimi/Claude**: pi-ai native providers handle OAuth and refresh; the route-alias adapter maps them to native ids while model identity stays unchanged.
+- **Grok Build**: Responses API on `cli-chat-proxy.grok.com/v1` (not `api.x.ai`), CLI fingerprint headers, live `/v1/models-v2` including grok-4.6 `reasoning.effort: xhigh`.
+- **Codex/Kimi/Claude**: pi-ai native providers handle OAuth and refresh; the route-alias adapter maps them to native ids so multi-turn replay does not throw `INVALID_REPLAY_STATE`.
 - The Kimi access token is explicitly converted to `Authorization: Bearer` — never mistakenly an Anthropic `x-api-key`.
 - Google Antigravity is **not** reverse-engineered here; it uses a version-pinned dedicated DSH plugin.
 

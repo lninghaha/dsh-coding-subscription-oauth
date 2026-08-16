@@ -1,6 +1,6 @@
 /**
  * Native pi-ai OAuth providers and their stable Harness route aliases.
- * @module dsh-grok-build/oauth-providers
+ * @module dsh-coding-subscription-oauth/oauth-providers
  */
 
 import type { Api, ApiKeyAuth, Provider } from '@earendil-works/pi-ai'

@@ -22,7 +22,7 @@ if (source.includes('window.__ModuleLoader__')) {
 }
 
 writeFileSync(out, `window.__ModuleLoader__.load({
-	id: "dsh-grok-build",
+	id: "dsh-coding-subscription-oauth",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;

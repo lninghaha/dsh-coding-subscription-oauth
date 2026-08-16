@@ -1,4 +1,4 @@
-# 安装与使用 · dsh-grok-build
+# 安装与使用 · dsh-coding-subscription-oauth
 
 ## 前置条件
 
@@ -11,10 +11,10 @@
 
 ```bash
 # 从 GitHub
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 或本地开发目录
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 
 # Google Antigravity 可选依赖，固定版本
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -65,6 +65,22 @@ pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
 
 Kimi Code 中国流量默认直连；只有 `proxyKimi: true` 才代理。
 
+## 弹性重试
+
+OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服务端若仍以 401/403 拒绝一个本地尚未过期的令牌，插件会把凭据 `expires` 回写到过去，重试的 step 先刷新再发请求。瞬时故障（429/5xx/超时/网络）和 AUTH 默认最多重试 2 次（500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效不重试。
+
+部署级覆盖（可选）：
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
+
 ## 登录
 
 ### 设置页
@@ -82,19 +98,19 @@ Kimi Code 中国流量默认直连；只有 `proxyKimi: true` 才代理。
 
 ```bash
 # Grok（兼容旧命令）
-dsh-grok-build login
-dsh-grok-build login --pkce
-dsh-grok-build import
+dsh-coding-oauth login
+dsh-coding-oauth login --pkce
+dsh-coding-oauth import
 
 # Codex / Kimi / Claude
-dsh-grok-build login codex --device-auth
-dsh-grok-build login codex --browser
-dsh-grok-build login kimi
-dsh-grok-build login claude
+dsh-coding-oauth login codex --device-auth
+dsh-coding-oauth login codex --browser
+dsh-coding-oauth login kimi
+dsh-coding-oauth login claude
 
 # 状态/登出
-dsh-grok-build status all
-dsh-grok-build logout kimi
+dsh-coding-oauth status all
+dsh-coding-oauth logout kimi
 ```
 
 ## 模型路由
@@ -123,7 +139,7 @@ $DSH_HOME/.claude-code-oauth-auth.json
 ## 卸载
 
 ```bash
-dsh plugin --profile web remove dsh-agy dsh-grok-build
+dsh plugin --profile web remove dsh-agy dsh-coding-subscription-oauth
 rm -f ~/.dsh/.grok-build-auth.json ~/.dsh/.codex-oauth-auth.json \
   ~/.dsh/.kimi-code-oauth-auth.json ~/.dsh/.claude-code-oauth-auth.json
 rm -f ~/.dsh/.grok-build-models.json ~/.dsh/.codex-oauth-models.json \

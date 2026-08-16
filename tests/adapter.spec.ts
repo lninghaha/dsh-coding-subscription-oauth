@@ -22,9 +22,9 @@ afterEach(() => {
 })
 
 describe('preferredGrokBuildModel', () => {
-  it('prefers grok-4.5 from the baseline catalog', () => {
+  it('prefers grok-4.6 from the baseline catalog', () => {
     expect(preferredGrokBuildModel()).toBe(DEFAULT_GROK_BUILD_MODEL)
-    expect(preferredGrokBuildModel([{ id: 'grok-4.6' }, { id: 'grok-4.5' }])).toBe('grok-4.5')
+    expect(preferredGrokBuildModel([{ id: 'grok-4.6' }, { id: 'grok-4.5' }])).toBe('grok-4.6')
   })
 })
 
@@ -37,9 +37,12 @@ describe('grokBuildBaselineModels', () => {
       expect(model.api).toBe('openai-responses')
       expect(model.baseUrl).toBe(GROK_BUILD_BASE_URL)
     }
-    const reasoning = models.find(model => model.id === 'grok-4.5')
-    expect(reasoning?.reasoning).toBe(true)
-    expect(reasoning?.thinkingLevelMap?.off).toBeNull()
+    const grok45 = models.find(model => model.id === 'grok-4.5')
+    const grok46 = models.find(model => model.id === 'grok-4.6')
+    expect(grok45?.reasoning).toBe(true)
+    expect(grok45?.thinkingLevelMap?.off).toBeNull()
+    expect(grok45?.thinkingLevelMap?.xhigh).toBeNull()
+    expect(grok46?.thinkingLevelMap?.xhigh).toBe('xhigh')
   })
 })
 
@@ -71,7 +74,7 @@ describe('GrokBuildSession.provider', () => {
     const dir = await mkdtemp(join(tmpdir(), 'dsh-grok-build-notify-'))
     const store = new GrokBuildCredentialStore(join(dir, 'auth.json'))
     await store.modify(XAI_PI_PROVIDER, async () => ({
-      type: 'oauth', access: 'grok-access', refresh: 'grok-refresh', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'grok-access', refresh: 'grok-refresh', expires: Date.now() + 3_600_000,
     }))
     const notify = vi.fn()
     const session = new GrokBuildSession(store, notify)
@@ -106,7 +109,7 @@ describe('createCodingOAuthAdapter model discovery', () => {
 
     const codex = subscriptions.find(session => session.definition.route === CODEX_OAUTH_ROUTE)!
     await codex.store.modify(codex.definition.nativeProviderId, async () => ({
-      type: 'oauth', access: 'codex-access', refresh: 'codex-refresh', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'codex-access', refresh: 'codex-refresh', expires: Date.now() + 3_600_000,
     }))
     const listedCodex = await adapter.listModels(CODEX_OAUTH_ROUTE)
     expect(listedCodex.length).toBeGreaterThan(0)
@@ -117,8 +120,90 @@ describe('createCodingOAuthAdapter model discovery', () => {
     expect(await adapter.listModels(KIMI_CODE_OAUTH_ROUTE)).toEqual([])
 
     await grokStore.modify(XAI_PI_PROVIDER, async () => ({
-      type: 'oauth', access: 'grok-access', refresh: 'grok-refresh', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'grok-access', refresh: 'grok-refresh', expires: Date.now() + 3_600_000,
     }))
     expect((await adapter.listModels(GROK_BUILD_ROUTE)).length).toBeGreaterThan(0)
+  })
+
+  it('exposes a retry policy that retries AUTH and transient failures on every route', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-coding-oauth-retry-'))
+    const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, 'grok.json')))
+    const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(definition => new OAuthProviderSession(
+      definition,
+      undefined,
+      new OAuthCredentialFileStore(
+        definition.nativeProviderId,
+        join(dir, `${definition.slug}.json`),
+        definition.route,
+      ),
+      join(dir, `${definition.slug}-models.json`),
+    ))
+    const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined)
+    for (const route of [GROK_BUILD_ROUTE, CODEX_OAUTH_ROUTE, KIMI_CODE_OAUTH_ROUTE, CLAUDE_CODE_OAUTH_ROUTE]) {
+      const policy = adapter.providerRetryPolicy(route)
+      expect(policy?.mode).toBe('normal')
+      expect(policy).toMatchObject({ maxRetries: 2 })
+      const codes = policy?.mode === 'normal' ? policy.retryableCodes : []
+      for (const code of ['AUTH', 'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE']) {
+        expect(codes).toContain(code)
+      }
+      // Quota exhaustion must fail fast with the real message, not retry.
+      expect(codes).not.toContain('QUOTA')
+      expect(codes).not.toContain('MISSING_CREDENTIAL')
+    }
+  })
+
+  it('honours a retryPolicy override for every route', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-coding-oauth-retry-override-'))
+    const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, 'grok.json')))
+    const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(definition => new OAuthProviderSession(
+      definition,
+      undefined,
+      new OAuthCredentialFileStore(
+        definition.nativeProviderId,
+        join(dir, `${definition.slug}.json`),
+        definition.route,
+      ),
+      join(dir, `${definition.slug}-models.json`),
+    ))
+    const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined, {
+      mode: 'normal',
+      maxRetries: 5,
+      retryableCodes: ['RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT'],
+      backoff: { initialDelayMs: 250, maxDelayMs: 5_000, jitterRatio: 0 },
+    })
+    const policy = adapter.providerRetryPolicy(KIMI_CODE_OAUTH_ROUTE)
+    expect(policy).toMatchObject({ mode: 'normal', maxRetries: 5, initialDelayMs: 250, maxDelayMs: 5_000 })
+    expect(policy?.mode === 'normal' && policy.retryableCodes).not.toContain('AUTH')
+  })
+
+  it('maps a failed token refresh to MISSING_CREDENTIAL instead of a bare 401', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-coding-oauth-dead-refresh-'))
+    const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, 'grok.json')))
+    const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(definition => new OAuthProviderSession(
+      definition,
+      undefined,
+      new OAuthCredentialFileStore(
+        definition.nativeProviderId,
+        join(dir, `${definition.slug}.json`),
+        definition.route,
+      ),
+      join(dir, `${definition.slug}-models.json`),
+    ))
+    const kimi = subscriptions.find(session => session.definition.route === KIMI_CODE_OAUTH_ROUTE)!
+    vi.spyOn(kimi.models, 'getAuth').mockRejectedValue(new Error('OAuth refresh failed for kimi-coding: 401 invalid_grant'))
+    const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined)
+    const consume = async (): Promise<void> => {
+      for await (const _chunk of adapter.stream({
+        provider: KIMI_CODE_OAUTH_ROUTE, model: 'k3', messages: [],
+      } as never)) {
+        // Drain; the stream must reject before yielding anything.
+      }
+    }
+    await expect(consume()).rejects.toThrow(/sign in/i)
+    await consume().then(
+      () => expect.unreachable('stream must reject'),
+      (error: unknown) => expect((error as { code?: string }).code).toBe('MISSING_CREDENTIAL'),
+    )
   })
 })

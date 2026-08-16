@@ -139,4 +139,67 @@ describe('AliasLlmAdapter', () => {
     const adapter = new AliasLlmAdapter(new FakeAdapter(), new Map())
     expect(() => adapter.providerInfo('unknown')).toThrow(/does not own provider/)
   })
+
+  it('invokes onAuthFailure once for an AUTH finish and passes the chunk through', async () => {
+    const authFailure: StreamChunk = {
+      type: 'finish',
+      reason: { kind: 'error', failure: { message: '401 authentication_error', code: 'AUTH' } },
+    }
+    const inner = new FakeAdapter([
+      { type: 'text-delta', index: 0, text: 'partial' } as StreamChunk,
+      authFailure,
+    ])
+    let calls = 0
+    const adapter = new AliasLlmAdapter(
+      inner,
+      new Map([['kimi-code-oauth', 'kimi-coding']]),
+      new Map([['kimi-code-oauth', { onAuthFailure: async () => { calls += 1 } }]]),
+    )
+    const seen: StreamChunk[] = []
+    for await (const chunk of adapter.stream({
+      provider: 'kimi-code-oauth', model: 'k3', messages: [],
+    } as unknown as GenerateOptions)) {
+      seen.push(chunk)
+    }
+    expect(calls).toBe(1)
+    expect(seen[seen.length - 1]).toEqual(authFailure)
+  })
+
+  it('does not invoke onAuthFailure for non-AUTH finishes or other routes', async () => {
+    const inner = new FakeAdapter([
+      { type: 'finish', reason: { kind: 'error', failure: { message: '429 slow down', code: 'RATE_LIMIT' } } },
+    ])
+    let calls = 0
+    const adapter = new AliasLlmAdapter(
+      inner,
+      new Map([['kimi-code-oauth', 'kimi-coding']]),
+      new Map([['kimi-code-oauth', { onAuthFailure: async () => { calls += 1 } }]]),
+    )
+    for await (const _chunk of adapter.stream({
+      provider: 'kimi-code-oauth', model: 'k3', messages: [],
+    } as unknown as GenerateOptions)) {
+      // Drain the stream.
+    }
+    expect(calls).toBe(0)
+  })
+
+  it('swallows onAuthFailure errors so the original AUTH failure surfaces', async () => {
+    const inner = new FakeAdapter([
+      { type: 'finish', reason: { kind: 'error', failure: { message: '401', code: 'AUTH' } } },
+    ])
+    const adapter = new AliasLlmAdapter(
+      inner,
+      new Map([['codex-oauth', 'openai-codex']]),
+      new Map([['codex-oauth', { onAuthFailure: async () => { throw new Error('store locked') } }]]),
+    )
+    const seen: StreamChunk[] = []
+    for await (const chunk of adapter.stream({
+      provider: 'codex-oauth', model: 'gpt', messages: [],
+    } as unknown as GenerateOptions)) {
+      seen.push(chunk)
+    }
+    expect(seen[seen.length - 1]).toMatchObject({
+      type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH' } },
+    })
+  })
 })

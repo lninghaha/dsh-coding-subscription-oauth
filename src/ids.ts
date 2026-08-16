@@ -34,7 +34,7 @@ export const KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME = '.kimi-code-oauth-models.js
 export const CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME = '.claude-code-oauth-models.json'
 
 /** Fallback model when no live Grok catalog listing is available. */
-export const DEFAULT_GROK_BUILD_MODEL = 'grok-4.5'
+export const DEFAULT_GROK_BUILD_MODEL = 'grok-4.6'
 
 /** Provider idle ceiling used by every composite route. */
 export const GROK_BUILD_STREAM_IDLE_TIMEOUT_MS = 300_000

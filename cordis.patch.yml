@@ -5,8 +5,8 @@
 - id: agent-default-model
   config:
     provider: grok-build
-    model: grok-4.5
+    model: grok-4.6
 
 - insert:
     - id: llm-grok-build-oauth
-      name: dsh-grok-build
+      name: dsh-coding-subscription-oauth

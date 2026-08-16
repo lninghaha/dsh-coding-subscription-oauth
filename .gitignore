@@ -17,3 +17,8 @@ docs/*
 reference/
 
 *.tgz
+.npm-cache/
+.npm-logs/
+.cfresearch/
+.research/
+ccr/

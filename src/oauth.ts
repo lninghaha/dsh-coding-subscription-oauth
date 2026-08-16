@@ -4,7 +4,7 @@
  * Mirrors the official Grok CLI: OIDC discovery, S256 PKCE, dual-channel code
  * capture (loopback listener + manual paste), form POST token exchange.
  * The device-code flow remains the fallback (see auth.ts / bin.ts).
- * @module dsh-grok-build/oauth
+ * @module dsh-coding-subscription-oauth/oauth
  */
 
 import { createHash, randomBytes } from 'node:crypto'

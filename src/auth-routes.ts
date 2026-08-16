@@ -663,7 +663,7 @@ export function registerGrokBuildAuthRoutes(
       for (const dispose of routes) dispose()
       if (ownsAuth) await auth.dispose()
     }
-  }, 'dsh-grok-build: Web OAuth routes')
+  }, 'dsh-coding-subscription-oauth: Web OAuth routes')
 }
 
 export interface CodingOAuthWebStatus {
@@ -857,5 +857,5 @@ export function registerCodingOAuthRoutes(
       for (const dispose of routes) dispose()
       await Promise.all([grok.dispose(), ...[...subscriptions.values()].map(auth => auth.dispose())])
     }
-  }, 'dsh-grok-build: Coding OAuth routes')
+  }, 'dsh-coding-subscription-oauth: Coding OAuth routes')
 }

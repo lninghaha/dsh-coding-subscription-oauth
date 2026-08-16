@@ -1,8 +1,30 @@
 # Changelog
 
-All notable changes to `dsh-grok-build` are documented here, following the release loop in `docs/00-project-rules.md`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [SemVer](https://semver.org/).
+All notable changes to `dsh-coding-subscription-oauth` are documented here, following the release loop in `docs/00-project-rules.md`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [SemVer](https://semver.org/).
 
 ## Unreleased
+
+## v0.3.0
+
+### Added
+
+- Add a provider retry policy for the four OAuth routes: transient failures (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **and `AUTH`** now retry with exponential backoff (default 2 retries, 500 ms → 10 s, 10% jitter) instead of killing the turn.
+- Add AUTH-failure credential invalidation: when an upstream rejects a locally-valid token with 401/403, the stored credential's expiry is backdated so the retried step refreshes before reuse — recovering the stale-token 401 race without user-visible failure.
+- Add an optional `retryPolicy` plugin config (harness `RetryPolicySchema`) to override the built-in policy per deployment.
+
+### Changed
+
+- Upgrade `@earendil-works/pi-ai` to `^0.84.2`: OAuth access tokens now refresh proactively five minutes before the stored expiry (previously only at the exact expiry instant, which raced server-side revocation on the Kimi/Codex routes), with a 15 s refresh timeout.
+- Request OAuth access tokens with an explicit minimum remaining validity (60 s); a refresh that returns an even-shorter-lived token hard-fails instead of being handed to a request.
+- Translate a rejected token refresh (revoked refresh token / dead grant) into `MISSING_CREDENTIAL` with a sign-in prompt rather than surfacing a bare upstream 401, and never retry it.
+- Quota exhaustion stays outside the retryable set so a billing-limit response fails fast with its real message instead of the generic "API key is invalid".
+- Expand README (all languages) with a searchable “problems this plugin solves” table covering SuperGrok vs `api.x.ai`, AUTH/`API key is invalid`, `INVALID_REPLAY_STATE`, grok-4.6 `xhigh`, Kimi Bearer vs `x-api-key`, remote device login and China-direct Kimi.
+- Rename the published project to **`dsh-coding-subscription-oauth`**. The old `dsh-grok-build` name only covered the first provider. Cordis id, HTTP `/plugins/dsh-grok-build/*` paths, credential files and the `dsh-grok-build` CLI alias stay compatible.
+
+### Fixed
+
+- Fix the stale-token 401 turn failure (`API key is invalid` banner) observed on the Kimi Code OAuth route when an access token expired mid-session: the turn now refreshes and retries transparently.
+- Expose Grok 4.6 `xhigh` reasoning effort. Live `/models-v2` already returns `reasoning_efforts` including xhigh, but the plugin previously kept only model ids and materialized grok-4.6 from the grok-4.5 template. pi-ai hides xhigh unless that key is an explicit non-null mapping. The catalog now applies live effort lists; the baseline ships grok-4.6 with xhigh while grok-4.5 stays low/medium/high.
 
 ## v0.2.0
 

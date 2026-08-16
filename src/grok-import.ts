@@ -2,7 +2,7 @@
  * One-shot import of Grok CLI credentials into the dsh-owned store.
  * The source file is never written. Refresh tokens rotate, so later dsh
  * refresh may invalidate ~/.grok/auth.json — that is documented, not a bug.
- * @module dsh-grok-build/grok-import
+ * @module dsh-coding-subscription-oauth/grok-import
  */
 
 import { readFile, stat } from 'node:fs/promises'

@@ -123,4 +123,31 @@ describe('OAuthCredentialFileStore', () => {
     await codex.delete(CODEX_PI_PROVIDER)
     expect(await other.read('anthropic')).toMatchObject({ access: 'a' })
   })
+
+  it('invalidate backdates expires while preserving the token pair', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-invalidate-'))
+    const store = new OAuthCredentialFileStore(CODEX_PI_PROVIDER, join(dir, 'codex.json'), 'codex-oauth')
+    const future = Date.now() + 3_600_000
+    await store.modify(CODEX_PI_PROVIDER, async () => ({
+      type: 'oauth', access: 'codex-access', refresh: 'codex-refresh', expires: future, accountId: 'account-1',
+    }))
+    const before = Date.now()
+    expect(await store.invalidate(CODEX_PI_PROVIDER)).toBe(true)
+    const after = Date.now()
+    const credential = await store.read(CODEX_PI_PROVIDER)
+    expect(credential).toMatchObject({
+      type: 'oauth', access: 'codex-access', refresh: 'codex-refresh', accountId: 'account-1',
+    })
+    // Backdated into the past (so getAuth refreshes) yet still a valid document.
+    expect(credential?.type === 'oauth' && credential.expires).toBeGreaterThan(0)
+    expect(credential?.type === 'oauth' && credential.expires).toBeLessThanOrEqual(after)
+    expect(credential?.type === 'oauth' && credential.expires).toBeLessThanOrEqual(before)
+  })
+
+  it('invalidate is a no-op without a stored credential and for foreign ids', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-invalidate-empty-'))
+    const store = new OAuthCredentialFileStore(CODEX_PI_PROVIDER, join(dir, 'codex.json'), 'codex-oauth')
+    expect(await store.invalidate(CODEX_PI_PROVIDER)).toBe(false)
+    expect(await store.invalidate(XAI_PI_PROVIDER)).toBe(false)
+  })
 })

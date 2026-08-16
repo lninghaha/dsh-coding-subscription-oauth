@@ -1,31 +1,38 @@
 {
-  "name": "dsh-grok-build",
-  "description": "Coding subscription OAuth for DeepSeek Harness: Grok Build, OpenAI Codex, Kimi Code, and Claude Code",
-  "version": "0.2.0",
+  "name": "dsh-coding-subscription-oauth",
+  "description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lninghaha/dsh-grok-build.git"
+    "url": "git+https://github.com/lninghaha/dsh-coding-subscription-oauth.git"
   },
-  "bugs": "https://github.com/lninghaha/dsh-grok-build/issues",
-  "homepage": "https://github.com/lninghaha/dsh-grok-build#readme",
+  "bugs": "https://github.com/lninghaha/dsh-coding-subscription-oauth/issues",
+  "homepage": "https://github.com/lninghaha/dsh-coding-subscription-oauth#readme",
   "keywords": [
     "deepseek-harness",
     "dsh-plugin",
     "oauth",
     "grok-build",
+    "super-grok",
+    "grok-4.6",
+    "cli-chat-proxy",
     "openai-codex",
+    "chatgpt-plus",
     "kimi-code",
     "claude-code",
-    "google-antigravity"
+    "google-antigravity",
+    "xhigh",
+    "device-code"
   ],
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
+    "dsh-coding-oauth": "lib/bin.js",
     "dsh-grok-build": "lib/bin.js"
   },
   "scripts": {
@@ -103,7 +110,7 @@
     "@deepseek-ai/dsh-llm": "*",
     "@deepseek-ai/dsh-llm-pi-ai": "*",
     "@deepseek-ai/schemastery": "^3.18.1-rc.1",
-    "@earendil-works/pi-ai": "^0.82.1",
+    "@earendil-works/pi-ai": "^0.84.2",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
@@ -142,8 +149,7 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
+    "@deepseek-ai/cordis": "^4.0.1",    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
     "@deepseek-ai/dsh-attachment": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
@@ -155,7 +161,7 @@
     "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
     "@deepseek-ai/dsh-llm-pi-ai": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "3.18.1",
-    "@earendil-works/pi-ai": "0.82.1",
+    "@earendil-works/pi-ai": "0.84.2",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "react": "^18.2.0",
@@ -164,5 +170,8 @@
     "undici": "^7.16.0",
     "unrun": "^0.3.1",
     "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "@earendil-works/pi-ai": "0.84.2"
   }
 }

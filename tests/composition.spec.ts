@@ -17,7 +17,7 @@ describe('bundle composition', () => {
     expect(patch).toContain('provider: grok-build')
     expect(patch).toMatch(/model: grok-4\./)
     expect(patch).toContain('id: llm-grok-build-oauth')
-    expect(patch).toContain('name: dsh-grok-build')
+    expect(patch).toContain('name: dsh-coding-subscription-oauth')
   })
 
   it('exposes collision-free OAuth route aliases', async () => {
@@ -46,8 +46,8 @@ describe('bundle composition', () => {
       exports: Record<string, unknown>
       files: string[]
     }
-    expect(manifest.name).toBe('dsh-grok-build')
-    expect((manifest as { version?: string }).version).toBe('0.2.0')
+    expect(manifest.name).toBe('dsh-coding-subscription-oauth')
+    expect((manifest as { version?: string }).version).toBe('0.3.0')
     expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
     expect(manifest.dsh.client.platform).toBe('web')
     expect(manifest.dsh.client.inject).toContain('@deepseek-ai/dsh-client-ui-settings')

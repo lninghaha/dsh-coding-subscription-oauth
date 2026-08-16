@@ -20,7 +20,7 @@ describe('OAuthProviderSession', () => {
       type: 'oauth',
       access: 'kimi-access',
       refresh: 'kimi-refresh',
-      expires: Date.now() + 60_000,
+      expires: Date.now() + 3_600_000,
     }))
     const first = new OAuthProviderSession(KIMI_CODE_OAUTH_PROVIDER, undefined, store, cacheFile)
     const chosen = first.availableModels()[0]!
@@ -48,7 +48,7 @@ describe('OAuthProviderSession', () => {
       join(dir, 'models.json'),
     )
     vi.spyOn(session.models, 'login').mockResolvedValue({
-      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 3_600_000,
     })
     await session.login({ prompt: async () => '', notify: () => {} })
     expect(notify).toHaveBeenCalledOnce()
@@ -62,7 +62,7 @@ describe('OAuthProviderSession', () => {
       KIMI_CODE_OAUTH_PROVIDER.route,
     )
     await store.modify(KIMI_CODE_OAUTH_PROVIDER.nativeProviderId, async () => ({
-      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 3_600_000,
     }))
     const notify = vi.fn()
     const session = new OAuthProviderSession(KIMI_CODE_OAUTH_PROVIDER, notify, store, join(dir, 'models.json'))
@@ -79,7 +79,7 @@ describe('OAuthProviderSession', () => {
       KIMI_CODE_OAUTH_PROVIDER.route,
     )
     await store.modify(KIMI_CODE_OAUTH_PROVIDER.nativeProviderId, async () => ({
-      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 60_000,
+      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 3_600_000,
     }))
     const blockedParent = join(dir, 'not-a-directory')
     await writeFile(blockedParent, 'blocked')
@@ -93,5 +93,24 @@ describe('OAuthProviderSession', () => {
     await expect(session.logout()).rejects.toThrow()
     expect(await session.status()).toEqual({ authenticated: false })
     expect(notify).toHaveBeenCalledOnce()
+  })
+
+  it('invalidateAccessToken backdates the stored credential expiry', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-oauth-invalidate-'))
+    const store = new OAuthCredentialFileStore(
+      KIMI_CODE_OAUTH_PROVIDER.nativeProviderId,
+      join(dir, 'auth.json'),
+      KIMI_CODE_OAUTH_PROVIDER.route,
+    )
+    await store.modify(KIMI_CODE_OAUTH_PROVIDER.nativeProviderId, async () => ({
+      type: 'oauth', access: 'a', refresh: 'r', expires: Date.now() + 3_600_000,
+    }))
+    const session = new OAuthProviderSession(
+      KIMI_CODE_OAUTH_PROVIDER, undefined, store, join(dir, 'models.json'),
+    )
+    await session.invalidateAccessToken()
+    const credential = await store.read(KIMI_CODE_OAUTH_PROVIDER.nativeProviderId)
+    expect(credential?.type === 'oauth' && credential.expires).toBeLessThanOrEqual(Date.now())
+    expect(credential?.type === 'oauth' && credential.access).toBe('a')
   })
 })

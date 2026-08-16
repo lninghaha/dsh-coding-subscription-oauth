@@ -2,14 +2,14 @@
 <!-- banner -->
 <div align="center">
 
-# 🔐 dsh-grok-build
+# 🔐 dsh-coding-subscription-oauth
 
-**v0.2.0**
+**v0.3.0** · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -28,6 +28,21 @@
 - ⚙️ **동적 카탈로그** — 모델 선택기에 인증을 완료한 프로바이더만 표시됩니다.
 - 🌐 **프록시 인지형** — 검증된 신뢰 가능한 구독 도메인만 프록시합니다.
 
+## 이 플러그인이 푸는 연동 문제
+
+코딩 구독을 DSH에 붙일 때 아래 검색어·오류로 이 저장소에 오는 경우가 많습니다.
+
+| 검색 / 화면 | 실제 원인 | 이 플러그인 |
+|---|---|---|
+| SuperGrok / X Premium를 DSH에, Grok Build vs `api.x.ai` | 내장 `xai`는 종량 API. 구독 추론은 `cli-chat-proxy.grok.com` | `grok-build` + CLI 지문 헤더(`X-XAI-Token-Auth` 등), 조용한 403 방지 |
+| `API key is invalid` / `AUTH` | GUI는 모든 AUTH를 그 문구로 표시. 흔히 짧은 OAuth access token 만료 | 만료 **5분 전** refresh. 401이면 저장 토큰을 무효화하고 step 재시도 |
+| Codex/Kimi 두 번째 턴 `INVALID_REPLAY_STATE` | replay가 pi-ai 네이티브 provider id를 유지 | Harness route id를 유지하고 오염된 replay를 복구 |
+| grok-4.6에 **xhigh**가 없음 | `/v1/models-v2`의 `reasoning_efforts`를 버리고 4.5 템플릿을 복제 | live efforts를 `thinkingLevelMap`에 반영. 4.6은 xhigh, 4.5는 low/medium/high |
+| Kimi Code가 Anthropic `x-api-key`로 나감 | OAuth token을 Anthropic 키로 전송 | `Authorization: Bearer`만 사용 |
+| 로그인하지 않은 모델이 선택기에 남음 | 등록된 모든 라우트를 나열 | 미인증은 빈 목록. 인증됨은 `(OAuth)` |
+| 원격/헤드리스에서 PKCE 불가 | localhost로 돌아올 수 없음 | Grok/Codex/Kimi는 디바이스 코드. Claude는 redirect URL 붙여넣기 |
+| 프록시로 Grok은 되고 중국 Kimi는 죽음 | 전역 `HTTPS_PROXY` | 허용 도메인만. Kimi는 기본 직결(`proxyKimi: true`일 때만 프록시) |
+
 ## 지원 프로바이더
 
 | 프로바이더 | 라우트 | 인증 | 기존 API-key 라우트와 공존 |
@@ -44,7 +59,7 @@
 
 ```bash
 # 1. web 프로필에 플러그인 설치
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -57,11 +72,13 @@ systemctl --user restart dsh-web.service
 
 ## 📚 목차
 
+- [이 플러그인이 푸는 연동 문제](#이-플러그인이-푸는-연동-문제)
 - [설치](#설치)
 - [설정 페이지](#설정-페이지)
 - [CLI](#cli)
 - [중국에서의 Kimi](#중국에서의-kimi)
 - [네트워크 프록시](#네트워크-프록시)
+- [복원력](#복원력)
 - [자격 증명](#자격-증명)
 - [아키텍처](#아키텍처)
 - [기술 메모](#기술-메모)
@@ -76,10 +93,10 @@ DeepSeek Harness `0.1.0-rc.6+` 및 Node.js 22.19+가 필요합니다. 자세한 
 
 ```bash
 # GitHub에서
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 또는 로컬 개발 디렉터리에서
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 설치 후 `dsh web`을 재시작합니다. 실제 배포 검증:
@@ -114,12 +131,12 @@ npm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 
 ```bash
 # 레거시 (기본 프로바이더는 Grok) — 계속 지원
-dsh-grok-build login [--pkce] | import | status | logout
+dsh-coding-oauth login [--pkce] | import | status | logout
 
 # 최신 프로바이더
-dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
-dsh-grok-build status all
-dsh-grok-build logout codex
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth status all
+dsh-coding-oauth logout codex
 
 # Antigravity (먼저 web 프로필에 설치)
 pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
@@ -143,6 +160,22 @@ Kimi Code 구독 OAuth는 `https://auth.kimi.com`, 추론은 `https://api.kimi.c
 ```
 
 검증된 구독 도메인만 프록시됩니다(xAI/Grok, OpenAI Codex, Claude/Anthropic, Google Antigravity). 나머지 DSH 트래픽은 원래 디스패처를 유지합니다. Kimi는 기본적으로 직결이며 `proxyKimi: true`일 때만 프록시를 사용합니다.
+
+## 복원력
+
+OAuth 액세스 토큰은 저장된 만료 시각 **5분 전**에 선제적으로 갱신됩니다(pi-ai 0.84+). 업스트림이 로컬에서는 아직 유효한 토큰을 401/403으로 거절하면, 플러그인이 저장된 `expires`를 과거로 되돌리고 재시도 단계에서 먼저 갱신한 뒤 다시 요청합니다.
+
+요청 재시도는 harness retry 정책을 따릅니다. 일시 오류(`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`)와 **`AUTH`**는 지수 백오프로 재시도합니다(기본 2회, 500 ms → 10 s, 10% jitter). 쿼터 소진과 죽은 refresh token은 재시도하지 않습니다. 배포별 재정의:
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
 
 ## 자격 증명
 

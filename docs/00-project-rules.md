@@ -1,6 +1,6 @@
 # 00 · Project Rules: Versions, Releases & Maintenance
 
-> Applies to the `dsh-grok-build` open-source plugin repository.
+> Applies to the `dsh-coding-subscription-oauth` open-source plugin repository.
 > This file is the single source of truth for the repo's conventions and governs `README` and the release flow.
 > Principle: **publish like any general open source project, and never leak development privacy.** Anything facing external users must be public, generic and durable; anything internal (accounts, hosts, tokens, paths, credentials) stays local and must never reach git or the npm artifact.
 

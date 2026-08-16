@@ -1,6 +1,6 @@
 /**
  * Owner-only persistent OAuth credential storage for coding-subscription routes.
- * @module dsh-grok-build/store
+ * @module dsh-coding-subscription-oauth/store
  */
 
 import { mkdir, readFile, rm, stat } from 'node:fs/promises'
@@ -153,6 +153,25 @@ export class OAuthCredentialFileStore implements CredentialStore {
       })
       return cloneCredential(document.credential)
     })
+  }
+
+  /**
+   * Force the next `getAuth()` to refresh by backdating `expires` into the past.
+   * Used after an upstream 401: the stored access token was rejected even though
+   * the local expiry had not yet passed (server-side revocation or skew). The
+   * access/refresh pair is preserved — only the freshness marker moves — so the
+   * refresh token can still mint a replacement. Returns true when a credential
+   * was actually backdated; false when nothing is stored.
+   */
+  async invalidate(providerId: string): Promise<boolean> {
+    if (providerId !== this.providerId) return false
+    let invalidated = false
+    await this.modify(providerId, async current => {
+      if (current?.type !== 'oauth') return undefined
+      invalidated = true
+      return { ...current, expires: Date.now() - 1000 }
+    })
+    return invalidated
   }
 
   async delete(providerId: string): Promise<void> {

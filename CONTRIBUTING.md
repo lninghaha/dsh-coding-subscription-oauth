@@ -1,6 +1,6 @@
 # Contributing
 
-Welcome! `dsh-grok-build` is an open-source coding-subscription OAuth plugin for DeepSeek Harness. We appreciate issue reports, questions and pull requests. Read `docs/00-project-rules.md` first — it defines the release loop, versioning and the publish vs local-only document split that every contribution must respect.
+Welcome! `dsh-coding-subscription-oauth` is an open-source coding-subscription OAuth plugin for DeepSeek Harness. We appreciate issue reports, questions and pull requests. Read `docs/00-project-rules.md` first — it defines the release loop, versioning and the publish vs local-only document split that every contribution must respect.
 
 ## Code of Conduct
 
@@ -14,7 +14,7 @@ npm install
 npm run check          # typecheck + test + build — must pass before any PR
 ```
 
-This repo also ships a Grok Build CLI (`dsh-grok-build`), an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
+This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-build`), an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
 
 ## Development flow
 

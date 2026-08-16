@@ -29,7 +29,7 @@ function fakeSession(login: (interaction: AuthInteraction) => Promise<Credential
 }
 
 const credential: Credential = {
-  type: 'oauth', access: 'secret-access', refresh: 'secret-refresh', expires: Date.now() + 60_000,
+  type: 'oauth', access: 'secret-access', refresh: 'secret-refresh', expires: Date.now() + 3_600_000,
 }
 
 describe('SubscriptionWebAuth', () => {

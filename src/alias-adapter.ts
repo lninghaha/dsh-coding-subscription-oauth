@@ -1,6 +1,6 @@
 /**
  * Harness route aliases over a native-id PiAiAdapter.
- * @module dsh-grok-build/alias-adapter
+ * @module dsh-coding-subscription-oauth/alias-adapter
  */
 
 import { LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm'
@@ -18,6 +18,14 @@ export interface AliasLlmRoutePolicy {
   displayName?: string
   /** Return false to hide every model for this route from discovery. */
   isAuthenticated?: () => Promise<boolean>
+  /**
+   * Called once when a stream for this route finishes with an AUTH failure
+   * (upstream rejected a locally-valid token). Implementations backdate the
+   * stored credential's expiry so the retried step refreshes before reuse.
+   * Awaiting it here keeps invalidation ordered before the retry executor
+   * reruns the step; failures are swallowed so the original AUTH surfaces.
+   */
+  onAuthFailure?: () => Promise<void>
 }
 
 function routePiAiReplayState(value: unknown, route: string): unknown {
@@ -96,10 +104,28 @@ export class AliasLlmAdapter extends LlmAdapter {
     const route = options.provider
     const native = this.nativeProvider(route)
     const messages = options.messages.map(message => normalizeReplayForRoute(message, route))
+    let authFailureNotified = false
     for await (const chunk of this.inner.stream({ ...options, provider: native, messages })) {
       if (chunk.type === 'finish' && chunk.replayState !== undefined) {
         yield { ...chunk, replayState: routePiAiReplayState(chunk.replayState, route) }
       } else {
+        if (
+          !authFailureNotified
+          && chunk.type === 'finish'
+          && chunk.reason.kind === 'error'
+          && chunk.reason.failure.code === 'AUTH'
+        ) {
+          authFailureNotified = true
+          const onAuthFailure = this.policies.get(route)?.onAuthFailure
+          if (onAuthFailure !== undefined) {
+            try {
+              await onAuthFailure()
+            } catch {
+              // Invalidation is best-effort: the original AUTH failure must
+              // surface unchanged even when the credential store is unreadable.
+            }
+          }
+        }
         yield chunk
       }
     }

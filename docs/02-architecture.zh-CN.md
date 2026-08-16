@@ -41,11 +41,11 @@ ctx.llm route
 
 ## 3. 模块职责
 
-- `store.ts`：一个文件只拥有一个 provider credential；保留旧 Grok store API。
+- `store.ts`：一个文件只拥有一个 provider credential；保留旧 Grok store API；`invalidate()` 在上游 AUTH 拒绝后把 `expires` 回写到过去。
 - `oauth-providers.ts`：Codex/Kimi/Claude 定义、route metadata、请求 token bridge。
 - `oauth-session.ts`：登录、刷新、静态模型目录和模型选择缓存。
-- `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。
-- `adapter.ts`：组合 Grok 与三个 subscription profile。
+- `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。
+- `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。
 - `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`。
 - `client/`：设置页四个原生账号卡片和外部 Antigravity 状态卡片。
 - `proxy.ts`：process-wide undici dispatcher，但只代理审核过的域名白名单。
@@ -73,7 +73,7 @@ POST /plugins/dsh-grok-build/oauth/models
 
 ## 6. 兼容性
 
-- 包名仍是 `dsh-grok-build`。
+- 包名是 `dsh-coding-subscription-oauth`（旧 GitHub/npm id：`dsh-grok-build`）。
 - Cordis id 仍是 `llm-grok-build-oauth`。
 - `$DSH_HOME/.grok-build-auth.json` 格式不迁移。
 - `grok-build` fallback model 不改。

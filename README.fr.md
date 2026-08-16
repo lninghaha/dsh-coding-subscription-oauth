@@ -2,14 +2,14 @@
 <!-- banner -->
 <div align="center">
 
-# 🔐 dsh-grok-build
+# 🔐 dsh-coding-subscription-oauth
 
-**v0.2.0**
+**v0.3.0** · anciennement `dsh-grok-build`
 
 **Plugin OAuth pour abonnements de codage de [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Connectez-vous une fois avec les abonnements que vous payez déjà, puis utilisez leurs modèles depuis la page de configuration ou la CLI dsh. **Aucun token collé dans le chat.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -28,6 +28,21 @@
 - ⚙️ **Catalogue dynamique** — le sélecteur de modèles liste exactement les fournisseurs que vous avez authentifiés.
 - 🌐 **Conscient du proxy** — ne proxifie que les domaines d'abonnement examinés et de confiance.
 
+## Problèmes d'intégration que ce plugin résout
+
+Ce sont les recherches et erreurs DSH qui mènent le plus souvent ici.
+
+| Vous avez cherché / vu | Ce qui était cassé | Ce que fait le plugin |
+|---|---|---|
+| SuperGrok / X Premium dans DSH, Grok Build vs `api.x.ai` | La route `xai` est l'API à l'usage. L'abonnement coding passe par `cli-chat-proxy.grok.com` | Route `grok-build` + en-têtes d'empreinte CLI (`X-XAI-Token-Auth`, etc.) pour éviter un 403 silencieux |
+| `API key is invalid` / `AUTH` | L'UI mappe **tout** AUTH sur ce texte. Souvent le access token OAuth a juste expiré | Refresh **5 min** avant l'expiry ; sur 401, invalide le jeton et **relance le step** |
+| `INVALID_REPLAY_STATE` au 2ᵉ tour Codex/Kimi | Le replay gardait l'id provider natif de pi-ai | Conserve l'id de route Harness et répare l'ancien replay |
+| grok-4.6 sans **xhigh** | `/v1/models-v2` renvoie déjà `reasoning_efforts` ; cloner le modèle 4.5 cache xhigh | Lit les efforts en direct. 4.6 a xhigh ; 4.5 reste low/medium/high |
+| Kimi Code en `x-api-key` Anthropic | Le jeton OAuth partait comme clé Anthropic | Uniquement `Authorization: Bearer` |
+| Des modèles non connectés restent dans le sélecteur | Toutes les routes enregistrées étaient listées | Les routes non authentifiées sont vides ; les noms connectés portent `(OAuth)` |
+| PKCE sur un DSH distant / headless | Impossible de revenir sur `localhost` | Device-code pour Grok/Codex/Kimi ; Claude accepte l'URL de redirect collée |
+| Le proxy passe Grok et casse Kimi en Chine | Un `HTTPS_PROXY` global | Proxy sur liste blanche ; Kimi reste **direct** sauf `proxyKimi: true` |
+
 ## Fournisseurs pris en charge
 
 | Fournisseur | Route | Authentification | Coexiste avec |
@@ -44,7 +59,7 @@
 
 ```bash
 # 1. installez le plugin dans le profil web
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 2. optionnel — Google Antigravity (version épinglée examinée)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -57,11 +72,13 @@ Ensuite ouvrez **Settings → Coding OAuth** et connectez-vous à n'importe quel
 
 ## 📚 Sommaire
 
+- [Problèmes d'intégration que ce plugin résout](#problèmes-dintégration-que-ce-plugin-résout)
 - [Installation](#installation)
 - [Page de configuration](#page-de-configuration)
 - [CLI](#cli)
 - [Kimi en Chine](#kimi-en-chine)
 - [Proxy réseau](#proxy-réseau)
+- [Résilience](#résilience)
 - [Identifiants](#identifiants)
 - [Architecture](#architecture)
 - [Notes techniques](#notes-techniques)
@@ -76,10 +93,10 @@ Nécessite DeepSeek Harness `0.1.0-rc.6+` et Node.js 22.19+. Détails complets d
 
 ```bash
 # depuis GitHub
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # ou un checkout local de développement
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 Redémarrez `dsh web` après l'installation. Vérification sur un déploiement en direct :
@@ -114,12 +131,12 @@ Le sélecteur ne liste que les routes ayant terminé l'authentification ; les fo
 
 ```bash
 # hérité (le fournisseur par défaut est Grok) — toujours pris en charge
-dsh-grok-build login [--pkce] | import | status | logout
+dsh-coding-oauth login [--pkce] | import | status | logout
 
 # fournisseurs plus récents
-dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
-dsh-grok-build status all
-dsh-grok-build logout codex
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth status all
+dsh-coding-oauth logout codex
 
 # Antigravity (installez d'abord dans le profil web)
 pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
@@ -143,6 +160,22 @@ Priorité : `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `
 ```
 
 Seuls les domaines d'abonnement examinés sont proxifiés (xAI/Grok, OpenAI Codex, Claude/Anthropic, Google Antigravity) ; tout le reste du trafic DSH garde son répartiteur d'origine. Kimi reste direct par défaut et n'utilise le proxy que lorsque `proxyKimi: true`.
+
+## Résilience
+
+Les jetons d'accès OAuth sont renouvelés **cinq minutes** avant l'expiration enregistrée (pi-ai 0.84+). Si l'amont refuse encore un jeton localement valide avec 401/403, le plugin recule le `expires` stocké et l'étape relancée rafraîchit le jeton avant de renvoyer.
+
+Les nouvelles tentatives suivent la politique du harness : les pannes transitoires (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **et `AUTH`** sont relancées avec un backoff exponentiel (2 essais, 500 ms → 10 s, jitter 10 %). L'épuisement de quota et un refresh token mort **ne** sont **pas** relancés. Surcharge par déploiement :
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
 
 ## Identifiants
 

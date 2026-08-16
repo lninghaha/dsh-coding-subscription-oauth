@@ -1,6 +1,6 @@
 /**
  * Shared OAuth store + live catalog for the host plugin and CLI.
- * @module dsh-grok-build/session
+ * @module dsh-coding-subscription-oauth/session
  */
 
 import { mkdir, readFile, rm } from 'node:fs/promises'
@@ -11,9 +11,10 @@ import { xaiProvider } from '@earendil-works/pi-ai/providers/xai'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import {
-  fetchLiveModelIds,
+  fetchLiveModels,
   mergeLiveCatalog,
   type CatalogSource,
+  type LiveModelDescriptor,
 } from './catalog.ts'
 import { materializeLiveModel } from './catalog.ts'
 import { GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_ROUTE, XAI_PI_PROVIDER } from './ids.ts'
@@ -76,6 +77,7 @@ export class GrokBuildSession {
   readonly models: MutableModels
   private readonly baselineCatalog: readonly Model<Api>[]
   private liveIds: string[] | undefined
+  private liveModels: readonly LiveModelDescriptor[] | undefined
   private selectedIds: string[] | undefined
   private source: CatalogSource = 'fallback'
   private listingError: string | undefined
@@ -106,7 +108,7 @@ export class GrokBuildSession {
   }
 
   availableModels(): Model<Api>[] {
-    return mergeLiveCatalog(this.baselineCatalog, this.liveIds)
+    return mergeLiveCatalog(this.baselineCatalog, this.liveIds, this.liveModels)
   }
 
   selectedModelIds(): string[] | undefined {
@@ -136,6 +138,7 @@ export class GrokBuildSession {
       if (cache === undefined) return
       if (cache.ids.length > 0) {
         this.liveIds = cache.ids
+        this.liveModels = undefined
         this.source = 'cache'
       }
       this.selectedIds = cache.selected
@@ -152,8 +155,9 @@ export class GrokBuildSession {
       return
     }
     try {
-      const ids = await fetchLiveModelIds(access, signal)
-      this.liveIds = ids
+      const live = await fetchLiveModels(access, signal)
+      this.liveIds = live.map(model => model.id)
+      this.liveModels = live
       this.source = 'live'
       this.listingError = undefined
       await this.writeCache()
@@ -173,10 +177,19 @@ export class GrokBuildSession {
     this.onCatalogChange?.()
   }
 
+  /**
+   * Backdate the stored token's expiry so the next `getAuth()` refreshes.
+   * Called after an upstream 401 rejected a locally-valid token.
+   */
+  async invalidateAccessToken(): Promise<void> {
+    await this.store.invalidate(XAI_PI_PROVIDER)
+  }
+
   async logout(): Promise<void> {
     try {
       await this.store.delete(XAI_PI_PROVIDER)
       this.liveIds = undefined
+      this.liveModels = undefined
       this.selectedIds = undefined
       this.source = 'fallback'
       this.listingError = undefined

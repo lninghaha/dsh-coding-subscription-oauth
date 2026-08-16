@@ -2,7 +2,7 @@
 
 > [**中文版**](docs/02-architecture.zh-CN.md) · English
 
-This document describes the internal architecture of `dsh-grok-build`. It is the source for the technical notes in `README.md` and is intended for contributors and maintainers.
+This document describes the internal architecture of `dsh-coding-subscription-oauth`. It is the source for the technical notes in `README.md` and is intended for contributors and maintainers.
 
 ## 1. Routes and native providers
 
@@ -45,11 +45,11 @@ ctx.llm route
 
 ## 3. Module responsibilities
 
-- `store.ts`: one file owns one provider credential; keeps the legacy Grok store API.
+- `store.ts`: one file owns one provider credential; keeps the legacy Grok store API; `invalidate()` backdates `expires` after an upstream AUTH rejection.
 - `oauth-providers.ts`: Codex/Kimi/Claude definitions, route metadata, request token bridge.
 - `oauth-session.ts`: login, refresh, static model catalog and model-selection cache.
-- `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`.
-- `adapter.ts`: composes Grok with the three subscription profiles.
+- `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
+- `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes.
 - `auth-routes.ts`: legacy Grok API + the new unified `/plugins/dsh-grok-build/oauth/*`.
 - `client/`: four native account cards on the settings page plus the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
@@ -77,7 +77,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-- Package name stays `dsh-grok-build`.
+- Package name is `dsh-coding-subscription-oauth` (legacy GitHub/npm id: `dsh-grok-build`).
 - Cordis id stays `llm-grok-build-oauth`.
 - The `$DSH_HOME/.grok-build-auth.json` format is not migrated.
 - The `grok-build` fallback model is unchanged.

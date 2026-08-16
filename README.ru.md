@@ -2,14 +2,14 @@
 <!-- banner -->
 <div align="center">
 
-# 🔐 dsh-grok-build
+# 🔐 dsh-coding-subscription-oauth
 
-**v0.2.0**
+**v0.3.0** · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -28,6 +28,21 @@
 - ⚙️ **Динамический каталог** — селектор моделей показывает ровно те провайдеры, которые вы авторизовали.
 - 🌐 **С учётом прокси** — проксируется только проверенные доверенные домены подписок.
 
+## Какие проблемы подключения закрывает этот плагин
+
+Обычно сюда приходят по этим поисковым запросам и ошибкам DSH.
+
+| Искали / увидели | Что на самом деле сломано | Что делает плагин |
+|---|---|---|
+| SuperGrok / X Premium в DSH, Grok Build vs `api.x.ai` | Встроенный маршрут `xai` — это pay-as-you-go API. Подписка ходит на `cli-chat-proxy.grok.com` | Маршрут `grok-build` + отпечаток CLI (`X-XAI-Token-Auth` и др.), чтобы не ловить тихий 403 |
+| `API key is invalid` / `AUTH` | GUI показывает этот текст на **любой** AUTH. Часто просто истёк короткий OAuth access token | Refresh за **5 минут** до expiry; при 401 токен сбрасывается и **step повторяется** |
+| `INVALID_REPLAY_STATE` на втором ходе Codex/Kimi | Replay всё ещё нёс нативный provider id pi-ai | Сохраняется id маршрута Harness, старый replay чинится |
+| у grok-4.6 нет **xhigh** | `/v1/models-v2` уже отдаёт `reasoning_efforts`; шаблон 4.5 прячет xhigh | Разбираем live efforts. У 4.6 есть xhigh; у 4.5 — low/medium/high |
+| Kimi Code уходит как Anthropic `x-api-key` | OAuth-токен отправили как ключ Anthropic | Только `Authorization: Bearer` |
+| Не вошедшие модели остаются в селекторе | Перечислялись все зарегистрированные маршруты | Неаутентифицированные маршруты пустые; вошедшие помечены `(OAuth)` |
+| PKCE на удалённом / headless DSH | Нельзя вернуться на `localhost` | Device-code для Grok/Codex/Kimi; Claude принимает вставленный redirect URL |
+| Прокси пускает Grok и ломает Kimi в Китае | Глобальный `HTTPS_PROXY` | Прокси только по allowlist; Kimi **напрямую**, пока не включён `proxyKimi: true` |
+
 ## Поддерживаемые провайдеры
 
 | Провайдер | Маршрут | Аутентификация | Сосуществует с |
@@ -44,7 +59,7 @@
 
 ```bash
 # 1. установите плагин в web-профиль
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -57,11 +72,13 @@ systemctl --user restart dsh-web.service
 
 ## 📚 Содержание
 
+- [Какие проблемы подключения закрывает этот плагин](#какие-проблемы-подключения-закрывает-этот-плагин)
 - [Установка](#установка)
 - [Страница настроек](#страница-настроек)
 - [CLI](#cli)
 - [Kimi в Китае](#kimi-в-китае)
 - [Сетевой прокси](#сетевой-прокси)
+- [Отказоустойчивость](#отказоустойчивость)
 - [Учётные данные](#учётные-данные)
 - [Архитектура](#архитектура)
 - [Технические заметки](#технические-заметки)
@@ -76,10 +93,10 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # с GitHub
-dsh plugin --profile web add github:lninghaha/dsh-grok-build
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # или локальный dev-клоун
-dsh plugin --profile web add ./dsh-grok-build
+dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 После установки перезапустите `dsh web`. Проверка на реальном развёртывании:
@@ -114,12 +131,12 @@ npm run smoke:deployed             # реальные вызовы Codex/Kimi + 
 
 ```bash
 # legacy (провайдер по умолчанию — Grok) — всё ещё поддерживается
-dsh-grok-build login [--pkce] | import | status | logout
+dsh-coding-oauth login [--pkce] | import | status | logout
 
 # более новые провайдеры
-dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
-dsh-grok-build status all
-dsh-grok-build logout codex
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth status all
+dsh-coding-oauth logout codex
 
 # Antigravity (сначала установите в web-профиль)
 pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
@@ -143,6 +160,22 @@ OAuth подписки Kimi Code использует `https://auth.kimi.com`; �
 ```
 
 Проксируются только проверенные домены подписок (xAI/Grok, OpenAI Codex, Claude/Anthropic, Google Antigravity); остальной трафик DSH сохраняет исходный диспетчер. Kimi по умолчанию работает напрямую и использует прокси только при `proxyKimi: true`.
+
+## Отказоустойчивость
+
+OAuth access token обновляется **за пять минут** до сохранённого срока (pi-ai 0.84+). Если апстрим всё же отклоняет локально ещё живой токен кодом 401/403, плагин сдвигает сохранённый `expires` в прошлое, и повторный шаг сначала обновляет токен, затем повторяет запрос.
+
+Повторы идут по политике harness: временные сбои (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **и `AUTH`** повторяются с экспоненциальной задержкой (2 попытки, 500 мс → 10 с, 10% jitter). Исчерпание квоты и мёртвый refresh token **не** повторяются. Переопределение для развёртывания:
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
+      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+```
 
 ## Учётные данные
 

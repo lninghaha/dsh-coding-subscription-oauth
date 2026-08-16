@@ -2,13 +2,33 @@
  * Grok Build provider: a pi-ai provider pointed at the official Grok CLI
  * coding backend (`cli-chat-proxy.grok.com`) carrying the CLI fingerprint
  * headers the risk-control middleware requires.
- * @module dsh-grok-build/provider
+ * @module dsh-coding-subscription-oauth/provider
  */
 
 import { createProvider } from '@earendil-works/pi-ai'
-import type { Api, Model, Provider } from '@earendil-works/pi-ai'
+import type { Api, Model, Provider, ThinkingLevelMap } from '@earendil-works/pi-ai'
 import { openAIResponsesApi } from '@earendil-works/pi-ai/api/openai-responses.lazy'
 import { GROK_BUILD_ROUTE } from './ids.ts'
+
+/**
+ * Grok Build cannot disable reasoning (`reasoning_effort: "none"` is 400).
+ * pi-ai treats an absent `xhigh`/`max` key as unsupported, so those levels
+ * must be declared explicitly when the model offers them.
+ */
+export function grokBuildReasoningMap(
+  levels: readonly ('low' | 'medium' | 'high' | 'xhigh')[],
+): ThinkingLevelMap {
+  const offered = new Set(levels)
+  return {
+    off: null,
+    minimal: null,
+    low: offered.has('low') ? 'low' : null,
+    medium: offered.has('medium') ? 'medium' : null,
+    high: offered.has('high') ? 'high' : null,
+    xhigh: offered.has('xhigh') ? 'xhigh' : null,
+    max: null,
+  }
+}
 
 /** Inference backend base URL (Responses API lives under `${baseUrl}/responses`). */
 export const GROK_BUILD_BASE_URL = 'https://cli-chat-proxy.grok.com/v1'
@@ -47,10 +67,23 @@ export function grokBuildBaselineModels(): Model<'openai-responses'>[] {
       provider: GROK_BUILD_ROUTE,
       baseUrl: GROK_BUILD_BASE_URL,
       reasoning: true,
-      // Grok Build rejects reasoning_effort "none" (HTTP 400); marking "off"
-      // unsupported makes pi-ai omit the reasoning field unless the caller
-      // asks for low/medium/high.
-      thinkingLevelMap: { off: null },
+      // Official xAI docs + live /models-v2: grok-4.5 is low/medium/high only.
+      thinkingLevelMap: grokBuildReasoningMap(['low', 'medium', 'high']),
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 500_000,
+      maxTokens: 128_000,
+    },
+    {
+      id: 'grok-4.6',
+      name: 'Grok 4.6',
+      api: 'openai-responses',
+      provider: GROK_BUILD_ROUTE,
+      baseUrl: GROK_BUILD_BASE_URL,
+      reasoning: true,
+      // grok-4.6 and later advertise xhigh. pi-ai hides xhigh unless this key
+      // is an explicit non-null mapping (absent !== supported).
+      thinkingLevelMap: grokBuildReasoningMap(['low', 'medium', 'high', 'xhigh']),
       input: ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: 500_000,

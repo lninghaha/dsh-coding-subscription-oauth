@@ -64,7 +64,7 @@ const changelog = existsSync(changelogPath) ? readFileSync(changelogPath, 'utf8'
 const readme = existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : ''
 const currentVersion = pkg.version
 
-console.log(`\n◆ dsh-grok-build release loop`)
+console.log(`\n◆ dsh-coding-subscription-oauth release loop`)
 console.log(`  mode:    ${dryRun ? 'DRY-RUN (no writes)' : 'REAL'}`)
 console.log(`  version: ${currentVersion}${wantBump ? ` → ${bumpVersion(currentVersion, wantBump)} (${wantBump})` : ''}`)
 console.log(`  publish: ${doPublish ? 'yes' : 'no'}\n`)

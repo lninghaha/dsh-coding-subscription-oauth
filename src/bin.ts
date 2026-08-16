@@ -92,7 +92,8 @@ async function answerPrompt(
 
 function printHelp(): void {
   process.stdout.write([
-    'Usage: dsh-grok-build <login|logout|status|import> [provider] [options]',
+    'Usage: dsh-coding-oauth <login|logout|status|import> [provider] [options]',
+    '(legacy command name: dsh-grok-build)',
     '',
     'Providers: grok (default), codex, kimi, claude; status also accepts all.',
     '',
@@ -167,7 +168,7 @@ async function grokStatus(): Promise<boolean> {
   process.stdout.write(`Grok Build for dsh: signed in${suffix}\n`)
   process.stdout.write(`models (${session.catalogSource}): ${session.visibleModels().map(model => model.id).join(', ')}\n`)
   if (session.catalogError !== undefined) {
-    process.stderr.write(`dsh-grok-build: live models-v2 failed: ${session.catalogError}\n`)
+    process.stderr.write(`dsh-coding-oauth: live models-v2 failed: ${session.catalogError}\n`)
   }
   return true
 }
@@ -238,7 +239,7 @@ export async function run(argv: readonly string[]): Promise<number> {
   }
   const rawAction = argv[0]
   if (rawAction !== 'login' && rawAction !== 'logout' && rawAction !== 'status' && rawAction !== 'import') {
-    process.stderr.write(`dsh-grok-build: expected login, logout, status, or import; got ${JSON.stringify(rawAction)}\n`)
+    process.stderr.write(`dsh-coding-oauth: expected login, logout, status, or import; got ${JSON.stringify(rawAction)}\n`)
     return 1
   }
   const action: CliAction = rawAction
@@ -296,7 +297,7 @@ export async function run(argv: readonly string[]): Promise<number> {
     else await loginSubscription(provider, flags)
     return 0
   } catch (error: unknown) {
-    process.stderr.write(`dsh-grok-build: ${action} failed: ${safeMessage(error)}\n`)
+    process.stderr.write(`dsh-coding-oauth: ${action} failed: ${safeMessage(error)}\n`)
     return 1
   }
 }

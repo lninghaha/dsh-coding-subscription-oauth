@@ -1,7 +1,7 @@
 import z from "@deepseek-ai/schemastery";
-import { GenerateOptions, LlmAdapter, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, ResolvedRetryPolicy, StreamChunk } from "@deepseek-ai/dsh-llm";
+import { GenerateOptions, LlmAdapter, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, ResolvedRetryPolicy, RetryPolicyConfig, StreamChunk } from "@deepseek-ai/dsh-llm";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
-import { Api, AuthInteraction, Credential, CredentialInfo, CredentialStore, Model, MutableModels, OAuthCredential, Provider } from "@earendil-works/pi-ai";
+import { Api, AuthInteraction, Credential, CredentialInfo, CredentialStore, Model, MutableModels, OAuthCredential, Provider, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { Context } from "@deepseek-ai/cordis";
 import { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 //#region src/ids.d.ts
@@ -30,7 +30,7 @@ declare const CODEX_OAUTH_MODELS_CACHE_FILENAME = ".codex-oauth-models.json";
 declare const KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME = ".kimi-code-oauth-models.json";
 declare const CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME = ".claude-code-oauth-models.json";
 /** Fallback model when no live Grok catalog listing is available. */
-declare const DEFAULT_GROK_BUILD_MODEL = "grok-4.5";
+declare const DEFAULT_GROK_BUILD_MODEL = "grok-4.6";
 /** Provider idle ceiling used by every composite route. */
 declare const GROK_BUILD_STREAM_IDLE_TIMEOUT_MS = 300000;
 //#endregion
@@ -73,6 +73,15 @@ declare class OAuthCredentialFileStore implements CredentialStore {
   read(providerId: string): Promise<Credential | undefined>;
   list(): Promise<readonly CredentialInfo[]>;
   modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>): Promise<Credential | undefined>;
+  /**
+   * Force the next `getAuth()` to refresh by backdating `expires` into the past.
+   * Used after an upstream 401: the stored access token was rejected even though
+   * the local expiry had not yet passed (server-side revocation or skew). The
+   * access/refresh pair is preserved — only the freshness marker moves — so the
+   * refresh token can still mint a replacement. Returns true when a credential
+   * was actually backdated; false when nothing is stored.
+   */
+  invalidate(providerId: string): Promise<boolean>;
   delete(providerId: string): Promise<void>;
 }
 /** Legacy-named store retained for existing imports and credential migration. */
@@ -104,6 +113,11 @@ declare class OAuthProviderSession {
   status(): Promise<OAuthProviderStatus>;
   login(interaction: AuthInteraction): Promise<Credential>;
   resolveAccessToken(): Promise<string | undefined>;
+  /**
+   * Backdate the stored token's expiry so the next `getAuth()` refreshes.
+   * Called after an upstream 401 rejected a locally-valid token.
+   */
+  invalidateAccessToken(): Promise<void>;
   storedCredential(): Promise<OAuthCredential | undefined>;
   logout(): Promise<void>;
   private writeCache;
@@ -111,6 +125,23 @@ declare class OAuthProviderSession {
 //#endregion
 //#region src/catalog.d.ts
 type CatalogSource = 'live' | 'cache' | 'fallback';
+/** Vendor listing fields we keep after a live `/models-v2` fetch. */
+interface LiveModelDescriptor {
+  id: string;
+  name?: string;
+  contextWindow?: number;
+  reasoning?: boolean;
+  thinkingLevelMap?: ThinkingLevelMap;
+}
+/**
+ * Translate Grok Build `reasoning_efforts` into a pi-ai map. Undeclared
+ * extended levels (especially `xhigh`) must be pinned to null — pi-ai treats
+ * an absent xhigh/max key as unsupported, and an absent low/medium/high key
+ * as supported.
+ */
+declare function thinkingLevelMapFromLiveEfforts(efforts: unknown): ThinkingLevelMap | undefined;
+/** Pull the live listing, including per-model reasoning levels when present. */
+declare function extractLiveModels(body: unknown): LiveModelDescriptor[];
 /**
  * Pull model ids from a listing body. The `/v1/models-v2` response shape is
  * not a published contract, so accept the common envelopes: a bare array, an
@@ -119,19 +150,22 @@ type CatalogSource = 'live' | 'cache' | 'fallback';
  */
 declare function extractModelIds(body: unknown): string[];
 /** Turn a live id into a pi-ai model, inheriting baseline metadata when possible. */
-declare function materializeLiveModel(id: string, catalog?: readonly Model<Api>[]): Model<Api>;
+declare function materializeLiveModel(id: string, catalog?: readonly Model<Api>[], overlay?: LiveModelDescriptor): Model<Api>;
 /**
  * If `liveIds` is missing or empty, serve the baseline catalog.
- * Otherwise serve only the live ids, each materialized against the baseline.
+ * Otherwise serve only the live ids, each materialized against the baseline
+ * and optionally overlaid with live `/models-v2` reasoning metadata.
  */
-declare function mergeLiveCatalog(catalog: readonly Model<Api>[], liveIds: readonly string[] | undefined): Model<Api>[];
+declare function mergeLiveCatalog(catalog: readonly Model<Api>[], liveIds: readonly string[] | undefined, liveModels?: readonly LiveModelDescriptor[]): Model<Api>[];
 declare function preferredGrokBuildModelFrom(models: readonly {
   id: string;
 }[]): string;
 /**
- * Fetch the account-visible model ids from `/v1/models-v2` with the CLI
+ * Fetch the account-visible models from `/v1/models-v2` with the CLI
  * fingerprint headers. Throws a secret-free error on failure.
  */
+declare function fetchLiveModels(accessToken: string, signal?: AbortSignal): Promise<LiveModelDescriptor[]>;
+/** Fetch only the account-visible model ids from `/v1/models-v2`. */
 declare function fetchLiveModelIds(accessToken: string, signal?: AbortSignal): Promise<string[]>;
 //#endregion
 //#region src/session.d.ts
@@ -141,6 +175,7 @@ declare class GrokBuildSession {
   readonly models: MutableModels;
   private readonly baselineCatalog;
   private liveIds;
+  private liveModels;
   private selectedIds;
   private source;
   private listingError;
@@ -158,19 +193,24 @@ declare class GrokBuildSession {
   loadCachedCatalog(): Promise<void>;
   refreshLiveCatalog(signal?: AbortSignal): Promise<void>;
   setSelectedModels(ids: readonly string[]): Promise<void>;
+  /**
+   * Backdate the stored token's expiry so the next `getAuth()` refreshes.
+   * Called after an upstream 401 rejected a locally-valid token.
+   */
+  invalidateAccessToken(): Promise<void>;
   logout(): Promise<void>;
   private writeCache;
 }
 //#endregion
 //#region src/adapter.d.ts
-/** Prefer grok-4.5 when the current (live or baseline) list has it. */
+/** Prefer grok-4.6 when the current (live or baseline) list has it. */
 declare function preferredGrokBuildModel(models?: readonly {
   id: string;
 }[]): string;
 /** Existing Grok-only constructor retained for public API compatibility. */
 declare function createGrokBuildAdapter(session: GrokBuildSession, resolveAttachments: () => AttachmentStore | undefined): PiAiAdapter;
 /** Create the four-route OAuth adapter while preserving each pi-ai native id. */
-declare function createCodingOAuthAdapter(grok: GrokBuildSession, subscriptions: readonly OAuthProviderSession[], resolveAttachments: () => AttachmentStore | undefined): LlmAdapter;
+declare function createCodingOAuthAdapter(grok: GrokBuildSession, subscriptions: readonly OAuthProviderSession[], resolveAttachments: () => AttachmentStore | undefined, retryPolicy?: RetryPolicyConfig): LlmAdapter;
 //#endregion
 //#region src/alias-adapter.d.ts
 interface AliasLlmRoutePolicy {
@@ -178,6 +218,14 @@ interface AliasLlmRoutePolicy {
   displayName?: string;
   /** Return false to hide every model for this route from discovery. */
   isAuthenticated?: () => Promise<boolean>;
+  /**
+   * Called once when a stream for this route finishes with an AUTH failure
+   * (upstream rejected a locally-valid token). Implementations backdate the
+   * stored credential's expiry so the retried step refreshes before reuse.
+   * Awaiting it here keeps invalidation ordered before the retry executor
+   * reruns the step; failures are swallowed so the original AUTH surfaces.
+   */
+  onAuthFailure?: () => Promise<void>;
 }
 /**
  * Keeps pi-ai model.provider identities native while exposing collision-free
@@ -383,6 +431,12 @@ declare function probeGrokAuth(filename?: string): Promise<GrokImportProbe>;
 declare function importGrokAuth(store: GrokBuildCredentialStore, filename?: string): Promise<OAuthCredential>;
 //#endregion
 //#region src/provider.d.ts
+/**
+ * Grok Build cannot disable reasoning (`reasoning_effort: "none"` is 400).
+ * pi-ai treats an absent `xhigh`/`max` key as unsupported, so those levels
+ * must be declared explicitly when the model offers them.
+ */
+declare function grokBuildReasoningMap(levels: readonly ('low' | 'medium' | 'high' | 'xhigh')[]): ThinkingLevelMap;
 /** Inference backend base URL (Responses API lives under `${baseUrl}/responses`). */
 declare const GROK_BUILD_BASE_URL = "https://cli-chat-proxy.grok.com/v1";
 /** Account model catalog endpoint fetched by the official CLI. */
@@ -476,7 +530,7 @@ declare function loginGrokBuildPkce(callbacks: PkceLoginCallbacks, overrides?: P
 //#region src/proxy.d.ts
 /**
  * Scoped egress proxy for coding-subscription OAuth and inference traffic.
- * @module dsh-grok-build/proxy
+ * @module dsh-coding-subscription-oauth/proxy
  */
 interface CodingOAuthProxyOptions {
   proxyKimi?: boolean;
@@ -504,6 +558,14 @@ interface Config {
   proxy?: string;
   /** Kimi China traffic stays direct unless explicitly opted into the proxy. */
   proxyKimi?: boolean;
+  /**
+   * Optional provider retry policy override for the four OAuth routes. When
+   * omitted, the plugin retries transient failures (rate limit, server,
+   * timeout, transport, empty response) plus AUTH — the latter is safe because
+   * the stored credential is invalidated on every AUTH finish, so the retried
+   * step refreshes before reuse. Quota exhaustion is never retried.
+   */
+  retryPolicy?: RetryPolicyConfig;
 }
 declare const Config: z<Config>;
 /**
@@ -512,4 +574,4 @@ declare const Config: z<Config>;
  */
 declare function apply(ctx: Context, config: Config): void;
 //#endregion
-export { ANTIGRAVITY_ROUTE, AliasLlmAdapter, type AliasLlmRoutePolicy, CLAUDE_CODE_OAUTH_AUTH_FILENAME, CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME, CLAUDE_CODE_OAUTH_PROVIDER, CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER, CODEX_OAUTH_AUTH_FILENAME, CODEX_OAUTH_MODELS_CACHE_FILENAME, CODEX_OAUTH_PROVIDER, CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER, CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_ROUTES, CODING_OAUTH_STATUS_PATH, type CatalogSource, type CodingOAuthProviderSlug, type CodingOAuthProxyOptions, type CodingOAuthRoute, type CodingOAuthWebStatus, Config, DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_AUTH_FILENAME, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GROK_BUILD_BASE_URL, GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_MODELS_URL, GROK_BUILD_OAUTH_CLIENT_ID, GROK_BUILD_OAUTH_DEFAULT_PORT, GROK_BUILD_OAUTH_ISSUER, GROK_BUILD_OAUTH_SCOPE, GROK_BUILD_ROUTE, GROK_BUILD_STREAM_IDLE_TIMEOUT_MS, GROK_CLIENT_VERSION, type GrokBuildAuthStatus, GrokBuildCredentialStore, type GrokBuildLoginMethod, GrokBuildOAuthError, type GrokBuildOAuthErrorCode, type GrokBuildOAuthParams, GrokBuildSession, GrokBuildWebAuth, type GrokBuildWebAuthStatus, type GrokImportProbe, KIMI_CODE_OAUTH_AUTH_FILENAME, KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME, KIMI_CODE_OAUTH_PROVIDER, KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER, type LoginChallenge, OAUTH_PROVIDER_DEFINITIONS, OAuthCredentialFileStore, type OAuthProviderDefinition, OAuthProviderSession, type OAuthProviderStatus, type PkceLoginCallbacks, type SubscriptionLoginChallenge, type SubscriptionLoginMethod, type SubscriptionProviderSlug, SubscriptionWebAuth, type SubscriptionWebAuthStatus, XAI_PI_PROVIDER, apply, buildAuthorizeUrl, codingOAuthProxyInEffect, createCodingOAuthAdapter, createGrokBuildAdapter, discoverOAuthEndpoints, ensureCodingOAuthProxy, ensureGrokBuildProxy, extractCode, extractModelIds, fetchLiveModelIds, generatePkce, grokAuthPath, grokBuildAuthPath, grokBuildAuthStatus, grokBuildBaselineModels, grokBuildFingerprintHeaders, grokBuildProvider, grokBuildProxyInEffect, importGrokAuth, importGrokBuildFromGrok, importGrokBuildSession, inject, loginGrokBuild, loginGrokBuildPkce, loginGrokBuildSession, logoutGrokBuild, materializeLiveModel, mergeLiveCatalog, name, oauthCredentialPath, oauthModelsCachePath, oauthProviderDefinition, parseGrokAuthDocument, preferredGrokBuildModel, preferredGrokBuildModelFrom, probeGrokAuth, refreshGrokBuildToken, registerCodingOAuthRoutes, registerGrokBuildAuthRoutes, resolveOAuthParams, safeMessage };
+export { ANTIGRAVITY_ROUTE, AliasLlmAdapter, type AliasLlmRoutePolicy, CLAUDE_CODE_OAUTH_AUTH_FILENAME, CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME, CLAUDE_CODE_OAUTH_PROVIDER, CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER, CODEX_OAUTH_AUTH_FILENAME, CODEX_OAUTH_MODELS_CACHE_FILENAME, CODEX_OAUTH_PROVIDER, CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER, CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_ROUTES, CODING_OAUTH_STATUS_PATH, type CatalogSource, type CodingOAuthProviderSlug, type CodingOAuthProxyOptions, type CodingOAuthRoute, type CodingOAuthWebStatus, Config, DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_AUTH_FILENAME, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GROK_BUILD_BASE_URL, GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_MODELS_URL, GROK_BUILD_OAUTH_CLIENT_ID, GROK_BUILD_OAUTH_DEFAULT_PORT, GROK_BUILD_OAUTH_ISSUER, GROK_BUILD_OAUTH_SCOPE, GROK_BUILD_ROUTE, GROK_BUILD_STREAM_IDLE_TIMEOUT_MS, GROK_CLIENT_VERSION, type GrokBuildAuthStatus, GrokBuildCredentialStore, type GrokBuildLoginMethod, GrokBuildOAuthError, type GrokBuildOAuthErrorCode, type GrokBuildOAuthParams, GrokBuildSession, GrokBuildWebAuth, type GrokBuildWebAuthStatus, type GrokImportProbe, KIMI_CODE_OAUTH_AUTH_FILENAME, KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME, KIMI_CODE_OAUTH_PROVIDER, KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER, type LiveModelDescriptor, type LoginChallenge, OAUTH_PROVIDER_DEFINITIONS, OAuthCredentialFileStore, type OAuthProviderDefinition, OAuthProviderSession, type OAuthProviderStatus, type PkceLoginCallbacks, type SubscriptionLoginChallenge, type SubscriptionLoginMethod, type SubscriptionProviderSlug, SubscriptionWebAuth, type SubscriptionWebAuthStatus, XAI_PI_PROVIDER, apply, buildAuthorizeUrl, codingOAuthProxyInEffect, createCodingOAuthAdapter, createGrokBuildAdapter, discoverOAuthEndpoints, ensureCodingOAuthProxy, ensureGrokBuildProxy, extractCode, extractLiveModels, extractModelIds, fetchLiveModelIds, fetchLiveModels, generatePkce, grokAuthPath, grokBuildAuthPath, grokBuildAuthStatus, grokBuildBaselineModels, grokBuildFingerprintHeaders, grokBuildProvider, grokBuildProxyInEffect, grokBuildReasoningMap, importGrokAuth, importGrokBuildFromGrok, importGrokBuildSession, inject, loginGrokBuild, loginGrokBuildPkce, loginGrokBuildSession, logoutGrokBuild, materializeLiveModel, mergeLiveCatalog, name, oauthCredentialPath, oauthModelsCachePath, oauthProviderDefinition, parseGrokAuthDocument, preferredGrokBuildModel, preferredGrokBuildModelFrom, probeGrokAuth, refreshGrokBuildToken, registerCodingOAuthRoutes, registerGrokBuildAuthRoutes, resolveOAuthParams, safeMessage, thinkingLevelMapFromLiveEfforts };

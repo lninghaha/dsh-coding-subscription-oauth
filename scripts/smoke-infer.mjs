@@ -1,7 +1,7 @@
 /**
  * Standalone smoke for the Grok Build path — no dsh host required.
  * Usage: node scripts/smoke-infer.mjs [modelId]
- * Requires a stored credential (`dsh-grok-build login` or `import` first).
+ * Requires a stored credential (`dsh-coding-oauth login` or `import` first).
  */
 
 import { createModels } from '@earendil-works/pi-ai'

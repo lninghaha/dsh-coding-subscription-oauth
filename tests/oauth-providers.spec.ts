@@ -29,6 +29,7 @@ describe('OAuth request providers', () => {
     const auth = await provider.auth.apiKey?.resolve({
       ctx,
       credential: { type: 'api_key', key: 'codex-token' },
+      signal: new AbortController().signal,
     })
     expect(provider.id).toBe(CODEX_PI_PROVIDER)
     expect(provider.getModels().every(model => model.provider === CODEX_PI_PROVIDER)).toBe(true)
@@ -40,6 +41,7 @@ describe('OAuth request providers', () => {
     const auth = await provider.auth.apiKey?.resolve({
       ctx,
       credential: { type: 'api_key', key: 'kimi-token' },
+      signal: new AbortController().signal,
     })
     expect(provider.id).toBe(KIMI_PI_PROVIDER)
     expect(provider.getModels().every(model => model.provider === KIMI_PI_PROVIDER)).toBe(true)

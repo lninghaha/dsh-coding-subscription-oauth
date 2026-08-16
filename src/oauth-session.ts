@@ -1,6 +1,6 @@
 /**
  * Persistent OAuth session and static model selection for one subscription provider.
- * @module dsh-grok-build/oauth-session
+ * @module dsh-coding-subscription-oauth/oauth-session
  */
 
 import { mkdir, readFile, rm } from 'node:fs/promises'
@@ -133,6 +133,14 @@ export class OAuthProviderSession {
     if (resolved === undefined) return undefined
     const credential = await this.store.read(this.definition.nativeProviderId)
     return credential?.type === 'oauth' ? credential.access : undefined
+  }
+
+  /**
+   * Backdate the stored token's expiry so the next `getAuth()` refreshes.
+   * Called after an upstream 401 rejected a locally-valid token.
+   */
+  async invalidateAccessToken(): Promise<void> {
+    await this.store.invalidate(this.definition.nativeProviderId)
   }
 
   async storedCredential(): Promise<OAuthCredential | undefined> {
