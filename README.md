@@ -8,8 +8,6 @@
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -25,7 +23,8 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
+| npm | Not published yet; install from GitHub | No legacy npm package was published |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
 | Settings HTTP API | `/plugins/dsh-grok-build/*` | unchanged |
@@ -118,13 +117,13 @@ dsh plugin --profile web add ./dsh-coding-subscription-oauth
 Restart `dsh web` after installing. Verification against a live deployment:
 
 ```bash
-npm run verify:deployed            # checks real /api/llm.models + OAuth state
-DSH_EXPECT_AGY_AUTH=signed-in npm run verify:deployed   # if Google is signed in
+pnpm run verify:deployed            # checks real /api/llm.models + OAuth state
+DSH_EXPECT_AGY_AUTH=signed-in pnpm run verify:deployed   # if Google is signed in
 
 DSH_RESTORE_PROVIDER=openai \
 DSH_RESTORE_MODEL=gpt-5.6-sol \
 DSH_RESTORE_REASONING=max \
-npm run smoke:deployed             # real Codex/Kimi tool-calls + second-turn replay
+pnpm run smoke:deployed             # real Codex/Kimi tool-calls + second-turn replay
 ```
 
 > `smoke:deployed` creates temporary sessions, exercises Codex and Kimi tool-calls plus a second user turn (regression coverage for `INVALID_REPLAY_STATE`), restores the declared default model, then archives the sessions.

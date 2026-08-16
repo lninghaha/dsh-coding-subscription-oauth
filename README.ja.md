@@ -8,8 +8,6 @@
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
-[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -25,9 +23,12 @@
 
 | | これを使う | 互換 |
 |---|---|---|
-| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
+| npm | 未公開。GitHub からインストール | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis id / HTTP `/plugins/dsh-grok-build/*` / 認証ファイル | 変更なし | — |
+| Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
+| 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
+| 認証ファイル | `$DSH_HOME/.grok-build-auth.json` および他の `*-oauth-auth.json` | 変更なし |
 
 ## ✨ 特徴
 
@@ -113,13 +114,13 @@ dsh plugin --profile web add ./dsh-coding-subscription-oauth
 インストール後に `dsh web` を再起動します。実運用デプロイに対する検証:
 
 ```bash
-npm run verify:deployed            # 実 /api/llm.models + OAuth 状態の確認
-DSH_EXPECT_AGY_AUTH=signed-in npm run verify:deployed   # Google にサインイン済みの場合
+pnpm run verify:deployed            # 実 /api/llm.models + OAuth 状態の確認
+DSH_EXPECT_AGY_AUTH=signed-in pnpm run verify:deployed   # Google にサインイン済みの場合
 
 DSH_RESTORE_PROVIDER=openai \
 DSH_RESTORE_MODEL=gpt-5.6-sol \
 DSH_RESTORE_REASONING=max \
-npm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し + 2 回目の turn 再生
+pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し + 2 回目の turn 再生
 ```
 
 > `smoke:deployed` は一時セッションを作成し、Codex と Kimi のツール呼び出しに加えて 2 回目のユーザー turn（`INVALID_REPLAY_STATE` 回帰）を検証し、宣言したデフォルトモデルを復元してからセッションをアーカイブします。

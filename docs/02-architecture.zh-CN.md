@@ -46,7 +46,7 @@ ctx.llm route
 - `oauth-session.ts`：登录、刷新、静态模型目录和模型选择缓存。
 - `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。
 - `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。
-- `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`。
+- `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
 - `client/`：设置页四个原生账号卡片和外部 Antigravity 状态卡片。
 - `proxy.ts`：process-wide undici dispatcher，但只代理审核过的域名白名单。
 
@@ -63,7 +63,7 @@ POST /plugins/dsh-grok-build/oauth/logout
 POST /plugins/dsh-grok-build/oauth/models
 ```
 
-写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。
+写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。JSON 请求体在解析前限制为 64 KiB。
 
 旧 `/plugins/dsh-grok-build/auth/*` 继续注册并复用同一个 Grok 控制器。
 
@@ -73,7 +73,7 @@ POST /plugins/dsh-grok-build/oauth/models
 
 ## 6. 兼容性
 
-对外发布名是 **`dsh-coding-subscription-oauth`**。旧 GitHub/npm id `dsh-grok-build` 仍跟踪同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍然能装到。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。新旧 npm 名称目前都尚未发布，当前以 GitHub 安装为准。
 
 以下标识保持稳定（无迁移方案前不要改名）：
 
@@ -83,4 +83,4 @@ POST /plugins/dsh-grok-build/oauth/models
 - CLI：`dsh-coding-oauth`（主命令）与 `dsh-grok-build`（别名）
 - LLM 路由：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`
 
-新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。`grok-build` fallback model 不改。
+新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。v0.3.0 将 `grok-build` fallback/default 更新为 `grok-4.6`，已有用户默认设置仍优先。

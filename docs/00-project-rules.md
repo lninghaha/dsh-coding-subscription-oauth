@@ -37,6 +37,7 @@ Adopting the community norm, any document judged to be genuinely useful to contr
 - Welcome and respond to issues and PRs (see `CONTRIBUTING.md`).
 - Keep a real changelog and a predictable release cadence (§5).
 - Publish release notes and version tags so history is traceable.
+- Keep git history atomic and conventional (§7); never commit secrets or mix unrelated concerns.
 - Do not invent capabilities, pad releases, or impersonate vendors/clients (§5, `README` compliance note).
 
 ---
@@ -97,16 +98,16 @@ CHANGELOG.md updated (entry added under the matching release)
 README.md synced (new capability / new doc entry / new command / new notes)
    │
    ▼
-npm run check passes locally
+pnpm run check passes in the Docker sandbox
    │
    ▼
 version bumped (package.json + built artifact metadata, see §4)
    │
    ▼
-git commit + tag v<version>
+git commit + annotated tag v<version>  (clean tree only)
    │
    ▼
-npm publish (verify dry-run passes before the real publish)
+publish only after the verified local pack and explicit maintainer approval
    │
    ▼
 confirm GitHub release / milestone stays active
@@ -114,27 +115,29 @@ confirm GitHub release / milestone stays active
 
 **Every time a document version is formed, the full loop above must run.** Never change docs without syncing README, and never update README without releasing.
 
+**Commit, tag and tree hygiene** (detail in §7): each commit is conventional and atomic; generated `lib/` is committed with the source/build change that produced it; the release commit is made only on a clean tree; the annotated tag is `v<version>` and must match `package.json` and the top `CHANGELOG.md` heading.
+
 ---
 
 ## 4. Automated Release Script
 
 The repo provides `scripts/release.mjs` (see its header comment):
 
-- Defaults to **dry-run**: validates `CHANGELOG.md` structure, verifies the `package.json` version matches the top of the changelog, previews the `npm pack` file list and flags any local-only file that would leak; performs **no writes**.
-- Real bump + tag + publish only when explicitly requested.
-- Either way it prints the exact files that would be packed, so the `files` whitelist and privacy can be checked by a human.
+- `--dry-run` validates the current `CHANGELOG.md`/`package.json` version, verifies the already-built release artifacts, previews the real packed file list with lifecycle scripts disabled, and rejects local-only files.
+- `--pack` rebuilds and verifies the release, then writes a local tarball under `output/`.
+- The helper never bumps versions, commits, tags, pushes, or publishes. Those remain explicit maintainer operations after human approval.
 
 Example:
 
 ```bash
-# validate + preview only, no release
+# validate + preview only; no tarball, Git, or registry changes
 node scripts/release.mjs --dry-run
 
-# real bump + tag + publish (use only after the flow has passed)
-node scripts/release.mjs --bump patch --publish
+# rebuild + verify + create a local candidate tarball
+node scripts/release.mjs --pack
 ```
 
-> Real publishing touches the npm registry and remote writes — do it only after human confirmation.
+> Publishing and remote Git writes are intentionally outside the script.
 
 ---
 
@@ -145,7 +148,7 @@ node scripts/release.mjs --bump patch --publish
 - **Predictable release cadence**: run the release loop after every substantive feature PR; aim for at least one meaningful minor release per quarter to keep discoverability up.
 - **Honest changelog**: accumulate pending entries under `Unreleased` and fold them into a version on release; never pad releases with empty entries.
 - **Responsive PRs/issues**: keep the templates and conventions in `CONTRIBUTING.md` so any contributor knows how to open a PR.
-- **CI & gates**: `npm run check` (typecheck + test + build) is a release precondition; never ship a broken build artifact.
+- **CI & gates**: `pnpm run check` (lint + typecheck + test + build/verify) is a release precondition; CI also rebuilds committed `lib/` and rejects artifact drift.
 - **Security stance**: the compliance note in `README` (own accounts only; no bulk accounts, resale, impersonation) is a hard line; any new provider or endpoint must respect it.
 - **Docs/code in sync**: when adding or changing a capability, update `README.md` and `docs/02-architecture.md` (public layer) before releasing.
 
@@ -155,8 +158,37 @@ node scripts/release.mjs --bump patch --publish
 
 Before every real release, verify:
 
-- [ ] `npm pack --dry-run` output contains **nothing** matching `*调查*`, `docs/local/`, `reference/`, account/host aliases, tokens, or absolute paths.
+- [ ] `npm pack --dry-run --json --ignore-scripts` output contains **nothing** matching `*调查*`, `docs/local/`, `reference/`, account/host aliases, tokens, or absolute paths.
 - [ ] `README.md` / `INSTALL.md` reference only public, generic commands, domains and accounts.
 - [ ] The `files` whitelist does **not** include the whole `docs/` directory.
-- [ ] `CHANGELOG.md` has an entry matching the about-to-be-released version.
-- [ ] `npm run check` passes.
+- [ ] `CHANGELOG.md` has an entry matching the about-to-be-released version; pending notes have been folded from `Unreleased` into `## v<version>`.
+- [ ] `pnpm run check` passes.
+- [ ] `git status` is clean: no leftover source, docs, lockfile or `lib/` drift.
+- [ ] The annotated tag will be `v<version>` and matches `package.json` plus the top `CHANGELOG.md` heading. Never move or reuse a published tag.
+
+---
+
+## 7. Commits, Pushes & Tags
+
+Contributor-facing wording lives in `CONTRIBUTING.md`. This section is the source of truth for maintainers.
+
+### 7.1 Atomic conventional commits
+
+- Messages follow [Conventional Commits](https://www.conventionalcommits.org/): `type(optional-scope): summary` in the imperative (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, `ci:`, `chore:`). Optional scopes such as `M1` / `M3` or a module name are fine.
+- **One coherent concern per commit.** Never mix documentation, build/toolchain and feature/fix changes unless they cannot be reviewed or built separately (a capability that is meaningless without its README/changelog note, or a source change that must ship with the `lib/` it generated).
+- Run the relevant tests and `pnpm run check` **inside an isolated Docker sandbox** before the commit. Do not install dependencies, typecheck, lint, test, build, or pack this plugin directly on a shared developer host. Containers use `test-`/`e2e-` names, no host networking or privileged mode, no credential mounts, explicit CPU/memory limits, and immediate cleanup. Commit that passing slice promptly — do not leave a finished, verified change sitting uncommitted next to later work, and do not commit a red tree.
+- Generated `lib/` is a committed release artifact (git installs and the CI `git diff --exit-code -- lib` drift gate). Rebuild it and include it in the **same** commit as the `src/` or build-script change that produced it. Do not land stale `lib/` against newer source, and do not land a `lib/`-only commit unless the only change is a verified rebuild with no source delta.
+- Secrets, credentials, tokens, private keys, `.env` files, host aliases, absolute machine paths, and local-only notes (`docs/local/`, `reference/`) never enter git (§0.3).
+
+### 7.2 Pushes
+
+- Feature branches are pushed as **checkpoints** at each version or milestone (branch names such as `work/<topic>-v0.3` are fine), not only when the PR is finished.
+- Force-push is forbidden without **explicit approval**, including `--force-with-lease`, once a branch has been pushed. Default history is append-only. Never force-push `main` or a published release tag.
+- Do not push a dirty or failing tree "to save it"; commit the passing slice first.
+
+### 7.3 Changelog, versions and tags
+
+- Day-to-day user-facing work accumulates under `CHANGELOG.md` → `## Unreleased`.
+- A release folds `Unreleased` into `## v<version>`, bumps `package.json` (and any built artifact metadata) to that same version, and creates an **annotated** tag `v<version>` on a **clean** working tree. The top changelog heading, `package.json` version and tag name must be identical (the `v` prefix is tag/heading only).
+- `scripts/release.mjs` does **not** bump, commit, tag, push or publish; those stay explicit maintainer steps after `pnpm run check`, `--dry-run` and `--pack` succeed.
+- Never tag or publish from a dirty tree, and never move or reuse a published tag.

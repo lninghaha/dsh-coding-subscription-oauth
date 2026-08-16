@@ -8,8 +8,6 @@
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
-[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -25,7 +23,8 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同一条 `main`） |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同一条 `main`） |
+| npm | 尚未发布；请从 GitHub 安装 | 没有发布过旧 npm 包 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
 | 设置页 HTTP API | `/plugins/dsh-grok-build/*` | 不变 |
@@ -116,13 +115,13 @@ dsh plugin --profile web add ./dsh-coding-subscription-oauth
 安装后重启 `dsh web`。对实际部署的验证：
 
 ```bash
-npm run verify:deployed            # 核对真实 /api/llm.models 与 OAuth 状态
-DSH_EXPECT_AGY_AUTH=signed-in npm run verify:deployed   # 已登录 Google 时
+pnpm run verify:deployed            # 核对真实 /api/llm.models 与 OAuth 状态
+DSH_EXPECT_AGY_AUTH=signed-in pnpm run verify:deployed   # 已登录 Google 时
 
 DSH_RESTORE_PROVIDER=openai \
 DSH_RESTORE_MODEL=gpt-5.6-sol \
 DSH_RESTORE_REASONING=max \
-npm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用户 turn 回放
+pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用户 turn 回放
 ```
 
 > `smoke:deployed` 会创建临时会话、分别测试 Codex/Kimi 工具调用与第二个用户 turn（覆盖 `INVALID_REPLAY_STATE` 回归），恢复显式指定的默认模型后归档测试会话。

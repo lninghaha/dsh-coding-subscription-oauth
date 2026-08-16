@@ -8,8 +8,6 @@
 
 **Plugin de OAuth para assinaturas de codificação do [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Entre com as assinaturas que você já paga — depois use os modelos delas a partir da página de configurações do dsh ou da CLI. **Nenhum token colado no chat.**
 
-[![npm version](https://img.shields.io/npm/v/dsh-coding-subscription-oauth?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
-[![npm downloads](https://img.shields.io/npm/dm/dsh-coding-subscription-oauth?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-coding-subscription-oauth)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -25,9 +23,12 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 
 | | Use isto | Ainda funciona |
 |---|---|---|
-| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (mesmo `main`) |
+| npm | Ainda não publicado; instale pelo GitHub | Nenhum pacote npm legado foi publicado |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis id / HTTP `/plugins/dsh-grok-build/*` / credenciais | inalterado | — |
+| Cordis plugin id | `llm-grok-build-oauth` | inalterado |
+| API HTTP das configurações | `/plugins/dsh-grok-build/*` | inalterado |
+| Arquivos de credenciais | `$DSH_HOME/.grok-build-auth.json` e os outros `*-oauth-auth.json` | inalterado |
 
 ## ✨ Recursos
 
@@ -113,13 +114,13 @@ dsh plugin --profile web add ./dsh-coding-subscription-oauth
 Reinicie o `dsh web` após instalar. Verificação contra uma implantação ao vivo:
 
 ```bash
-npm run verify:deployed            # confere /api/llm.models real + estado OAuth
-DSH_EXPECT_AGY_AUTH=signed-in npm run verify:deployed   # se o Google estiver conectado
+pnpm run verify:deployed            # confere /api/llm.models real + estado OAuth
+DSH_EXPECT_AGY_AUTH=signed-in pnpm run verify:deployed   # se o Google estiver conectado
 
 DSH_RESTORE_PROVIDER=openai \
 DSH_RESTORE_MODEL=gpt-5.6-sol \
 DSH_RESTORE_REASONING=max \
-npm run smoke:deployed             # chamadas reais Codex/Kimi + replay do segundo turn
+pnpm run smoke:deployed             # chamadas reais Codex/Kimi + replay do segundo turn
 ```
 
 > O `smoke:deployed` cria uma sessão temporária, valida chamadas de ferramenta do Codex e do Kimi e um segundo turn do usuário (regressão de `INVALID_REPLAY_STATE`), restaura o modelo padrão declarado e depois arquiva a sessão.

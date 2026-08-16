@@ -1,6 +1,6 @@
 # Architecture
 
-> [**中文版**](docs/02-architecture.zh-CN.md) · English
+> [**中文版**](02-architecture.zh-CN.md) · English
 
 This document describes the internal architecture of `dsh-coding-subscription-oauth`. It is the source for the technical notes in `README.md` and is intended for contributors and maintainers.
 
@@ -50,7 +50,7 @@ ctx.llm route
 - `oauth-session.ts`: login, refresh, static model catalog and model-selection cache.
 - `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
 - `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes.
-- `auth-routes.ts`: legacy Grok API + the new unified `/plugins/dsh-grok-build/oauth/*`.
+- `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
 - `client/`: four native account cards on the settings page plus the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
 
@@ -67,7 +67,7 @@ POST /plugins/dsh-grok-build/oauth/logout
 POST /plugins/dsh-grok-build/oauth/models
 ```
 
-Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens.
+Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
 
@@ -77,7 +77,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The published name is **`dsh-coding-subscription-oauth`**. The previous GitHub/npm id `dsh-grok-build` remains a clone of the same `main` so old `dsh plugin add github:lninghaha/dsh-grok-build` URLs still resolve.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. Neither the new nor legacy npm name has been published yet; current distribution is GitHub-first.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 
@@ -87,4 +87,4 @@ Stable on-disk / in-process identifiers (do not rename without a migration):
 - CLI: `dsh-coding-oauth` (primary) and `dsh-grok-build` (alias)
 - LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`
 
-New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. The `grok-build` fallback model is unchanged.
+New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.

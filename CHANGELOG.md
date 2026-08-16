@@ -14,6 +14,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Changed
 
+- Migrate the package toolchain from npm/tsdown to pnpm 11, TypeScript 6, Biome, and an esbuild multi-entry server/client build with declaration emit, promote/verify, and CI. Published package identity, dual CLI, Cordis/HTTP/credential identifiers, and `pi-ai` 0.84.2 stay unchanged.
+- Require Node.js 22.19+ (or 24+) for the TypeScript 6/esbuild release pipeline and runtime bundle.
 - Upgrade `@earendil-works/pi-ai` to `^0.84.2`: OAuth access tokens now refresh proactively five minutes before the stored expiry (previously only at the exact expiry instant, which raced server-side revocation on the Kimi/Codex routes), with a 15 s refresh timeout.
 - Request OAuth access tokens with an explicit minimum remaining validity (60 s); a refresh that returns an even-shorter-lived token hard-fails instead of being handed to a request.
 - Translate a rejected token refresh (revoked refresh token / dead grant) into `MISSING_CREDENTIAL` with a sign-in prompt rather than surfacing a bare upstream 401, and never retry it.
@@ -25,6 +27,9 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 - Fix the stale-token 401 turn failure (`API key is invalid` banner) observed on the Kimi Code OAuth route when an access token expired mid-session: the turn now refreshes and retries transparently.
 - Expose Grok 4.6 `xhigh` reasoning effort. Live `/models-v2` already returns `reasoning_efforts` including xhigh, but the plugin previously kept only model ids and materialized grok-4.6 from the grok-4.5 template. pi-ai hides xhigh unless that key is an explicit non-null mapping. The catalog now applies live effort lists; the baseline ships grok-4.6 with xhigh while grok-4.5 stays low/medium/high.
+- Invalidate credentials on an `AUTH` finish even when that same finish also carries replay state, then rewrite the replay provider without skipping the refresh path.
+- Bound OAuth JSON request bodies to 64 KiB (400 for malformed JSON, 413 for oversized bodies) and stream the live model catalog through a real 4 MiB ceiling.
+- Contain startup cache/catalog failures and redact token-like material from refresh diagnostics instead of retaining it in user-visible errors or error causes.
 
 ## v0.2.0
 

@@ -8,6 +8,8 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
+当前新旧 npm 名称均尚未发布，请使用上述 GitHub 地址或本地目录安装；旧 GitHub 地址会解析到同一条 `main`。
+
 ## 前置条件
 
 - DeepSeek Harness 0.1.0-rc.6+
@@ -159,12 +161,12 @@ rm -f ~/.dsh/.grok-build-models.json ~/.dsh/.codex-oauth-models.json \
 ## 部署验收
 
 ```bash
-npm run verify:deployed
+pnpm run verify:deployed
 
 DSH_RESTORE_PROVIDER=openai \
 DSH_RESTORE_MODEL=gpt-5.6-sol \
 DSH_RESTORE_REASONING=max \
-npm run smoke:deployed
+pnpm run smoke:deployed
 ```
 
 第一条命令验证真实模型目录的认证门禁和 `(OAuth)` 标签。第二条会通过运行中的 DSH 分别执行 Codex/Kimi 的 tool-call 与第二个用户 turn（覆盖 `INVALID_REPLAY_STATE` 回归），随后恢复显式指定的默认模型并归档测试会话；为避免覆盖现有默认设置，不提供 `DSH_RESTORE_*` 时脚本拒绝运行。
