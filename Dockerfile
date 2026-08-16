@@ -59,7 +59,8 @@ RUN --network=none cp -a lib /tmp/committed-lib \
     && printf '{"name":"oauth-sandbox-consumer","private":true,"type":"module"}\n' > /tmp/consumer/package.json \
     && cd /tmp/consumer \
     && pnpm add --offline --ignore-scripts --config.auto-install-peers=false /workspace/output/dsh-coding-subscription-oauth-*.tgz \
-    && node -e 'const fs = require("node:fs"); const path = require("node:path"); const root = require("/workspace/package.json"); for (const name of Object.keys(root.peerDependencies)) { const source = path.join("/workspace/node_modules", name); const target = path.join("/tmp/consumer/node_modules", name); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.rmSync(target, { recursive: true, force: true }); fs.symlinkSync(source, target, "dir"); }' \
+    && node -e 'const fs = require("node:fs"); const path = require("node:path"); const root = require("/workspace/package.json"); for (const name of Object.keys(root.peerDependencies)) { if (name === "@deepseek-ai/dsh-tools") continue; const source = path.join("/workspace/node_modules", name); const target = path.join("/tmp/consumer/node_modules", name); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.rmSync(target, { recursive: true, force: true }); fs.symlinkSync(source, target, "dir"); }' \
+    && node --input-type=module -e 'const plugin = await import("dsh-coding-subscription-oauth"); if (typeof plugin.apply !== "function") process.exit(1)' \
     && node node_modules/dsh-coding-subscription-oauth/lib/bin.js --help \
     && node --input-type=module -e 'const value = await import("dsh-coding-subscription-oauth/invariant"); if (typeof value !== "object") process.exit(1)'
 

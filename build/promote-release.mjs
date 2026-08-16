@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const source = resolve(".next/lib");
@@ -46,8 +46,14 @@ await mkdir(staging, { recursive: true });
 for (const name of wanted) {
 	const info = await stat(join(source, name));
 	if (info.size === 0) throw new Error(`refusing to promote empty artifact: ${name}`);
-	await mkdir(dirname(join(staging, name)), { recursive: true });
-	await cp(join(source, name), join(staging, name));
+	const staged = join(staging, name);
+	await mkdir(dirname(staged), { recursive: true });
+	await cp(join(source, name), staged);
+	if (name.endsWith(".d.ts")) {
+		const declaration = await readFile(staged, "utf8");
+		const rewritten = declaration.replace(/(["'])(\.[^"']*)(?<!\.d)\.ts\1/gu, "$1$2.js$1");
+		if (rewritten !== declaration) await writeFile(staged, rewritten);
+	}
 }
 
 let replacedExisting = false;

@@ -27,6 +27,21 @@ describe("bundle composition", () => {
 		expect(source).toContain("registerCodingOAuthRoutes");
 	});
 
+	it("ships a v0.4 host bundle that matches the capability client", async () => {
+		const server = await readFile(join(root, "lib/index.js"), "utf8");
+		for (const marker of [
+			"/plugins/dsh-grok-build/oauth/sources",
+			"/plugins/dsh-grok-build/capabilities",
+			"codex-oauth-fast",
+			"XAI_API_KEY",
+			"/plugins/dsh-grok-build/imagine/media/",
+		]) {
+			expect(server).toContain(marker);
+		}
+		const imports = server.match(/^import .*$/gm) ?? [];
+		expect(imports.some((statement) => statement.includes('"@deepseek-ai/dsh-tools"'))).toBe(false);
+	});
+
 	it("ships the pinned Antigravity authentication-discovery patch", async () => {
 		const patch = await readFile(join(root, "patches/dsh-agy@0.1.2.patch"), "utf8");
 		expect(patch).toContain('+\t\t\tname: "Google Antigravity (OAuth)"');
@@ -42,7 +57,7 @@ describe("bundle composition", () => {
 			files: string[];
 		};
 		expect(manifest.name).toBe("dsh-coding-subscription-oauth");
-		expect((manifest as { version?: string }).version).toBe("0.3.0");
+		expect((manifest as { version?: string }).version).toBe("0.4.0");
 		expect(manifest.dsh.bundle.patch).toBe("./cordis.patch.yml");
 		expect(manifest.dsh.client.platform).toBe("web");
 		expect(manifest.dsh.client.inject).toContain("@deepseek-ai/dsh-client-ui-settings");

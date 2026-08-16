@@ -10,6 +10,7 @@ const execute = promisify(execFile);
 const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
+assert.equal(manifest.version, "0.4.0", "release artifacts must use the v0.4 manifest");
 assert.deepEqual(manifest.bin, {
 	"dsh-coding-oauth": "lib/bin.js",
 	"dsh-grok-build": "lib/bin.js",
@@ -61,12 +62,27 @@ assert.ok(
 	topLevelImports.some((statement) => statement.includes('"@deepseek-ai/dsh-llm"')),
 	"harness LLM runtime imports should stay external",
 );
+assert.ok(
+	!topLevelImports.some((statement) => statement.includes('"@deepseek-ai/dsh-tools"')),
+	"optional tools peer must not be imported while evaluating the root entrypoint",
+);
+for (const marker of [
+	"/plugins/dsh-grok-build/oauth/sources",
+	"/plugins/dsh-grok-build/capabilities",
+	"codex-oauth-fast",
+	"XAI_API_KEY",
+	"/plugins/dsh-grok-build/imagine/media/",
+]) {
+	assert.ok(serverSource.includes(marker), `server bundle is missing v0.4 runtime marker ${marker}`);
+}
 
 const plugin = await import(`${pathToFileURL(resolve(root, "lib/index.js")).href}?verify=${Date.now()}`);
 assert.equal(plugin.name, "llm-grok-build-oauth");
 assert.equal(typeof plugin.apply, "function");
 assert.ok(Array.isArray(plugin.inject));
 assert.ok(plugin.inject.includes("llm"));
+assert.equal(plugin.XAI_API_KEY_CREDENTIAL, "XAI_API_KEY");
+assert.equal(plugin.IMAGINE_MEDIA_STORE_DIRNAME, ".dsh-coding-subscription-oauth-media");
 
 const clientSource = await readFile(resolve(root, "lib/client.js"), "utf8");
 assert.match(
@@ -100,6 +116,13 @@ for (const path of await collectFiles(resolve(root, "lib"))) {
 	const text = await readFile(path, "utf8");
 	assert.doesNotMatch(text, /\/home\/[^/\s]+\//u, `release artifact contains an absolute home path: ${path}`);
 	assert.doesNotMatch(text, /[A-Za-z]:\\\\Users\\\\/u, `release artifact contains an absolute user path: ${path}`);
+	if (path.endsWith(".d.ts")) {
+		assert.doesNotMatch(
+			text,
+			/(?:from|import)\s*(?:\([^)]*)?["']\.[^"']*\.ts["']/u,
+			`declaration import retains a TypeScript extension: ${path}`,
+		);
+	}
 }
 
 console.log(`verified ${manifest.name}@${manifest.version} release artifacts`);

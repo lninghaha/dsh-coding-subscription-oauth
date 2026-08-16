@@ -66,9 +66,9 @@ if (typeof manifest.version !== "string" || !semver.test(manifest.version)) {
 }
 if (manifest.private === true) fail("release package must not be private");
 
-const releaseVersions = [...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/gmu)].map(
-	(match) => match[1],
-);
+const releaseVersions = [
+	...changelog.matchAll(/^##\s+v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)(?:\s+-\s+\d{4}-\d{2}-\d{2})?\s*$/gmu),
+].map((match) => match[1]);
 if (releaseVersions[0] !== manifest.version) {
 	fail(`top CHANGELOG release (${releaseVersions[0] ?? "missing"}) does not match package version ${manifest.version}`);
 }
