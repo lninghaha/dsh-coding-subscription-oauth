@@ -32,4 +32,15 @@ export default defineConfig([
     fixedExtension: false,
     deps: { neverBundle: nodeExternal },
   },
+  {
+    entry: {
+      client: 'src/client/index.tsx',
+    },
+    platform: 'browser',
+    format: 'cjs',
+    dts: false,
+    outDir: 'lib',
+    fixedExtension: false,
+    deps: { neverBundle: ['react', 'react/jsx-runtime'] },
+  },
 ])

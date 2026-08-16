@@ -8,7 +8,9 @@
 
 ✅ **M1 最小链路已实机验证**（2026-08-16）：device 登录 → `/v1/models-v2` 动态目录（实测返回 `grok-4.6`、`grok-4.5`）→ Responses 流式推理全通（独立冒烟 `node scripts/smoke-infer.mjs`，两个模型均返回正常）。
 
-🚧 进行中：M2 PKCE 授权码流（`login --pkce` 已可用，待实机验证后设为默认）、M3 dsh 设置面板集成。
+✅ **M3 设置面板代码完成**：**设置 → Grok Build** 原生分区（settings.section）——订阅登录（PKCE 授权码 + 粘贴 code 双通道）、设备码备用、Grok CLI 导入、模型勾选、注销。宿主路由 `/plugins/dsh-grok-build/auth/*`（同源 + loopback 校验，token 不出现在任何响应里）。
+
+🚧 进行中：PKCE 实机验证（`login --pkce`）后设为默认；M4 测试与发布。
 
 > 详细调研、架构设计、建设计划与风险评估文档在本地维护，未随本仓库公开；有需要可提 issue 联系。
 

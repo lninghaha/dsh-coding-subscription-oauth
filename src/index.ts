@@ -1,6 +1,6 @@
 /**
  * Optional xAI Grok Build bundle with OAuth, account model catalog,
- * and (from M3) an account section inside dsh Settings.
+ * and an account section inside dsh Settings.
  * @module dsh-grok-build
  */
 
@@ -10,6 +10,7 @@ import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-llm'
 import { createGrokBuildAdapter } from './adapter.ts'
+import { registerGrokBuildAuthRoutes } from './auth-routes.ts'
 import { GROK_BUILD_ROUTE } from './ids.ts'
 import { ensureGrokBuildProxy } from './proxy.ts'
 import { GrokBuildSession } from './session.ts'
@@ -25,6 +26,18 @@ export {
   logoutGrokBuild,
 } from './auth.ts'
 export type { GrokBuildAuthStatus } from './auth.ts'
+export {
+  GrokBuildWebAuth,
+  GROK_BUILD_AUTH_IMPORT_PATH,
+  GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
+  GROK_BUILD_AUTH_LOGIN_CODE_PATH,
+  GROK_BUILD_AUTH_LOGIN_PATH,
+  GROK_BUILD_AUTH_LOGOUT_PATH,
+  GROK_BUILD_AUTH_MODELS_PATH,
+  GROK_BUILD_AUTH_STATUS_PATH,
+  registerGrokBuildAuthRoutes,
+} from './auth-routes.ts'
+export type { GrokBuildLoginMethod, GrokBuildWebAuthStatus, LoginChallenge } from './auth-routes.ts'
 export {
   extractModelIds,
   fetchLiveModelIds,
@@ -105,4 +118,5 @@ export function apply(ctx: Context, config: Config): void {
     [GROK_BUILD_ROUTE],
     createGrokBuildAdapter(session, () => ctx.get('attachments')),
   )
+  ctx.inject(['webServer'], webCtx => registerGrokBuildAuthRoutes(webCtx, session))
 }

@@ -17,9 +17,9 @@
     "dsh-grok-build": "lib/bin.js"
   },
   "scripts": {
-    "build": "npm run typecheck && tsdown",
+    "build": "npm run typecheck && tsdown && node scripts/wrap-client.mjs",
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
     "check": "npm run typecheck && npm run test && npm run build"
   },
   "exports": {
@@ -31,6 +31,7 @@
       "types": "./lib/invariant.d.ts",
       "default": "./lib/invariant.js"
     },
+    "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
@@ -46,6 +47,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
     }
   },
   "dependencies": {
