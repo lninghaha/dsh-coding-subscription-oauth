@@ -45,9 +45,9 @@ if (model === undefined) {
 }
 
 console.log(`streaming ${modelId} …`)
-// Calling the api implementation directly: pass the CLI fingerprint headers
+// createProvider dispatches on model.api; pass the CLI fingerprint headers
 // explicitly (the PiAiAdapter path does this via profile.headers instead).
-const stream = provider.api['openai-responses'].stream(model, {
+const stream = provider.stream(model, {
   messages: [{ role: 'user', content: 'Reply with exactly: OK', timestamp: Date.now() }],
 }, { apiKey, headers: grokBuildFingerprintHeaders(), signal: AbortSignal.timeout(120_000) })
 
@@ -55,7 +55,8 @@ let text = ''
 for await (const event of stream) {
   if (event.type === 'text_delta') text += event.delta
   else if (event.type === 'error') {
-    console.error(`stream error: ${JSON.stringify(event.error?.stopReason ?? event)}`)
+    const detail = event.error?.errorMessage ?? JSON.stringify(event.error ?? event)
+    console.error(`stream error: ${detail}`)
     process.exit(1)
   }
 }

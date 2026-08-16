@@ -14,6 +14,8 @@ import {
   loginGrokBuildSession,
 } from './index.ts'
 import { grokAuthPath } from './grok-import.ts'
+import { XAI_PI_PROVIDER } from './ids.ts'
+import { loginGrokBuildPkce } from './oauth.ts'
 import { ensureGrokBuildProxy, grokBuildProxyInEffect } from './proxy.ts'
 import { safeMessage } from './redact.ts'
 
@@ -77,9 +79,11 @@ async function answerPrompt(
 
 function printHelp(): void {
   process.stdout.write([
-    'Usage: dsh-grok-build <login|logout|status|import>',
+    'Usage: dsh-grok-build <login|logout|status|import> [--pkce|--device-auth]',
     '',
-    '  login   sign in with SuperGrok or X Premium (device code)',
+    '  login   sign in with SuperGrok or X Premium (device code by default;',
+    '          --pkce for the authorization-code flow [experimental],',
+    '          --device-auth to force the device flow)',
     '  import  copy ~/.grok/auth.json into the dsh store (does not modify Grok CLI)',
     '  logout  remove the dsh credential without changing ~/.grok',
     '  status  report non-secret dsh credential state and visible models',
@@ -103,7 +107,8 @@ export async function run(argv: readonly string[]): Promise<number> {
     return 1
   }
   const action: Action = rawAction
-  if (flags.length > 0) {
+  const allowedFlags = action === 'login' ? ['--pkce', '--device-auth'] : []
+  if (flags.some(flag => !allowedFlags.includes(flag))) {
     process.stderr.write(`dsh-grok-build: invalid options for ${action}: ${flags.join(' ')}\n`)
     return 1
   }
@@ -146,13 +151,30 @@ export async function run(argv: readonly string[]): Promise<number> {
       case 'login': {
         const proxy = grokBuildProxyInEffect()
         if (proxy !== undefined) process.stdout.write(`Using proxy ${proxy} for xAI/Grok Build hosts\n`)
+        const usePkce = flags.includes('--pkce')
         const session = new GrokBuildSession()
         const readline = createInterface({ input: process.stdin, output: process.stdout })
         try {
-          await loginGrokBuildSession({
-            prompt: prompt => answerPrompt(prompt, (text, options) => readline.question(text, options)),
-            notify: event => notify(event, true),
-          }, session)
+          if (usePkce) {
+            const credential = await loginGrokBuildPkce({
+              onAuthorizeUrl: url => {
+                process.stdout.write(`Open this URL to sign in:\n${url}\n`)
+                openBrowser(url)
+              },
+              awaitCode: signal => readline.question(
+                'After authorizing, paste the code or full redirect URL: ',
+                { signal },
+              ),
+            })
+            const written = await session.store.modify(XAI_PI_PROVIDER, async () => credential)
+            if (written === undefined) throw new Error('credential store refused the login credential')
+            await session.refreshLiveCatalog()
+          } else {
+            await loginGrokBuildSession({
+              prompt: prompt => answerPrompt(prompt, (text, options) => readline.question(text, options)),
+              notify: event => notify(event, true),
+            }, session)
+          }
         } finally {
           readline.close()
         }

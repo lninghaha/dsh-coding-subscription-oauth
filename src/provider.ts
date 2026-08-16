@@ -47,6 +47,10 @@ export function grokBuildBaselineModels(): Model<'openai-responses'>[] {
       provider: GROK_BUILD_ROUTE,
       baseUrl: GROK_BUILD_BASE_URL,
       reasoning: true,
+      // Grok Build rejects reasoning_effort "none" (HTTP 400); marking "off"
+      // unsupported makes pi-ai omit the reasoning field unless the caller
+      // asks for low/medium/high.
+      thinkingLevelMap: { off: null },
       input: ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: 500_000,

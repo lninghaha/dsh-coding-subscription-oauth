@@ -6,7 +6,9 @@
 
 ## 现状
 
-🚧 **开发中（M1 最小链路）** —— device-code 登录 + 推理链路已实现，PKCE 授权码流与设置面板进行中。
+✅ **M1 最小链路已实机验证**（2026-08-16）：device 登录 → `/v1/models-v2` 动态目录（实测返回 `grok-4.6`、`grok-4.5`）→ Responses 流式推理全通（独立冒烟 `node scripts/smoke-infer.mjs`，两个模型均返回正常）。
+
+🚧 进行中：M2 PKCE 授权码流（`login --pkce` 已可用，待实机验证后设为默认）、M3 dsh 设置面板集成。
 
 > 详细调研、架构设计、建设计划与风险评估文档在本地维护，未随本仓库公开；有需要可提 issue 联系。
 
@@ -21,6 +23,9 @@ dsh plugin --profile web add github:lninghaha/dsh-grok-build   # 或本地路径
 ```bash
 # 登录（device code；会打印验证地址与一次性代码，浏览器授权即可）
 dsh-grok-build login
+
+# PKCE 授权码流（实验性：loopback 自动捕获 + 粘贴 code 双通道）
+dsh-grok-build login --pkce
 
 # 或者从官方 Grok CLI 导入已有凭据（只读拷贝，不修改 ~/.grok/auth.json）
 dsh-grok-build import

@@ -51,6 +51,21 @@ export {
   grokBuildFingerprintHeaders,
   grokBuildProvider,
 } from './provider.ts'
+export {
+  buildAuthorizeUrl,
+  discoverOAuthEndpoints,
+  extractCode,
+  generatePkce,
+  GrokBuildOAuthError,
+  GROK_BUILD_OAUTH_CLIENT_ID,
+  GROK_BUILD_OAUTH_DEFAULT_PORT,
+  GROK_BUILD_OAUTH_ISSUER,
+  GROK_BUILD_OAUTH_SCOPE,
+  loginGrokBuildPkce,
+  refreshGrokBuildToken,
+  resolveOAuthParams,
+} from './oauth.ts'
+export type { GrokBuildOAuthErrorCode, GrokBuildOAuthParams, PkceLoginCallbacks } from './oauth.ts'
 export { ensureGrokBuildProxy, grokBuildProxyInEffect } from './proxy.ts'
 export { safeMessage } from './redact.ts'
 export { GrokBuildSession } from './session.ts'
