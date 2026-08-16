@@ -236,6 +236,7 @@ export async function fetchLiveModels(accessToken: string, signal?: AbortSignal)
 	try {
 		raw = await readBoundedResponse(response);
 	} catch (error) {
+		if (signal?.aborted) throw new Error("Live model listing was cancelled");
 		if (error instanceof Error && error.message === BODY_LIMIT_ERROR) throw error;
 		throw new Error("Grok Build model listing response could not be read");
 	}

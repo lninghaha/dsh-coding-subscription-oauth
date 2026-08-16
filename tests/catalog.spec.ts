@@ -182,6 +182,23 @@ describe("fetchLiveModels", () => {
 		expect(cancelled).toBe(true);
 	});
 
+	it("preserves cancellation when an aborted response stream fails", async () => {
+		const cancellation = new AbortController();
+		cancellation.abort();
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.error(new Error("aborted"));
+			},
+		});
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response(body, { status: 200 })),
+		);
+		await expect(fetchLiveModels("example-token", cancellation.signal)).rejects.toThrow(
+			"Live model listing was cancelled",
+		);
+	});
+
 	it("rejects an oversized content-length before reading the body", async () => {
 		vi.stubGlobal(
 			"fetch",
