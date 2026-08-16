@@ -11,7 +11,7 @@ import {
   GROK_BUILD_STREAM_IDLE_TIMEOUT_MS,
   XAI_PI_PROVIDER,
 } from './ids.ts'
-import { grokBuildBaselineModels } from './provider.ts'
+import { grokBuildBaselineModels, grokBuildFingerprintHeaders } from './provider.ts'
 import type { GrokBuildSession } from './session.ts'
 
 /** Prefer grok-4.5 when the current (live or baseline) list has it. */
@@ -37,6 +37,9 @@ export function createGrokBuildAdapter(
       streamIdleTimeoutMs: GROK_BUILD_STREAM_IDLE_TIMEOUT_MS,
       retryPolicy: resolveRetryPolicy(undefined, 'dsh-grok-build retryPolicy'),
       configuredMaxTokens: new Map(),
+      // PiAiAdapter passes profile.headers to every request — this is the
+      // path that actually carries the CLI fingerprint onto the wire.
+      headers: grokBuildFingerprintHeaders(),
       piProvider: session.provider(),
     }]]),
     resolveApiKey: async () => {
