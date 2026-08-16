@@ -9,14 +9,19 @@ Welcome! `dsh-coding-subscription-oauth` is an open-source coding-subscription O
 
 ## Getting started
 
-Development verification for this plugin runs only in an isolated Docker sandbox; do not run installs, builds, tests, typechecks, linters or package checks directly on a shared developer host. Use a `test-`/`e2e-` container, copy the source into the container (never mount credentials), avoid host networking/privileged mode, set CPU and memory limits, and remove the container immediately after the run.
-
-Inside that sandbox:
+Development verification for this plugin runs only in an isolated Docker build sandbox; do not run installs, builds, tests, typechecks, linters or package checks directly on a shared developer host. The tracked `Dockerfile` copies the filtered source into the image (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use host networking, privileged mode, ports, or bind mounts.
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm run check         # lint + typecheck + test + build — must pass before any PR
+docker build --target check --build-arg NODE_VERSION=22.19.0 \
+  --resource memory=3g --resource cpu-quota=200000 \
+  --tag test-dsh-coding-oauth:check .
+
+docker build --target verify --build-arg NODE_VERSION=22.19.0 \
+  --resource memory=3g --resource cpu-quota=200000 \
+  --tag test-dsh-coding-oauth:verify .
 ```
+
+The `artifacts`, `package`, `inspect`, and `isolated-install` targets cover generated `lib/`, the candidate tarball, release inspection, and a script-disabled consumer install.
 
 This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-build`), an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
 
@@ -25,7 +30,7 @@ This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-buil
 1. Open an issue describing the change (or link an existing one) so scope is agreed first.
 2. Branch from the default branch. Keep commits atomic and conventional — see **Commits & pushes** below.
 3. When you change a capability or add a doc, update `README.md` (and the community translations added in `docs/00-project-rules.md` §2 if user-facing) and the relevant entries in `docs/` (public layer), **and** add a changelog entry under `Unreleased` in `CHANGELOG.md`.
-4. Run `pnpm run check` in the Docker sandbox until green, then commit that passing slice promptly (do not stack later work on an uncommitted green tree).
+4. Build the Docker `check` and `verify` targets until green, then commit that passing slice promptly (do not stack later work on an uncommitted green tree).
 5. Push the branch as a version/milestone checkpoint and open a PR. Describe what changed and how it was verified. Keep the scope of local-only docs (`docs/local/`) out of the PR unless you are a maintainer doing internal investigation.
 
 ## Commits & pushes
@@ -50,7 +55,7 @@ History is part of the review. The maintainer counterpart — tags, clean-tree r
 
 ### Before you commit
 
-- Run the relevant tests, then `pnpm run check`, inside the Docker sandbox and wait until green. Do not commit a failing tree.
+- Build the relevant Docker targets (`check`, then `verify`) and wait until green. Do not commit a failing tree.
 - Commit promptly once checks pass — do not leave a finished, verified change sitting uncommitted next to later work.
 - Generated `lib/` is a committed release artifact (git installs + the CI `git diff --exit-code -- lib` drift gate). Rebuild it and include it in the **same** commit as the source or build-script change that produced it. Do not land stale `lib/` against newer `src/`, and do not land a `lib/`-only commit unless the only change is a verified rebuild with no source delta.
 - Never commit secrets, tokens, credentials, private keys, `.env` files, host-specific paths, or local-only notes (`docs/local/`, `reference/`). See `docs/00-project-rules.md` §0.3.

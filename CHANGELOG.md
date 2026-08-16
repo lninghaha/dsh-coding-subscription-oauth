@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Changed
+
+- Add a tracked multi-stage Docker sandbox for networkless check/verify, generated artifact export, local candidate packaging, and a script-disabled isolated consumer install.
+
 ## v0.3.0
 
 ### Added

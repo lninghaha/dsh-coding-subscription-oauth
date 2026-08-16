@@ -10,23 +10,29 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         node: [22.19.0, 24]
     runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: "1"
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.21.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run check
-      - name: Verify committed release artifacts are reproducible
+      - name: Verify inside an isolated Docker sandbox
         run: |
-          git diff --exit-code -- lib
-          test -z "$(git ls-files --others --exclude-standard -- lib)"
-      - name: Inspect packed release contents
-        run: npm pack --dry-run --json --ignore-scripts
+          docker build \
+            --target verify \
+            --build-arg NODE_VERSION=${{ matrix.node }} \
+            --resource memory=3g \
+            --resource cpu-quota=200000 \
+            --tag test-dsh-coding-oauth:verify-${{ matrix.node }} \
+            .
+      - name: Verify a script-disabled isolated consumer install
+        run: |
+          docker build \
+            --target isolated-install \
+            --build-arg NODE_VERSION=${{ matrix.node }} \
+            --resource memory=3g \
+            --resource cpu-quota=200000 \
+            --tag test-dsh-coding-oauth:install-${{ matrix.node }} \
+            .

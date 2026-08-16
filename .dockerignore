@@ -1,0 +1,37 @@
+# Version-control and dependency state
+.git
+node_modules
+package-lock.json
+
+# Generated and editor output
+.next
+output
+coverage
+*.tsbuildinfo
+*.tgz
+*.log
+.DS_Store
+.idea
+.vscode
+*.swp
+
+# Local-only material and credentials
+docs/local
+reference
+scripts/probe-proxy-interception.mjs
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.npm-cache
+.npm-logs
+.cfresearch
+.research
+ccr

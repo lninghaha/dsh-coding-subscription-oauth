@@ -19,12 +19,18 @@
 
 ## 验收命令（Docker sandbox 内）
 
-共享开发主机只负责启动隔离容器；不要直接在宿主机运行安装、检查或构建命令。容器必须使用 `test-`/`e2e-` 名称、资源限额、普通 bridge 网络、只读源码挂载，并在结束后立即删除。以下命令在复制到容器内部的工作目录执行：
+共享开发主机只负责启动隔离构建；不要直接在宿主机运行安装、检查或构建命令，也不要 bind mount 源码、凭据、Docker socket 或其他项目目录。使用仓库跟踪的多阶段 Dockerfile：
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm run check        # lint + release:build + test
+docker build --target check --build-arg NODE_VERSION=22.19.0 \
+  --resource memory=3g --resource cpu-quota=200000 \
+  --tag test-dsh-coding-oauth:check .
+docker build --target verify --build-arg NODE_VERSION=22.19.0 \
+  --resource memory=3g --resource cpu-quota=200000 \
+  --tag test-dsh-coding-oauth:verify .
 ```
+
+依赖下载只发生在 `dependencies` stage；后续 lint、typecheck、测试、构建、打包和隔离安装都使用 `RUN --network=none`。
 
 ## 从模板（dsh-usage-stats）复制/改编的文件 —— 重构落定后需 diff 再同步
 
@@ -41,9 +47,10 @@ pnpm run check        # lint + release:build + test
 | `build/clean.mjs` | 模板清理脚本 | 只清理 `.next/` 中间产物 |
 | `build/build-server.mjs` | `build/build-server.mjs` | 大改：externals 用插件前缀匹配；加 ts 说明符插件；三入口（index/bin/invariant）；`createRequire` banner |
 | `build/build-client.mjs` | `build/build-client.mjs` | 去 lightningcss 内联（无 CSS）；PLATFORM_MODULES 只留 react；wrapper id 为 `dsh-coding-subscription-oauth` |
-| `build/promote-release.mjs` | `build/promote-release.mjs` | runtimeFiles 扩到 index/bin/invariant/client；跳过空壳声明；验证失败时原子恢复旧 `lib/` |
+| `build/promote-release.mjs` | `build/promote-release.mjs` | runtimeFiles 扩到 index/bin/invariant/client；拒绝空产物；验证失败时原子恢复旧 `lib/` |
 | `build/verify-release.mjs` | `build/verify-release.mjs` | 断言 `package.json` `name=dsh-coding-subscription-oauth`、Cordis `name=llm-grok-build-oauth`、`inject` 含 `llm`、客户端 wrapper id、undici 内联、`@deepseek-ai/*` 外置、双 CLI、bin shebang |
 | `pnpm-workspace.yaml` | `pnpm-workspace.yaml` | 去 `storeDir`；`allowBuilds` 加 `@google/genai:false`、`protobufjs:false` |
+| `Dockerfile`, `.dockerignore` | 重构项目 sandbox 约定 | 无 bind mount；依赖 stage 后全部 `--network=none`；提供 check/verify/artifacts/package/isolated-install targets |
 
 ## 关键决策
 
