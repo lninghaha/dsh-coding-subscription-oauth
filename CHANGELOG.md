@@ -4,9 +4,31 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.4.0 - 2026-08-16
+
+### Added
+
+- Add read-only Settings discovery of allowlisted official Grok / Codex / Kimi / Claude CLI OAuth files, plus an explicit one-way manual Pull: discover → preview → conflict/fingerprint check → overwrite confirmation. Official CLI files are never written.
+- Add default-off live optional capabilities: Codex search, usage/quota, image generation/edit, Fast, and Grok Imagine image/video. Limits: search results 1–20, image count 1–4, artifact TTL 1 hour–7 days. A secret-free `capabilities` composition base is optional; user settings override it.
+- Advertise `codex-oauth-fast` only after a fresh live catalog lists at least one `priority`-eligible model. Requests send `service_tier: priority` and a routing hint. The UI says **Fast requested** and does not guarantee latency or upstream honor.
+- Add opt-in Codex private `chatgpt.com/backend-api` endpoints. Image generation uses the fixed model `gpt-image-2`. Image edit requires current-session top-level attachment ownership.
+- Add Grok Imagine against official `https://api.x.ai` with `grok-imagine-image-2.0` and `grok-imagine-video-1.5`, using a separate DSH credential reference `XAI_API_KEY` (never Grok OAuth, never a process-env fallback).
+- Serve generated outputs on same-origin loopback routes under `/plugins/dsh-grok-build/imagine/*`. Remote downloads apply MIME / size / time / redirect / DNS controls from frozen hosts `imgen.x.ai`, `videogen.x.ai`, and `vidgen.x.ai`. The private artifact store hard-caps both one object and aggregate unique object bytes at 256 MiB, with retention capped at seven days.
+
 ### Changed
 
 - Add a tracked multi-stage Docker sandbox for networkless check/verify, generated artifact export, local candidate packaging, and a script-disabled isolated consumer install.
+- Settings CLI synchronization is a manual Pull, not auto-import. Discovery stays automatic and read-only; writing the dsh store still requires preview and an explicit confirm.
+- Capability switches apply live; turning one off withdraws the matching search provider, tools, or Fast route without a restart.
+
+### Fixed
+
+- Bound in-memory Pull preview tickets to one-use, a five-minute TTL, and a process maximum of 32 so credential-bearing preview material cannot accumulate.
+
+### Security
+
+- Harden official CLI reads: reject symlinks, non-regular files, non-owner files, group/other access, and oversized documents; open with `O_NOFOLLOW`; never write the official CLI path.
+- Keep Imagine media on frozen xAI output hosts with DNS pinning and blocked private/loopback addresses; never return a signed upstream URL to the client.
 
 ## v0.3.0
 

@@ -21,17 +21,27 @@ agy                     dsh-agy external      dsh-agy 自有账号池
 ```text
 Settings / CLI
   │
-  ├─ GrokBuildWebAuth ── Grok custom PKCE/device/import
+  ├─ GrokBuildWebAuth ── Grok custom PKCE/device
   │                      └─ .grok-build-auth.json
   │
-  └─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
-            ├─ Codex  ── .codex-oauth-auth.json
-            ├─ Kimi   ── .kimi-code-oauth-auth.json
-            └─ Claude ── .claude-code-oauth-auth.json
+  ├─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
+  │         ├─ Codex  ── .codex-oauth-auth.json
+  │         ├─ Kimi   ── .kimi-code-oauth-auth.json
+  │         └─ Claude ── .claude-code-oauth-auth.json
+  │
+  └─ OAuthImportSession ── 白名单 CLI 只读发现
+            └─ 显式单向拉取（预览票据 → 目标 store）
+               从不写入官方 CLI 文件
 
 OAuthProviderSession.resolveAccessToken()
   └─ Models.getAuth(native id)        # refresh-under-lock
        └─ OAuthCredentialFileStore    # 0600 + atomic write + cross-process lock
+
+CapabilitySettingsController（默认关闭，applies: live）
+  └─ CapabilityRuntimeState
+       ├─ Codex 搜索 / 用量 / gpt-image-2 图像
+       ├─ codex-oauth-fast（仅在最新 priority catalog 之后）
+       └─ Grok Imagine（api.x.ai + DSH 凭据 XAI_API_KEY）
 
 ctx.llm route
   └─ AliasLlmAdapter
@@ -44,10 +54,22 @@ ctx.llm route
 - `store.ts`：一个文件只拥有一个 provider credential；保留旧 Grok store API；`invalidate()` 在上游 AUTH 拒绝后把 `expires` 回写到过去。
 - `oauth-providers.ts`：Codex/Kimi/Claude 定义、route metadata、请求 token bridge。
 - `oauth-session.ts`：登录、刷新、静态模型目录和模型选择缓存。
+- `oauth-sources.ts`：白名单官方 Grok/Codex/Kimi/Claude CLI 发现；加固的 lstat/`O_NOFOLLOW`/属主/权限/普通文件/大小读取；一次性预览票据（五分钟、最多 32 张）；从不写入官方 CLI 文件。
+- `oauth-import-routes.ts`：同源拉取 HTTP API（发现 → 预览 → 提交/取消），写入发生在目标 store 锁内。
 - `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。
-- `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。
+- `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。可选包装 `codex-oauth-fast`，显示为 **已请求 Fast**。
 - `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
-- `client/`：设置页四个原生账号卡片和外部 Antigravity 状态卡片。
+- `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
+- `capability-routes.ts`：无密钥的能力快照，以及可选的 Codex 用量和 Imagine 凭据状态路由。
+- `capability-runtime.ts`：按 live 开关绑定/解绑搜索、工具，以及仅在最新 priority catalog 后发布 Fast 路由。
+- `capability-tools.ts`：可选 Codex / Grok Imagine 工具定义；执行时重新读取开关。
+- `codex-http.ts`：需打开的私有 `chatgpt.com/backend-api` 客户端（仅 HTTPS、仅第一方主机）。
+- `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`：可选搜索、配额，以及固定 `gpt-image-2` 生成/编辑（编辑要求当前会话顶层附件所有权）。
+- `codex-model-capabilities.ts`：live Codex service-tier 缓存；Fast 资格失败关闭；注入 `service_tier: priority` 与路由提示。
+- `grok-imagine.ts`：官方 `api.x.ai` Imagine 客户端（`grok-imagine-image-2.0` / `grok-imagine-video-1.5`）；`XAI_API_KEY` 只通过 DSH 凭据；MIME/大小/超时/重定向/DNS 下载控制；冻结主机 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai`。
+- `imagine-routes.ts`：生成图像与视频产物的同源 loopback GET 路由。
+- `media-store.ts`：属主私有产物库（单件与唯一对象总量均硬限 256 MiB，最长七天）。
+- `client/`：四个原生账号卡片、CLI 拉取、能力开关，以及外部 Antigravity 状态卡片。
 - `proxy.ts`：process-wide undici dispatcher，但只代理审核过的域名白名单。
 
 ## 4. Web API
@@ -61,9 +83,24 @@ POST /plugins/dsh-grok-build/oauth/code
 POST /plugins/dsh-grok-build/oauth/cancel
 POST /plugins/dsh-grok-build/oauth/logout
 POST /plugins/dsh-grok-build/oauth/models
+
+GET  /plugins/dsh-grok-build/oauth/sources
+POST /plugins/dsh-grok-build/oauth/sources/preview
+POST /plugins/dsh-grok-build/oauth/sources/commit
+POST /plugins/dsh-grok-build/oauth/sources/cancel
+
+GET    /plugins/dsh-grok-build/capabilities
+PATCH  /plugins/dsh-grok-build/capabilities
+PUT    /plugins/dsh-grok-build/capabilities
+GET    /plugins/dsh-grok-build/codex/usage
+GET    /plugins/dsh-grok-build/imagine/credential-status
+GET    /plugins/dsh-grok-build/imagine/images/<id>
+GET    /plugins/dsh-grok-build/imagine/media/<id>
 ```
 
 写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。JSON 请求体在解析前限制为 64 KiB。
+
+`/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入是无密钥的 compare-and-swap 快照，立即生效。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
 
 旧 `/plugins/dsh-grok-build/auth/*` 继续注册并复用同一个 Grok 控制器。
 
@@ -78,9 +115,10 @@ POST /plugins/dsh-grok-build/oauth/models
 以下标识保持稳定（无迁移方案前不要改名）：
 
 - Cordis id：`llm-grok-build-oauth`
-- 设置页 HTTP API：`/plugins/dsh-grok-build/oauth/*` 以及旧的 `/plugins/dsh-grok-build/auth/*`
+- 设置页 HTTP API：`/plugins/dsh-grok-build/oauth/*`、`/plugins/dsh-grok-build/capabilities`、`/plugins/dsh-grok-build/codex/usage`、`/plugins/dsh-grok-build/imagine/*`，以及旧的 `/plugins/dsh-grok-build/auth/*`
 - 凭据文件：`$DSH_HOME/.grok-build-auth.json` 及其他 `*-oauth-auth.json`
+- Imagine 凭据：DSH 凭据引用 `XAI_API_KEY`（不用 Grok OAuth，不回退进程环境变量）
 - CLI：`dsh-coding-oauth`（主命令）与 `dsh-grok-build`（别名）
-- LLM 路由：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`
+- LLM 路由：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`；可选 `codex-oauth-fast`（v0.4.0，仅在最新 live catalog 列出 `priority` 后发布）
 
 新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。v0.3.0 将 `grok-build` fallback/default 更新为 `grok-4.6`，已有用户默认设置仍优先。

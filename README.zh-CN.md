@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.3.0** · 原名 `dsh-grok-build`
+**v0.4.0** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -38,6 +38,8 @@
 - 🛡️ **安全设计** —— 凭据文件均为 owner-only `0600`、原子写、跨进程文件锁。
 - ⚙️ **动态目录** —— 选择器只列出已登录路由并标注 `(OAuth)`，含 grok-4.6 的 `xhigh`。
 - 🌐 **代理感知** —— 只代理审核过的订阅域名；Kimi 中国流量默认直连。
+- 📥 **手动 CLI 拉取** —— 设置页只读发现白名单内的官方 Grok/Codex/Kimi/Claude CLI OAuth 文件；预览并确认覆盖后，单向拉取一份副本。
+- 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。
 
 ## 本插件解决的接入问题
 
@@ -60,7 +62,7 @@
 | 供应商 | 路由 | 认证 | 与现有 API-key 路由共存 |
 |---|---|---|---|
 | **xAI Grok Build** | `grok-build` | SuperGrok / X Premium OAuth | `xai` |
-| **OpenAI Codex** | `codex-oauth` | ChatGPT Plus/Pro OAuth | `openai` |
+| **OpenAI Codex** | `codex-oauth` · 可选 `codex-oauth-fast` | ChatGPT Plus/Pro OAuth | `openai` |
 | **Kimi Code** | `kimi-code-oauth` | Kimi Code OAuth | `kimi-coding` |
 | **Claude Code** | `claude-code-oauth` | Claude Pro/Max OAuth | — |
 | **Google Antigravity** | `agy` | `dsh-agy` Google OAuth | — |
@@ -88,6 +90,7 @@ systemctl --user restart dsh-web.service
 - [本插件解决的接入问题](#本插件解决的接入问题)
 - [安装](#安装)
 - [设置页](#设置页)
+- [可选能力](#可选能力)
 - [CLI](#cli)
 - [Kimi 中国说明](#kimi-中国说明)
 - [网络代理](#网络代理)
@@ -132,13 +135,25 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 | 供应商 | 方式 |
 |---|---|
-| Grok | 授权码 · 设备码 · Grok CLI import · 模型勾选 |
+| Grok | 授权码 · 设备码 · 模型勾选 |
 | Codex | 设备码（推荐远程 DSH）· 浏览器 PKCE |
 | Kimi | 设备码 |
 | Claude | 浏览器 PKCE（远程浏览器可粘贴完整 localhost redirect URL） |
 | Antigravity | `dsh-agy` 安装状态 + profile-local CLI 命令 |
 
+设置页还会**只读发现**白名单内的官方 Grok / Codex / Kimi / Claude CLI OAuth 文件。同步是显式的单向**拉取**，不是自动导入：发现 → 预览 → 冲突/指纹核对 → 确认覆盖。官方 CLI 文件从不被写入。读取会拒绝符号链接、非普通文件、非属主文件、组/其他人可读，以及超大文档（`O_NOFOLLOW`）。预览票据一次性、五分钟过期、最多 32 张。
+
 选择器只列出已认证的路由；未登录供应商返回空列表。供应商名称统一带 `(OAuth)`，登录或登出后通过 `llm/adapters-updated` 刷新目录。
+
+## 可选能力
+
+每项可选能力默认**关闭**，打开后**立即生效**（无需重启）：Codex 搜索、Codex 用量/配额、Codex 图像生成与编辑、Codex Fast、Grok Imagine 图像、Grok Imagine 视频。限制：搜索结果 1–20、图像数量 1–4、产物 TTL 1 小时–7 天。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；用户设置会覆盖这层 base，省略时所有开关仍保持关闭。
+
+`codex-oauth-fast` 仅在**最新一次 live catalog** 标明至少有一个 `priority` 可用模型后才会出现。请求会发送 `service_tier: priority` 和路由提示。界面写的是 **已请求 Fast**，不保证延迟，也不保证上游会兑现。
+
+Codex 搜索、用量和图像是**需显式打开**的私有 `chatgpt.com/backend-api` 端点。图像生成固定使用 `gpt-image-2`。图像编辑只接受当前会话顶层、且由本会话持有的附件 id。
+
+Grok Imagine 只走官方 `https://api.x.ai`，模型为 `grok-imagine-image-2.0` 与 `grok-imagine-video-1.5`。凭据是独立的 DSH 凭据引用 `XAI_API_KEY`——不用 Grok OAuth，也不回退到进程环境变量。生成结果在 MIME / 大小 / 超时 / 重定向 / DNS 控制下，仅从冻结主机 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai` 下载，存入私有产物库（单件与唯一对象总量均硬限 256 MiB，最长七天），并只通过同源 loopback 路由提供。
 
 ## CLI
 
@@ -199,7 +214,7 @@ owner-only `0600`、原子写、跨进程文件锁：
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`
 
-勾选/目录缓存使用对应的 `*-models.json` 文件。**任何 HTTP 状态、日志或 UI 都不得返回 token。**
+勾选/目录缓存使用对应的 `*-models.json` 文件。Grok Imagine 使用独立的 DSH 凭据名 `XAI_API_KEY`（不是 Grok OAuth 文件）。**任何 HTTP 状态、日志或 UI 都不得返回 token。**
 
 ## 架构
 
@@ -222,6 +237,8 @@ flowchart LR
 - **Grok Build**：`cli-chat-proxy.grok.com/v1` 的 Responses API（不是 `api.x.ai`）、CLI 指纹头、live `/v1/models-v2`（含 grok-4.6 的 `reasoning.effort: xhigh`）。
 - **Codex/Kimi/Claude**：pi-ai 原生 provider 负责 OAuth 与刷新；路由别名适配器映射到原生 id，避免多轮 `INVALID_REPLAY_STATE`。
 - Kimi access token 显式转为 `Authorization: Bearer`——绝不会误发成 Anthropic `x-api-key`。
+- **Codex Fast / 私有端点**：`codex-oauth-fast` 需显式打开，目录过期则失败关闭；搜索、用量和 `gpt-image-2` 图像默认关闭。
+- **Grok Imagine**：只走官方 `api.x.ai`，`XAI_API_KEY` 通过 DSH 凭据解析，下载路由为同源 `/plugins/dsh-grok-build/imagine/*`。
 - Google Antigravity **不**在本项目逆向，使用固定版本的专用 DSH 插件。
 
 ## 合规

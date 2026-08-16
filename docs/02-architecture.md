@@ -25,17 +25,27 @@ External routes and the pi-ai native ids are separated by `AliasLlmAdapter`. `Pi
 ```text
 Settings / CLI
   │
-  ├─ GrokBuildWebAuth ── Grok custom PKCE/device/import
+  ├─ GrokBuildWebAuth ── Grok custom PKCE/device
   │                      └─ .grok-build-auth.json
   │
-  └─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
-            ├─ Codex  ── .codex-oauth-auth.json
-            ├─ Kimi   ── .kimi-code-oauth-auth.json
-            └─ Claude ── .claude-code-oauth-auth.json
+  ├─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
+  │         ├─ Codex  ── .codex-oauth-auth.json
+  │         ├─ Kimi   ── .kimi-code-oauth-auth.json
+  │         └─ Claude ── .claude-code-oauth-auth.json
+  │
+  └─ OAuthImportSession ── read-only allowlisted CLI discovery
+            └─ explicit one-way Pull (preview ticket → dest store)
+               official CLI files are never written
 
 OAuthProviderSession.resolveAccessToken()
   └─ Models.getAuth(native id)        # refresh-under-lock
        └─ OAuthCredentialFileStore    # 0600 + atomic write + cross-process lock
+
+CapabilitySettingsController (default-off, applies: live)
+  └─ CapabilityRuntimeState
+       ├─ Codex search / usage / gpt-image-2 images
+       ├─ codex-oauth-fast (only after a fresh priority catalog)
+       └─ Grok Imagine (api.x.ai + XAI_API_KEY via DSH credentials)
 
 ctx.llm route
   └─ AliasLlmAdapter
@@ -48,10 +58,22 @@ ctx.llm route
 - `store.ts`: one file owns one provider credential; keeps the legacy Grok store API; `invalidate()` backdates `expires` after an upstream AUTH rejection.
 - `oauth-providers.ts`: Codex/Kimi/Claude definitions, route metadata, request token bridge.
 - `oauth-session.ts`: login, refresh, static model catalog and model-selection cache.
+- `oauth-sources.ts`: allowlisted official Grok/Codex/Kimi/Claude CLI discovery; hardened lstat/`O_NOFOLLOW`/owner/mode/regular-file/size reads; one-use preview tickets (five minutes, max 32); never writes official CLI files.
+- `oauth-import-routes.ts`: same-origin Pull HTTP API (discover → preview → commit/cancel) into the destination store lock.
 - `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
-- `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes.
+- `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes. Optionally wraps `codex-oauth-fast` as **Fast requested**.
 - `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
-- `client/`: four native account cards on the settings page plus the external Antigravity status card.
+- `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
+- `capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
+- `capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
+- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time.
+- `codex-http.ts`: opt-in private `chatgpt.com/backend-api` client (HTTPS-only, first-party host).
+- `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`: opt-in search, quota, and fixed `gpt-image-2` generate/edit (edits require current-session top-level attachment ownership).
+- `codex-model-capabilities.ts`: live Codex service-tier cache; fail-closed Fast eligibility; injects `service_tier: priority` and the routing hint.
+- `grok-imagine.ts`: official `api.x.ai` Imagine client (`grok-imagine-image-2.0` / `grok-imagine-video-1.5`); `XAI_API_KEY` via DSH credentials only; MIME/size/time/redirect/DNS download controls; frozen hosts `imgen.x.ai`, `videogen.x.ai`, `vidgen.x.ai`.
+- `imagine-routes.ts`: same-origin loopback GET routes for generated images and video artifacts.
+- `media-store.ts`: owner-private artifact store (256 MiB per-object and aggregate unique-byte hard caps, seven days).
+- `client/`: four native account cards, CLI Pull, capability switches, and the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
 
 ## 4. Web API
@@ -65,9 +87,24 @@ POST /plugins/dsh-grok-build/oauth/code
 POST /plugins/dsh-grok-build/oauth/cancel
 POST /plugins/dsh-grok-build/oauth/logout
 POST /plugins/dsh-grok-build/oauth/models
+
+GET  /plugins/dsh-grok-build/oauth/sources
+POST /plugins/dsh-grok-build/oauth/sources/preview
+POST /plugins/dsh-grok-build/oauth/sources/commit
+POST /plugins/dsh-grok-build/oauth/sources/cancel
+
+GET    /plugins/dsh-grok-build/capabilities
+PATCH  /plugins/dsh-grok-build/capabilities
+PUT    /plugins/dsh-grok-build/capabilities
+GET    /plugins/dsh-grok-build/codex/usage
+GET    /plugins/dsh-grok-build/imagine/credential-status
+GET    /plugins/dsh-grok-build/imagine/images/<id>
+GET    /plugins/dsh-grok-build/imagine/media/<id>
 ```
 
 Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.
+
+`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots that apply live. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
 
@@ -82,9 +119,10 @@ The canonical package and repository name is **`dsh-coding-subscription-oauth`**
 Stable on-disk / in-process identifiers (do not rename without a migration):
 
 - Cordis id: `llm-grok-build-oauth`
-- Settings HTTP API: `/plugins/dsh-grok-build/oauth/*` and legacy `/plugins/dsh-grok-build/auth/*`
+- Settings HTTP API: `/plugins/dsh-grok-build/oauth/*`, `/plugins/dsh-grok-build/capabilities`, `/plugins/dsh-grok-build/codex/usage`, `/plugins/dsh-grok-build/imagine/*`, and legacy `/plugins/dsh-grok-build/auth/*`
 - Credential files: `$DSH_HOME/.grok-build-auth.json` and the other `*-oauth-auth.json` files
+- Imagine credential: DSH credentials reference `XAI_API_KEY` (never Grok OAuth, never process-env fallback)
 - CLI: `dsh-coding-oauth` (primary) and `dsh-grok-build` (alias)
-- LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`
+- LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`; optional `codex-oauth-fast` (v0.4.0, advertised only when a fresh live catalog lists `priority`)
 
 New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.

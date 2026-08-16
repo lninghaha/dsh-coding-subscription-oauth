@@ -12,7 +12,7 @@
 | 包名 / 客户端 `__ModuleLoader__` id | `dsh-coding-subscription-oauth` |
 | Cordis 插件 id | `llm-grok-build-oauth`（未改） |
 | HTTP / 凭据 / CLI 别名 | `/plugins/dsh-grok-build/*`、`$DSH_HOME/.grok-build-auth.json` 等、`dsh-grok-build` CLI 别名（未改） |
-| 测试基线 | vitest **90**（14 个 spec 文件） |
+| 测试基线 | 以当前 checkout 的 vitest 套件为准（数量会随功能增长，不要沿用旧稿里的固定数字） |
 | 归档参考 | 早期脚手架试验仅作历史参考，**不再吸收、不再作为规范源** |
 
 早期迁移交接稿里的过时说法不要再沿用：它写的是 63 个测试、客户端 wrapper id `dsh-grok-build`、以及「旧仓库还有未提交业务需要再吸收」。规范仓的业务已落在 Git 历史中，脚手架以当前 checkout 为准。
@@ -94,6 +94,6 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 ## 早期迁移稿里不要再信的结论
 
 - 「另一个 checkout 才是规范仓」——规范仓由当前 Git 历史确定。
-- 「vitest 63/76」——当前基线是 **90**。
+- 「vitest 63/76」或任何固定测试计数——数量会随功能增长，以当前 checkout 的测试套件为准。
 - 「client wrapper id = `dsh-grok-build`」——现为 **`dsh-coding-subscription-oauth`**。
 - 「README/INSTALL 仍写 npm/tsdown」——社区文档已按 pnpm + GitHub 安装路径更新。

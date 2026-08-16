@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.3.0** · formerly `dsh-grok-build`
+**v0.4.0** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -38,6 +38,8 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🛡️ **Secure by design** — credential files are owner-only `0600`, atomically written, cross-process locked.
 - ⚙️ **Dynamic catalog** — the selector lists only signed-in routes, labelled `(OAuth)`, including grok-4.6 `xhigh`.
 - 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
+- 📥 **Manual CLI Pull** — Settings discovers allowlisted official Grok/Codex/Kimi/Claude CLI OAuth files read-only; you pull a one-way copy after preview and overwrite confirmation.
+- 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on.
 
 ## Problems this plugin solves
 
@@ -62,7 +64,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 | Provider | Route | Auth | Coexists with |
 |---|---|---|---|
 | **xAI Grok Build** | `grok-build` | SuperGrok / X Premium OAuth | `xai` |
-| **OpenAI Codex** | `codex-oauth` | ChatGPT Plus/Pro OAuth | `openai` |
+| **OpenAI Codex** | `codex-oauth` · optional `codex-oauth-fast` | ChatGPT Plus/Pro OAuth | `openai` |
 | **Kimi Code** | `kimi-code-oauth` | Kimi Code OAuth | `kimi-coding` |
 | **Claude Code** | `claude-code-oauth` | Claude Pro/Max OAuth | — |
 | **Google Antigravity** | `agy` | `dsh-agy` Google OAuth | — |
@@ -90,6 +92,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 - [Problems this plugin solves](#problems-this-plugin-solves)
 - [Install](#install)
 - [Settings page](#settings-page)
+- [Optional capabilities](#optional-capabilities)
 - [CLI](#cli)
 - [Kimi in China](#kimi-in-china)
 - [Network proxy](#network-proxy)
@@ -134,13 +137,25 @@ Open **Settings → Coding OAuth**:
 
 | Provider | Methods |
 |---|---|
-| Grok | auth code · device code · Grok CLI import · model selection |
+| Grok | auth code · device code · model selection |
 | Codex | device code (recommended on remote DSH) · browser PKCE |
 | Kimi | device code |
 | Claude | browser PKCE (remote browser can paste the full localhost redirect URL) |
 | Antigravity | `dsh-agy` install status + profile-local CLI commands |
 
+Settings also **discovers** allowlisted official Grok / Codex / Kimi / Claude CLI OAuth files (read-only). Synchronization is an explicit one-way **Pull** — not auto-import: discover → preview → conflict/fingerprint check → confirm overwrite. Official CLI files are never written. Reads refuse symlinks, non-regular files, non-owner files, group/other access, and oversized documents (`O_NOFOLLOW`). Preview tickets are one-use, expire in five minutes, and are capped at 32.
+
 The selector only lists routes that completed authentication; unauthenticated providers return an empty list. Provider names carry `(OAuth)`, and the catalog refreshes via `llm/adapters-updated` after sign-in/out.
+
+## Optional capabilities
+
+Every optional capability starts **off** and applies **live** (no restart): Codex search, Codex usage/quota, Codex image generation and edit, Codex Fast, Grok Imagine image, and Grok Imagine video. Limits: search results 1–20, image count 1–4, artifact TTL 1 hour–7 days. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings override that base, and omitting it keeps every flag off.
+
+`codex-oauth-fast` is advertised only after a **fresh live catalog** lists at least one `priority`-eligible model. Those requests send `service_tier: priority` plus a routing hint. The UI says **Fast requested** and never guarantees latency or that upstream will honor the request.
+
+Codex search, usage, and images are **opt-in** private `chatgpt.com/backend-api` endpoints. Image generation uses the fixed model `gpt-image-2`. Image edit accepts only current-session top-level attachment ids that this session already owns.
+
+Grok Imagine calls official `https://api.x.ai` with `grok-imagine-image-2.0` and `grok-imagine-video-1.5`. It uses a **separate** DSH credential reference `XAI_API_KEY` — never Grok OAuth and never a process-env fallback. Generated outputs are fetched under MIME / size / time / redirect / DNS controls from frozen hosts `imgen.x.ai`, `videogen.x.ai`, and `vidgen.x.ai`, stored privately (256 MiB hard caps for one object and aggregate unique bytes, seven days), and served only on same-origin loopback routes.
 
 ## CLI
 
@@ -201,7 +216,7 @@ Owner-only `0600`, atomically written, cross-process file lock:
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`
 
-Selection caches live in the matching `*-models.json` files. **No HTTP status, log or UI may ever return a token.**
+Selection caches live in the matching `*-models.json` files. Grok Imagine uses a separate DSH credential named `XAI_API_KEY` (not the Grok OAuth file). **No HTTP status, log or UI may ever return a token.**
 
 ## Architecture
 
@@ -224,6 +239,8 @@ flowchart LR
 - **Grok Build**: Responses API on `cli-chat-proxy.grok.com/v1` (not `api.x.ai`), CLI fingerprint headers, live `/v1/models-v2` including grok-4.6 `reasoning.effort: xhigh`.
 - **Codex/Kimi/Claude**: pi-ai native providers handle OAuth and refresh; the route-alias adapter maps them to native ids so multi-turn replay does not throw `INVALID_REPLAY_STATE`.
 - The Kimi access token is explicitly converted to `Authorization: Bearer` — never mistakenly an Anthropic `x-api-key`.
+- **Codex Fast / private endpoints**: `codex-oauth-fast` is opt-in and fail-closed on a stale catalog; search, usage and `gpt-image-2` images stay off until enabled.
+- **Grok Imagine**: official `api.x.ai` only, `XAI_API_KEY` through DSH credentials, same-origin download routes under `/plugins/dsh-grok-build/imagine/*`.
 - Google Antigravity is **not** reverse-engineered here; it uses a version-pinned dedicated DSH plugin.
 
 ## Compliance

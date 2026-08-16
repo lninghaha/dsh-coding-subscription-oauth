@@ -97,12 +97,27 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
 
 打开 **设置 → 编码 OAuth**：
 
-- **Grok Build**：授权码或设备码；也可 import 官方 Grok CLI
+- **Grok Build**：授权码或设备码
 - **OpenAI Codex**：远程部署推荐设备码；浏览器 PKCE 支持粘贴 redirect URL
 - **Kimi Code**：设备码
 - **Claude Code**：浏览器 PKCE，远程访问时粘贴完整 localhost redirect URL
 
+设置页会**只读发现**白名单内的官方 Grok / Codex / Kimi / Claude CLI OAuth 文件。同步是显式的单向**拉取**（不是自动导入）：发现 → 预览 → 冲突/指纹核对 → 确认覆盖。官方 CLI 文件从不被写入。读取会拒绝符号链接、非普通文件、非属主文件、组/其他人可读，以及超大文档（`O_NOFOLLOW`）。预览票据一次性、五分钟过期、最多 32 张。CLI 的 `dsh-coding-oauth import` 仍只支持 Grok。
+
 登录过程只交换授权 code；状态接口不返回 access/refresh token。
+
+### 可选能力
+
+设置页的订阅能力开关默认全部关闭，打开后立即生效（无需重启）：
+
+- Codex 搜索、用量/配额、图像生成/编辑、Fast
+- Grok Imagine 图像 / 视频
+
+限制：搜索结果 1–20、图像数量 1–4、产物 TTL 1 小时–7 天。管理员可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；设置页用户值会覆盖该 base，省略时所有开关仍默认关闭。
+
+`codex-oauth-fast` 仅在最新一次 live catalog 标明至少有一个 `priority` 可用模型后才会出现。请求发送 `service_tier: priority` 和路由提示；界面写 **已请求 Fast**，不保证延迟或上游兑现。Codex 搜索/用量/图像是需打开的私有 `chatgpt.com/backend-api` 端点；图像固定 `gpt-image-2`；编辑只接受当前会话顶层、本会话持有的附件。
+
+Grok Imagine 只走官方 `https://api.x.ai`（`grok-imagine-image-2.0` / `grok-imagine-video-1.5`），凭据是独立的 DSH 引用 `XAI_API_KEY`——不用 Grok OAuth，也不回退进程环境变量。下载受 MIME / 大小 / 超时 / 重定向 / DNS 控制，冻结主机为 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai`；私有产物库的单件与唯一对象总量均硬限 256 MiB、最长七天；只通过同源 loopback 路由提供。
 
 ### CLI
 
@@ -127,6 +142,7 @@ dsh-coding-oauth logout kimi
 
 - `grok-build/<model>`
 - `codex-oauth/<model>`
+- `codex-oauth-fast/<model>`（可选；仅在最新 live catalog 标明 `priority` 可用后出现，界面为 已请求 Fast）
 - `kimi-code-oauth/<model>`
 - `claude-code-oauth/<model>`
 - `agy/<model>`（安装 dsh-agy 后）
@@ -144,7 +160,7 @@ $DSH_HOME/.kimi-code-oauth-auth.json
 $DSH_HOME/.claude-code-oauth-auth.json
 ```
 
-均为 `0600`、原子写、文件锁保护。模型缓存为对应的 `*-models.json`，不含 token。
+均为 `0600`、原子写、文件锁保护。模型缓存为对应的 `*-models.json`，不含 token。Grok Imagine 使用 DSH 凭据引用 `XAI_API_KEY`，与上述 OAuth 文件分离。
 
 ## 卸载
 
