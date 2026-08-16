@@ -10,6 +10,7 @@ import {
 	inspectOAuthDestinationFile,
 	isOAuthSourceError,
 	isOAuthSourceKind,
+	OAUTH_IMPORT_MAX_PREVIEW_TICKETS,
 	OAUTH_IMPORT_PREVIEW_TTL_MS,
 	OAUTH_SOURCE_KINDS,
 	OAUTH_SOURCE_MAX_BYTES,
@@ -768,6 +769,23 @@ describe("two-phase preview and commit", () => {
 		await expect(session.commit({ previewId: second.previewId, ...sandbox(home) })).rejects.toMatchObject({
 			code: "preview_invalid",
 		});
+	});
+
+	it("bounds credential-bearing previews and evicts the oldest ticket", async () => {
+		const home = await tempHome();
+		await writeKind(home, "claude", claudeDocument());
+		const session = createOAuthImportSession();
+		const previews = [];
+		for (let index = 0; index <= OAUTH_IMPORT_MAX_PREVIEW_TICKETS; index += 1) {
+			previews.push(await session.preview({ kind: "claude", ...sandbox(home) }));
+		}
+		expect(previews).toHaveLength(OAUTH_IMPORT_MAX_PREVIEW_TICKETS + 1);
+		await expect(session.commit({ previewId: previews[0]?.previewId ?? "", ...sandbox(home) })).rejects.toMatchObject({
+			code: "preview_invalid",
+		});
+		const newest = previews.at(-1);
+		if (newest === undefined) throw new Error("newest preview missing");
+		expect((await session.commit({ previewId: newest.previewId, ...sandbox(home) })).result.action).toBe("imported");
 	});
 
 	it("purges abandoned expired tickets during discover, preview, and cancel", async () => {

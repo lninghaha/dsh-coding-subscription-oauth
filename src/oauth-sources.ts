@@ -24,6 +24,9 @@ export const OAUTH_SOURCE_MAX_BYTES = 64 * 1024;
 /** In-memory preview tickets are one-use and live five minutes. */
 export const OAUTH_IMPORT_PREVIEW_TTL_MS = 5 * 60 * 1000;
 
+/** Bound credential-bearing preview material retained by one process. */
+export const OAUTH_IMPORT_MAX_PREVIEW_TICKETS = 32;
+
 const EXPIRING_SOON_MS = 60 * 60 * 1000;
 const PREVIEW_ID_BYTES = 18;
 const HMAC_KEY_BYTES = 32;
@@ -526,6 +529,11 @@ export class OAuthImportSession {
 			createdAt: now,
 			ticketExpiresAt,
 		};
+		while (this.#tickets.size >= OAUTH_IMPORT_MAX_PREVIEW_TICKETS) {
+			const oldest = this.#tickets.keys().next().value;
+			if (oldest === undefined) break;
+			this.#tickets.delete(oldest);
+		}
 		this.#tickets.set(previewId, ticket);
 		return publicPreview(ticket, now);
 	}

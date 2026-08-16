@@ -11,6 +11,7 @@ import {
 	createOAuthImportSession,
 	isOAuthSourceError,
 	isOAuthSourceKind,
+	OAUTH_IMPORT_MAX_PREVIEW_TICKETS,
 	type OAuthImportCommitAction,
 	type OAuthImportCommitResult,
 	type OAuthImportPreview,
@@ -83,7 +84,8 @@ export function registerOAuthImportRoutes(
 		...(options.now === undefined ? {} : { now: options.now }),
 		...(options.ttlMs === undefined ? {} : { ttlMs: options.ttlMs }),
 	});
-	const previewKinds = new Map<string, OAuthSourceKind>();
+	const previewKinds = new Map<string, { kind: OAuthSourceKind; expiresAt: number }>();
+	const now = options.now ?? Date.now;
 	const pathOptions: OAuthSourcePathOptions = {
 		...(options.home === undefined ? {} : { home: options.home }),
 		...(options.env === undefined ? {} : { env: options.env }),
@@ -116,7 +118,15 @@ export function registerOAuthImportRoutes(
 							return json(res, 400, { error: "kind must be grok, codex, kimi, or claude" });
 						}
 						const preview = await previewSource(importer, destinations[kind], kind, pathOptions);
-						previewKinds.set(preview.previewId, kind);
+						for (const [previewId, tracked] of previewKinds) {
+							if (tracked.expiresAt <= now()) previewKinds.delete(previewId);
+						}
+						while (previewKinds.size >= OAUTH_IMPORT_MAX_PREVIEW_TICKETS) {
+							const oldest = previewKinds.keys().next().value;
+							if (oldest === undefined) break;
+							previewKinds.delete(oldest);
+						}
+						previewKinds.set(preview.previewId, { kind, expiresAt: preview.ticketExpiresAt });
 						json(res, 200, preview);
 					} catch (error: unknown) {
 						writeError(res, error);
@@ -134,8 +144,8 @@ export function registerOAuthImportRoutes(
 						if (parsed.error !== undefined) {
 							return json(res, 400, { error: parsed.error });
 						}
-						const expectedKind = previewKinds.get(parsed.previewId);
-						if (expectedKind !== undefined && expectedKind !== parsed.kind) {
+						const expected = previewKinds.get(parsed.previewId);
+						if (expected !== undefined && expected.kind !== parsed.kind) {
 							return json(res, 400, { error: "kind does not match the preview" });
 						}
 						previewKinds.delete(parsed.previewId);
