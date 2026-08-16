@@ -38,7 +38,18 @@ dsh-grok-build logout    # 只删本插件凭据，不动官方 CLI
 
 ## 网络前提
 
-`auth.x.ai` 与 `cli-chat-proxy.grok.com` 在部分网络不可直连。设置 `GROK_BUILD_PROXY`（或标准 `HTTPS_PROXY`），例如 `http://127.0.0.1:7890`——插件只会把 Grok Build / xAI 认证这两个域名的流量送进代理，其余流量保持直连。
+`auth.x.ai` 与 `cli-chat-proxy.grok.com` 在部分网络不可直连。代理配置（三选一，优先级从高到低）：
+
+1. 插件配置（写进 dsh profile 的 `cordis.patch.yml`，适合 dsh web 常驻进程）：
+   ```yaml
+   - id: llm-grok-build-oauth
+     config:
+       proxy: http://127.0.0.1:7890
+   ```
+2. `GROK_BUILD_PROXY` 环境变量
+3. 标准 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量
+
+插件只会把 Grok Build / xAI 认证这两个域名的流量送进代理，dsh 的其余流量（DeepSeek API 等）保持直连。
 
 ## 注意事项
 

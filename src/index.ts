@@ -77,17 +77,26 @@ export const name = 'llm-grok-build-oauth'
 /** LLM registry required before the subscription route can register. */
 export const inject = ['llm']
 
-/** Reserved for later knobs; the first release has no tunable fields. */
-export interface Config {}
+/** Plugin configuration; every field is optional. */
+export interface Config {
+  /**
+   * HTTP(S) proxy URL for Grok Build traffic (auth.x.ai +
+   * cli-chat-proxy.grok.com only — every other request stays direct).
+   * Falls back to GROK_BUILD_PROXY / HTTPS_PROXY env vars.
+   */
+  proxy?: string
+}
 
-export const Config: z<Config> = z.object({})
+export const Config: z<Config> = z.object({
+  proxy: z.string(),
+})
 
 /**
  * Register the `grok-build` LLM route with a provider-native OAuth store.
  * @param ctx - plugin context carrying the LLM registry plus optional web server.
  */
-export function apply(ctx: Context, _config: Config): void {
-  ensureGrokBuildProxy()
+export function apply(ctx: Context, config: Config): void {
+  ensureGrokBuildProxy(config.proxy)
   const session = new GrokBuildSession(new GrokBuildCredentialStore(), () => {
     ctx.emit('llm/adapters-updated')
   })
