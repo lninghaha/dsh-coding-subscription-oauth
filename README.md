@@ -14,11 +14,13 @@
 
 > 详细调研、架构设计、建设计划与风险评估文档在本地维护，未随本仓库公开；有需要可提 issue 联系。
 
-## 安装（开发版）
+## 安装
 
 ```bash
 dsh plugin --profile web add github:lninghaha/dsh-grok-build   # 或本地路径 ./dsh-grok-build
 ```
+
+安装后重启 `dsh web`。git 安装路径已在干净环境实测：宿主路由、设置面板入口（boot graph）、可选 peer 解析全部通过。详见 [INSTALL.md](INSTALL.md)。
 
 ## 使用
 
