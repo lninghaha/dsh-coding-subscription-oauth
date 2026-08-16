@@ -193,9 +193,18 @@ export function apply(ctx: Context, config: Config): void {
 	const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
 		(definition) => new OAuthProviderSession(definition, notifyCatalogChange),
 	);
-	void Promise.all([grok.loadCachedCatalog(), ...subscriptions.map((session) => session.loadCachedModels())]).then(() =>
-		grok.refreshLiveCatalog(),
-	);
+	void Promise.allSettled([grok.loadCachedCatalog(), ...subscriptions.map((session) => session.loadCachedModels())])
+		.then(async (results) => {
+			if (results.some((result) => result.status === "rejected")) {
+				logger.warn("one or more OAuth model caches could not be loaded; using in-memory fallbacks");
+			}
+			await grok.refreshLiveCatalog();
+		})
+		.catch(() => {
+			// Contain every startup refresh failure so plugin activation cannot leave
+			// an unhandled rejection. The static provider catalogs remain usable.
+			logger.warn("background OAuth model catalog initialization failed; using static fallbacks");
+		});
 	ctx.llm.registerAdapter(
 		[...CODING_OAUTH_ROUTES],
 		createCodingOAuthAdapter(grok, subscriptions, () => ctx.get("attachments"), config.retryPolicy),
