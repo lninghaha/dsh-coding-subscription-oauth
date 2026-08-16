@@ -10,6 +10,12 @@ export interface AliasLlmRoutePolicy {
     /** Return false to hide every model for this route from discovery. */
     isAuthenticated?: () => Promise<boolean>;
     /**
+     * After authentication, keep only models this predicate accepts.
+     * Used by opt-in routes (e.g. Codex Fast) so ineligible ids stay hidden
+     * without hiding the whole authenticated catalog.
+     */
+    includeModel?: (modelId: string) => boolean;
+    /**
      * Called once when a stream for this route finishes with an AUTH failure
      * (upstream rejected a locally-valid token). Implementations backdate the
      * stored credential's expiry so the retried step refreshes before reuse.

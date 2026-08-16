@@ -4,8 +4,18 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCodingOAuthAdapter, preferredGrokBuildModel } from "../src/adapter.ts";
 import {
+	CODEX_ROUTING_HINT_HEADER,
+	type CodexFastStreamOptions,
+	type CodexStreamModel,
+	codexRoutingHint,
+} from "../src/codex-model-capabilities.ts";
+import {
 	CLAUDE_CODE_OAUTH_ROUTE,
+	CODEX_OAUTH_FAST_ROUTE,
 	CODEX_OAUTH_ROUTE,
+	CODEX_PI_PROVIDER,
+	CODING_OAUTH_OPTIONAL_ROUTES,
+	CODING_OAUTH_ROUTES,
 	DEFAULT_GROK_BUILD_MODEL,
 	GROK_BUILD_ROUTE,
 	KIMI_CODE_OAUTH_ROUTE,
@@ -208,6 +218,147 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		const policy = adapter.providerRetryPolicy(KIMI_CODE_OAUTH_ROUTE);
 		expect(policy).toMatchObject({ mode: "normal", maxRetries: 5, initialDelayMs: 250, maxDelayMs: 5_000 });
 		expect(policy?.mode === "normal" && policy.retryableCodes).not.toContain("AUTH");
+	});
+
+	it("omits Fast from default routes and existing call signatures", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-fast-default-"));
+		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
+		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+			(definition) =>
+				new OAuthProviderSession(
+					definition,
+					undefined,
+					new OAuthCredentialFileStore(
+						definition.nativeProviderId,
+						join(dir, `${definition.slug}.json`),
+						definition.route,
+					),
+					join(dir, `${definition.slug}-models.json`),
+				),
+		);
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined);
+		expect(CODING_OAUTH_ROUTES).not.toContain(CODEX_OAUTH_FAST_ROUTE);
+		expect(CODING_OAUTH_OPTIONAL_ROUTES).toEqual([CODEX_OAUTH_FAST_ROUTE]);
+		expect(() => adapter.providerInfo(CODEX_OAUTH_FAST_ROUTE)).toThrow(/does not own provider/);
+	});
+
+	it("lists only priority-eligible Codex models on the opt-in Fast route", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-fast-list-"));
+		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
+		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+			(definition) =>
+				new OAuthProviderSession(
+					definition,
+					undefined,
+					new OAuthCredentialFileStore(
+						definition.nativeProviderId,
+						join(dir, `${definition.slug}.json`),
+						definition.route,
+					),
+					join(dir, `${definition.slug}-models.json`),
+				),
+		);
+		const codex = subscriptions.find((session) => session.definition.route === CODEX_OAUTH_ROUTE)!;
+		const catalog = codex.availableModels();
+		expect(catalog.length).toBeGreaterThan(1);
+		const eligible = catalog[0]!;
+		const ineligible = catalog[1]!;
+		await codex.store.modify(codex.definition.nativeProviderId, async () => ({
+			type: "oauth",
+			access: "codex-access",
+			refresh: "codex-refresh",
+			expires: Date.now() + 3_600_000,
+		}));
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined, {
+			codexFast: { isEligible: (id) => id === eligible.id },
+		});
+		expect(adapter.providerInfo(CODEX_OAUTH_FAST_ROUTE).name).toBe("OpenAI Codex Fast requested (OAuth)");
+		const fastListed = await adapter.listModels(CODEX_OAUTH_FAST_ROUTE);
+		expect(fastListed.map((model) => model.id)).toEqual([eligible.id]);
+		expect(fastListed.every((model) => model.provider === CODEX_OAUTH_FAST_ROUTE)).toBe(true);
+		const normalListed = await adapter.listModels(CODEX_OAUTH_ROUTE);
+		expect(normalListed.map((model) => model.id)).toContain(ineligible.id);
+		expect(normalListed.every((model) => model.provider === CODEX_OAUTH_ROUTE)).toBe(true);
+		expect(eligible.provider).toBe(CODEX_PI_PROVIDER);
+	});
+
+	it("injects Fast routing only on the Fast profile while keeping native wire identity", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-fast-stream-"));
+		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
+		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+			(definition) =>
+				new OAuthProviderSession(
+					definition,
+					undefined,
+					new OAuthCredentialFileStore(
+						definition.nativeProviderId,
+						join(dir, `${definition.slug}.json`),
+						definition.route,
+					),
+					join(dir, `${definition.slug}-models.json`),
+				),
+		);
+		const codex = subscriptions.find((session) => session.definition.route === CODEX_OAUTH_ROUTE)!;
+		const template = codex.availableModels()[0]!;
+		const eligibleId = "gpt-fast-eligible";
+		const ineligibleId = "gpt-fast-ineligible";
+		const seen: Array<{ model: CodexStreamModel; options?: CodexFastStreamOptions }> = [];
+		const real = codex.provider();
+		vi.spyOn(codex, "provider").mockImplementation(() => {
+			const models = [
+				{ ...template, id: eligibleId, provider: CODEX_PI_PROVIDER },
+				{ ...template, id: ineligibleId, provider: CODEX_PI_PROVIDER },
+			];
+			return {
+				...real,
+				id: CODEX_PI_PROVIDER,
+				getModels: () => models,
+				stream: (model: CodexStreamModel, _context: unknown, options?: CodexFastStreamOptions) => {
+					seen.push({ model, ...(options === undefined ? {} : { options }) });
+					throw new Error("fixture-stop");
+				},
+				streamSimple: (model: CodexStreamModel, _context: unknown, options?: CodexFastStreamOptions) => {
+					seen.push({ model, ...(options === undefined ? {} : { options }) });
+					throw new Error("fixture-stop");
+				},
+			} as unknown as typeof real;
+		});
+		await codex.store.modify(codex.definition.nativeProviderId, async () => ({
+			type: "oauth",
+			access: "codex-access",
+			refresh: "codex-refresh",
+			expires: Date.now() + 3_600_000,
+		}));
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined, undefined, {
+			codexFast: { isEligible: (id) => id === eligibleId },
+		});
+		expect(await adapter.listModels(CODEX_OAUTH_FAST_ROUTE)).toEqual([
+			expect.objectContaining({ id: eligibleId, provider: CODEX_OAUTH_FAST_ROUTE }),
+		]);
+
+		const consume = async (provider: string, model: string): Promise<void> => {
+			for await (const _chunk of adapter.stream({
+				provider,
+				model,
+				messages: [],
+			} as never)) {
+				// Drain; the fixture stream throws after recording options.
+			}
+		};
+		await consume(CODEX_OAUTH_ROUTE, eligibleId);
+		const normal = seen[0];
+		expect(normal?.model).toMatchObject({ id: eligibleId, provider: CODEX_PI_PROVIDER });
+		expect(normal?.options?.headers?.[CODEX_ROUTING_HINT_HEADER]).toBeUndefined();
+		expect(await normal?.options?.onPayload?.({ model: eligibleId }, { id: eligibleId })).toBeUndefined();
+
+		seen.length = 0;
+		await consume(CODEX_OAUTH_FAST_ROUTE, eligibleId);
+		const fast = seen[0];
+		expect(fast?.model).toMatchObject({ id: eligibleId, provider: CODEX_PI_PROVIDER });
+		expect(fast?.options?.headers?.[CODEX_ROUTING_HINT_HEADER]).toBe(codexRoutingHint(eligibleId));
+		await expect(fast?.options?.onPayload?.({ model: eligibleId }, { id: eligibleId })).resolves.toMatchObject({
+			service_tier: "priority",
+		});
 	});
 
 	it("maps a failed token refresh to MISSING_CREDENTIAL instead of a bare 401", async () => {

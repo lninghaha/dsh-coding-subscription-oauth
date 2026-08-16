@@ -127,6 +127,33 @@ describe("AliasLlmAdapter", () => {
 		expect(sameRouteReplay.provider).toBe("openai-codex");
 	});
 
+	it("filters an authenticated catalog to includeModel matches only", async () => {
+		class MultiModelAdapter extends FakeAdapter {
+			override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
+				return Promise.resolve([
+					{ provider, id: "keep", name: "Keep", inputModalities: ["text"] },
+					{ provider, id: "drop", name: "Drop", inputModalities: ["text"] },
+				]);
+			}
+		}
+		const adapter = new AliasLlmAdapter(
+			new MultiModelAdapter(),
+			new Map([["codex-oauth-fast", "codex-oauth-fast"]]),
+			new Map([
+				[
+					"codex-oauth-fast",
+					{
+						isAuthenticated: async () => true,
+						includeModel: (id) => id === "keep",
+					},
+				],
+			]),
+		);
+		expect(await adapter.listModels("codex-oauth-fast")).toEqual([
+			{ provider: "codex-oauth-fast", id: "keep", name: "Keep", inputModalities: ["text"] },
+		]);
+	});
+
 	it("hides unauthenticated models and labels visible providers as OAuth", async () => {
 		let authenticated = false;
 		const adapter = new AliasLlmAdapter(

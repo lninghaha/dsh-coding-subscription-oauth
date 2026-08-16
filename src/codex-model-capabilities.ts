@@ -22,9 +22,10 @@ import {
 	isRecord,
 	optionalNonEmptyString,
 } from "./codex-http.ts";
+import { CODEX_OAUTH_FAST_ROUTE } from "./ids.ts";
 
-/** Suggested future Harness route. Parent owns registration; this module does not change ids.ts. */
-export const CODEX_OAUTH_FAST_ROUTE = "codex-oauth-fast";
+/** Distinct optional Harness route; parent owns dynamic registration. */
+export { CODEX_OAUTH_FAST_ROUTE };
 
 export const CODEX_MODELS_URL = "https://chatgpt.com/backend-api/codex/models";
 export const DEFAULT_CODEX_CLIENT_VERSION = "0.144.0";

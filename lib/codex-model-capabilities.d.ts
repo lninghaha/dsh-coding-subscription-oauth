@@ -14,8 +14,9 @@
  * @module dsh-coding-subscription-oauth/codex-model-capabilities
  */
 import { type CodexAuthSession, type CodexFetch, type CodexHttpClient } from "./codex-http.ts";
-/** Suggested future Harness route. Parent owns registration; this module does not change ids.ts. */
-export declare const CODEX_OAUTH_FAST_ROUTE = "codex-oauth-fast";
+import { CODEX_OAUTH_FAST_ROUTE } from "./ids.ts";
+/** Distinct optional Harness route; parent owns dynamic registration. */
+export { CODEX_OAUTH_FAST_ROUTE };
 export declare const CODEX_MODELS_URL = "https://chatgpt.com/backend-api/codex/models";
 export declare const DEFAULT_CODEX_CLIENT_VERSION = "0.144.0";
 export declare const DEFAULT_CODEX_SERVICE_TIER = "priority";

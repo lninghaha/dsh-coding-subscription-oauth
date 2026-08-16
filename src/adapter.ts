@@ -8,9 +8,11 @@ import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
 import type { AliasLlmRoutePolicy } from "./alias-adapter.ts";
 import { AliasLlmAdapter } from "./alias-adapter.ts";
 import { preferredGrokBuildModelFrom } from "./catalog.ts";
+import { withCodexFastRouting } from "./codex-model-capabilities.ts";
 import {
 	CLAUDE_CODE_OAUTH_ROUTE,
 	CLAUDE_PI_PROVIDER,
+	CODEX_OAUTH_FAST_ROUTE,
 	CODEX_OAUTH_ROUTE,
 	CODEX_PI_PROVIDER,
 	DEFAULT_GROK_BUILD_MODEL,
@@ -106,20 +108,67 @@ export function createGrokBuildAdapter(
 	});
 }
 
+/** Opt-in Codex Fast wiring; ordinary `codex-oauth` is unchanged when this is omitted. */
+export interface CodingOAuthAdapterOptions {
+	retryPolicy?: RetryPolicyConfig;
+	codexFast?: { isEligible(modelId: string): boolean };
+}
+
+function isRetryPolicyConfig(value: object): value is RetryPolicyConfig {
+	return "mode" in value;
+}
+
+function splitCodingOAuthAdapterArgs(
+	fourth?: RetryPolicyConfig | CodingOAuthAdapterOptions,
+	fifth?: CodingOAuthAdapterOptions,
+): CodingOAuthAdapterOptions {
+	if (fifth !== undefined) {
+		return {
+			...(fourth !== undefined && isRetryPolicyConfig(fourth) ? { retryPolicy: fourth } : {}),
+			...fifth,
+		};
+	}
+	if (fourth === undefined) return {};
+	if (isRetryPolicyConfig(fourth)) return { retryPolicy: fourth };
+	return {
+		...(fourth.retryPolicy === undefined ? {} : { retryPolicy: fourth.retryPolicy }),
+		...(fourth.codexFast === undefined ? {} : { codexFast: fourth.codexFast }),
+	};
+}
+
 /** Create the four-route OAuth adapter while preserving each pi-ai native id. */
 export function createCodingOAuthAdapter(
 	grok: GrokBuildSession,
 	subscriptions: readonly OAuthProviderSession[],
 	resolveAttachments: () => AttachmentStore | undefined,
-	retryPolicy?: RetryPolicyConfig | undefined,
+	retryPolicy?: RetryPolicyConfig,
+	options?: CodingOAuthAdapterOptions,
+): LlmAdapter;
+export function createCodingOAuthAdapter(
+	grok: GrokBuildSession,
+	subscriptions: readonly OAuthProviderSession[],
+	resolveAttachments: () => AttachmentStore | undefined,
+	options?: CodingOAuthAdapterOptions,
+): LlmAdapter;
+export function createCodingOAuthAdapter(
+	grok: GrokBuildSession,
+	subscriptions: readonly OAuthProviderSession[],
+	resolveAttachments: () => AttachmentStore | undefined,
+	retryPolicyOrOptions?: RetryPolicyConfig | CodingOAuthAdapterOptions,
+	options?: CodingOAuthAdapterOptions,
 ): LlmAdapter {
+	const { retryPolicy, codexFast } = splitCodingOAuthAdapterArgs(retryPolicyOrOptions, options);
 	const byNativeId = new Map(subscriptions.map((session) => [session.definition.nativeProviderId, session]));
+	const codexSession = byNativeId.get(CODEX_PI_PROVIDER);
 	const aliases = new Map<string, string>([
 		[GROK_BUILD_ROUTE, GROK_BUILD_ROUTE],
 		[CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER],
 		[KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER],
 		[CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER],
 	]);
+	if (codexFast !== undefined && codexSession !== undefined) {
+		aliases.set(CODEX_OAUTH_FAST_ROUTE, CODEX_OAUTH_FAST_ROUTE);
+	}
 	const policies = new Map<string, AliasLlmRoutePolicy>([
 		[
 			GROK_BUILD_ROUTE,
@@ -137,6 +186,14 @@ export function createCodingOAuthAdapter(
 			onAuthFailure: () => session.invalidateAccessToken(),
 		});
 	}
+	if (codexFast !== undefined && codexSession !== undefined) {
+		policies.set(CODEX_OAUTH_FAST_ROUTE, {
+			displayName: "OpenAI Codex Fast requested (OAuth)",
+			isAuthenticated: async () => (await codexSession.status()).authenticated,
+			includeModel: (modelId) => codexFast.isEligible(modelId),
+			onAuthFailure: () => codexSession.invalidateAccessToken(),
+		});
+	}
 
 	const inner = new PiAiAdapter({
 		profiles: () => {
@@ -151,6 +208,34 @@ export function createCodingOAuthAdapter(
 					profile(session.definition.nativeProviderId, session.definition.displayName, session.provider(), retryPolicy),
 				);
 			}
+			if (codexFast !== undefined && codexSession !== undefined) {
+				const wrapped = withCodexFastRouting(codexSession.provider(), {
+					isEligible: (modelId) => codexFast.isEligible(modelId),
+					profileProviderId: CODEX_OAUTH_FAST_ROUTE,
+					nativeProviderId: CODEX_PI_PROVIDER,
+				});
+				// Models.streamSimple dispatches on model.provider. Advertise the Fast
+				// profile id on the catalog so the wrapper runs, then restore native
+				// identity inside withCodexFastRouting before the wire call.
+				const fastProvider = {
+					...wrapped,
+					getModels: () =>
+						wrapped
+							.getModels()
+							.map((model) =>
+								model.provider === CODEX_OAUTH_FAST_ROUTE ? model : { ...model, provider: CODEX_OAUTH_FAST_ROUTE },
+							),
+				};
+				profiles.set(
+					CODEX_OAUTH_FAST_ROUTE,
+					profile(
+						CODEX_OAUTH_FAST_ROUTE,
+						"OpenAI Codex Fast requested",
+						fastProvider as unknown as ResolvedPiAiProviderProfile["piProvider"],
+						retryPolicy,
+					),
+				);
+			}
 			return profiles;
 		},
 		resolveApiKey: async (provider) => {
@@ -159,7 +244,8 @@ export function createCodingOAuthAdapter(
 					grok.models.getAuth(XAI_PI_PROVIDER, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS }),
 				);
 			}
-			const session = byNativeId.get(provider);
+			const session =
+				provider === CODEX_OAUTH_FAST_ROUTE ? byNativeId.get(CODEX_PI_PROVIDER) : byNativeId.get(provider);
 			if (session === undefined) throw new LlmError(`Unknown OAuth provider "${provider}"`, "NO_ADAPTER");
 			return resolveOAuthToken(session.definition.displayName, () =>
 				session.models.getAuth(session.definition.nativeProviderId, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS }),

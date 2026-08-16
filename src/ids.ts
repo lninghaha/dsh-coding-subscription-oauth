@@ -7,6 +7,7 @@ export const CLAUDE_PI_PROVIDER = "anthropic";
 /** Harness LLM routes. OAuth aliases avoid the user's API-key route ids. */
 export const GROK_BUILD_ROUTE = "grok-build";
 export const CODEX_OAUTH_ROUTE = "codex-oauth";
+export const CODEX_OAUTH_FAST_ROUTE = "codex-oauth-fast";
 export const KIMI_CODE_OAUTH_ROUTE = "kimi-code-oauth";
 export const CLAUDE_CODE_OAUTH_ROUTE = "claude-code-oauth";
 export const ANTIGRAVITY_ROUTE = "agy";
@@ -18,7 +19,11 @@ export const CODING_OAUTH_ROUTES = [
 	CLAUDE_CODE_OAUTH_ROUTE,
 ] as const;
 
+/** Opt-in routes the adapter can expose; not registered by the default plugin apply(). */
+export const CODING_OAUTH_OPTIONAL_ROUTES = [CODEX_OAUTH_FAST_ROUTE] as const;
+
 export type CodingOAuthRoute = (typeof CODING_OAUTH_ROUTES)[number];
+export type CodingOAuthOptionalRoute = (typeof CODING_OAUTH_OPTIONAL_ROUTES)[number];
 export type CodingOAuthProviderSlug = "grok" | "codex" | "kimi" | "claude";
 
 /** Basenames of private OAuth documents inside the Harness home. */
