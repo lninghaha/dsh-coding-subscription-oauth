@@ -6,9 +6,40 @@
 
 ## 现状
 
-📋 **规划阶段** —— 可行性调研已完成，结论：**可行**。尚未开始编码。
+🚧 **开发中（M1 最小链路）** —— device-code 登录 + 推理链路已实现，PKCE 授权码流与设置面板进行中。
 
 > 详细调研、架构设计、建设计划与风险评估文档在本地维护，未随本仓库公开；有需要可提 issue 联系。
+
+## 安装（开发版）
+
+```bash
+dsh plugin --profile web add github:lninghaha/dsh-grok-build   # 或本地路径 ./dsh-grok-build
+```
+
+## 使用
+
+```bash
+# 登录（device code；会打印验证地址与一次性代码，浏览器授权即可）
+dsh-grok-build login
+
+# 或者从官方 Grok CLI 导入已有凭据（只读拷贝，不修改 ~/.grok/auth.json）
+dsh-grok-build import
+
+dsh-grok-build status    # 非敏感状态 + 可见模型
+dsh-grok-build logout    # 只删本插件凭据，不动官方 CLI
+```
+
+登录后在 dsh 会话模型选择器里选 `grok-build/grok-4.5` 即可对话。
+
+## 网络前提
+
+`auth.x.ai` 与 `cli-chat-proxy.grok.com` 在部分网络不可直连。设置 `GROK_BUILD_PROXY`（或标准 `HTTPS_PROXY`），例如 `http://127.0.0.1:7890`——插件只会把 Grok Build / xAI 认证这两个域名的流量送进代理，其余流量保持直连。
+
+## 注意事项
+
+- 凭据存于 `$DSH_HOME/.grok-build-auth.json`（owner-only `0600` 原子写，跨进程文件锁）
+- refresh token 一次性轮换：从官方 CLI 导入后，本插件首次刷新会使官方 CLI 里的旧 token 失效，官方 CLI 需重新 `grok login`
+- 与 [dsh-xai](https://github.com/MirDie/dsh-xai)（`api.x.ai` 路线）路由名不同，可共存
 
 ## 一句话技术方案
 

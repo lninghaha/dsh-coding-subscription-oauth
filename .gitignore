@@ -10,3 +10,6 @@ coverage/
 # local-only design docs & reference materials (not published)
 docs/
 reference/
+
+lib/
+*.tgz

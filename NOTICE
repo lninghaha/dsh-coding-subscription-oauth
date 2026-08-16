@@ -1,0 +1,11 @@
+NOTICE
+======
+
+dsh-grok-build — xAI Grok Build OAuth for DeepSeek Harness
+Copyright 2026 lninghaha
+
+This product includes software developed by the dsh-xai project
+(https://github.com/MirDie/dsh-xai), licensed under the Apache License,
+Version 2.0. Portions of src/store.ts, src/session.ts, src/grok-import.ts,
+src/redact.ts, src/invariant.ts, src/adapter.ts, src/auth.ts, src/bin.ts and
+the build scaffolding are derived from that work.

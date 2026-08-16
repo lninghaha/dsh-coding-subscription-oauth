@@ -1,0 +1,12 @@
+# Optional Grok Build (SuperGrok / X Premium coding subscription) route over
+# the base composition. A saved agent-default-model setting still wins over
+# this bundle value.
+
+- id: agent-default-model
+  config:
+    provider: grok-build
+    model: grok-4.5
+
+- insert:
+    - id: llm-grok-build-oauth
+      name: dsh-grok-build
