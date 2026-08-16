@@ -19,6 +19,18 @@
 
 ---
 
+## Name change
+
+Published first as **`dsh-grok-build`** when it only covered Grok Build. The current name matches the full coding-subscription OAuth surface.
+
+| | Use this | Still works |
+|---|---|---|
+| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
+| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
+| Cordis plugin id | `llm-grok-build-oauth` | unchanged |
+| Settings HTTP API | `/plugins/dsh-grok-build/*` | unchanged |
+| Credential files | `$DSH_HOME/.grok-build-auth.json` and the other `*-oauth-auth.json` files | unchanged |
+
 ## ✨ Features
 
 - 🧾 **Bring your own subscription** — SuperGrok, ChatGPT Plus/Pro, Kimi Code, Claude Pro/Max; no extra pay-as-you-go key.
@@ -75,6 +87,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 
 ## 📚 Table of contents
 
+- [Name change](#name-change)
 - [Problems this plugin solves](#problems-this-plugin-solves)
 - [Install](#install)
 - [Settings page](#settings-page)

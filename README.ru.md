@@ -19,6 +19,16 @@
 
 ---
 
+## Смена имени
+
+Сначала репозиторий назывался **`dsh-grok-build`** (только Grok Build). Теперь это OAuth для SuperGrok / Codex / Kimi / Claude / Antigravity.
+
+| | Используйте | По-прежнему работает |
+|---|---|---|
+| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` |
+| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
+| Cordis id / HTTP `/plugins/dsh-grok-build/*` / файлы учёток | без изменений | — |
+
 ## ✨ Возможности
 
 - 🧾 **Своя подписка** — используйте уже оплаченные планы для кодинга вместо отдельных API-ключей.
@@ -72,6 +82,7 @@ systemctl --user restart dsh-web.service
 
 ## 📚 Содержание
 
+- [Смена имени](#смена-имени)
 - [Какие проблемы подключения закрывает этот плагин](#какие-проблемы-подключения-закрывает-этот-плагин)
 - [Установка](#установка)
 - [Страница настроек](#страница-настроек)
@@ -130,7 +141,7 @@ npm run smoke:deployed             # реальные вызовы Codex/Kimi + 
 ## CLI
 
 ```bash
-# legacy (провайдер по умолчанию — Grok) — всё ещё поддерживается
+# `dsh-grok-build` по-прежнему алиас той же команды
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # более новые провайдеры

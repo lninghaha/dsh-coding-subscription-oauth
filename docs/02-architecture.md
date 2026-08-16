@@ -77,8 +77,14 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-- Package name is `dsh-coding-subscription-oauth` (legacy GitHub/npm id: `dsh-grok-build`).
-- Cordis id stays `llm-grok-build-oauth`.
-- The `$DSH_HOME/.grok-build-auth.json` format is not migrated.
-- The `grok-build` fallback model is unchanged.
-- New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`.
+The published name is **`dsh-coding-subscription-oauth`**. The previous GitHub/npm id `dsh-grok-build` remains a clone of the same `main` so old `dsh plugin add github:lninghaha/dsh-grok-build` URLs still resolve.
+
+Stable on-disk / in-process identifiers (do not rename without a migration):
+
+- Cordis id: `llm-grok-build-oauth`
+- Settings HTTP API: `/plugins/dsh-grok-build/oauth/*` and legacy `/plugins/dsh-grok-build/auth/*`
+- Credential files: `$DSH_HOME/.grok-build-auth.json` and the other `*-oauth-auth.json` files
+- CLI: `dsh-coding-oauth` (primary) and `dsh-grok-build` (alias)
+- LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`
+
+New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. The `grok-build` fallback model is unchanged.

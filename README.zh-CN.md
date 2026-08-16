@@ -19,6 +19,18 @@
 
 ---
 
+## 项目更名
+
+最初只做 Grok Build，仓库名是 **`dsh-grok-build`**。现在覆盖 SuperGrok / Grok Build、ChatGPT Plus Codex、Kimi Code、Claude Code 和 Google Antigravity，因此改为现名。
+
+| | 请用这个 | 仍然可用 |
+|---|---|---|
+| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同一条 `main`） |
+| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
+| Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
+| 设置页 HTTP API | `/plugins/dsh-grok-build/*` | 不变 |
+| 凭据文件 | `$DSH_HOME/.grok-build-auth.json` 及其他 `*-oauth-auth.json` | 不变 |
+
 ## ✨ 特性
 
 - 🧾 **自带订阅** —— SuperGrok、ChatGPT Plus/Pro、Kimi Code、Claude Pro/Max，不必另开按量 API-key。
@@ -73,6 +85,7 @@ systemctl --user restart dsh-web.service
 
 ## 📚 目录
 
+- [项目更名](#项目更名)
 - [本插件解决的接入问题](#本插件解决的接入问题)
 - [安装](#安装)
 - [设置页](#设置页)
@@ -131,7 +144,7 @@ npm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用�
 ## CLI
 
 ```bash
-# 旧命令（默认 provider 为 Grok）—— 仍兼容
+# `dsh-grok-build` 仍是同一命令的别名
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # 新供应商

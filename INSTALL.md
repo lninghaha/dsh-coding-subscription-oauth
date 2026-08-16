@@ -1,5 +1,13 @@
 # 安装与使用 · dsh-coding-subscription-oauth
 
+本仓库原名 **`dsh-grok-build`**。新安装请用：
+
+```bash
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+```
+
+CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
+
 ## 前置条件
 
 - DeepSeek Harness 0.1.0-rc.6+
@@ -97,7 +105,7 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
 ### CLI
 
 ```bash
-# Grok（兼容旧命令）
+# Grok（`dsh-grok-build` 仍是同一条命令的别名）
 dsh-coding-oauth login
 dsh-coding-oauth login --pkce
 dsh-coding-oauth import
@@ -165,6 +173,7 @@ npm run smoke:deployed
 
 | 现象 | 处理 |
 |---|---|
+| 还在搜 / 装着 `dsh-grok-build` | 仓库已更名为 `dsh-coding-subscription-oauth`；旧 GitHub 地址仍跟踪同一条 `main`。新安装请用新名 |
 | Codex localhost callback 打不开 | 改用设备码，或把完整 redirect URL 粘贴回设置页 |
 | Claude localhost callback 在远端浏览器 | 把完整 redirect URL 粘贴回设置页 |
 | Kimi 401/403 | 重新登录并确认 Kimi Code 会员有效；不要改成 moonshot.cn OAuth |

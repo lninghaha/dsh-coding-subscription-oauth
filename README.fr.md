@@ -19,6 +19,16 @@
 
 ---
 
+## Changement de nom
+
+Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre maintenant SuperGrok / Codex / Kimi / Claude / Antigravity.
+
+| | Utiliser | Toujours valable |
+|---|---|---|
+| GitHub / npm / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` |
+| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
+| Cordis id / HTTP `/plugins/dsh-grok-build/*` / identifiants | inchangé | — |
+
 ## ✨ Fonctionnalités
 
 - 🧾 **Apportez votre abonnement** — utilisez les plans de codage que vous payez déjà au lieu de clés API séparées.
@@ -72,6 +82,7 @@ Ensuite ouvrez **Settings → Coding OAuth** et connectez-vous à n'importe quel
 
 ## 📚 Sommaire
 
+- [Changement de nom](#changement-de-nom)
 - [Problèmes d'intégration que ce plugin résout](#problèmes-dintégration-que-ce-plugin-résout)
 - [Installation](#installation)
 - [Page de configuration](#page-de-configuration)
@@ -130,7 +141,7 @@ Le sélecteur ne liste que les routes ayant terminé l'authentification ; les fo
 ## CLI
 
 ```bash
-# hérité (le fournisseur par défaut est Grok) — toujours pris en charge
+# `dsh-grok-build` reste un alias de commande
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # fournisseurs plus récents

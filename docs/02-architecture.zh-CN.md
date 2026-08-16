@@ -73,8 +73,14 @@ POST /plugins/dsh-grok-build/oauth/models
 
 ## 6. 兼容性
 
-- 包名是 `dsh-coding-subscription-oauth`（旧 GitHub/npm id：`dsh-grok-build`）。
-- Cordis id 仍是 `llm-grok-build-oauth`。
-- `$DSH_HOME/.grok-build-auth.json` 格式不迁移。
-- `grok-build` fallback model 不改。
-- 新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。
+对外发布名是 **`dsh-coding-subscription-oauth`**。旧 GitHub/npm id `dsh-grok-build` 仍跟踪同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍然能装到。
+
+以下标识保持稳定（无迁移方案前不要改名）：
+
+- Cordis id：`llm-grok-build-oauth`
+- 设置页 HTTP API：`/plugins/dsh-grok-build/oauth/*` 以及旧的 `/plugins/dsh-grok-build/auth/*`
+- 凭据文件：`$DSH_HOME/.grok-build-auth.json` 及其他 `*-oauth-auth.json`
+- CLI：`dsh-coding-oauth`（主命令）与 `dsh-grok-build`（别名）
+- LLM 路由：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`
+
+新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。`grok-build` fallback model 不改。
