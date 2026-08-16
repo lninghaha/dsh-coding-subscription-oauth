@@ -1,7 +1,6 @@
-//#region src/bin.d.ts
+#!/usr/bin/env node
 /** Standalone credential CLI for the coding-subscription bundle. */
-type CliAction = 'login' | 'logout' | 'status' | 'import';
-type CliProvider = 'all' | 'grok' | 'codex' | 'kimi' | 'claude';
-declare function run(argv: readonly string[]): Promise<number>;
-//#endregion
-export { CliAction, CliProvider, run };
+export type CliAction = "login" | "logout" | "status" | "import";
+export type CliProvider = "all" | "grok" | "codex" | "kimi" | "claude";
+export declare function run(argv: readonly string[]): Promise<number>;
+//# sourceMappingURL=bin.d.ts.map

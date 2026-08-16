@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.next/
+output/
+*.tsbuildinfo
 *.log
 .env
 .env.*
@@ -10,10 +13,12 @@ coverage/
 # local-only design docs, fault investigation & reference materials (not published)
 # docs/00-project-rules.md and docs/02-architecture*.md are explicitly published
 # (see package.json files) — negated below.
+# docs/MIGRATION.md is git-tracked but not listed in package.json files.
 docs/*
 !docs/00-project-rules.md
 !docs/02-architecture.md
 !docs/02-architecture.zh-CN.md
+!docs/MIGRATION.md
 reference/
 
 *.tgz

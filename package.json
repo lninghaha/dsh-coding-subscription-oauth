@@ -29,6 +29,10 @@
     "device-code"
   ],
   "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
@@ -36,14 +40,24 @@
     "dsh-grok-build": "lib/bin.js"
   },
   "scripts": {
-    "build": "npm run typecheck && tsdown && node scripts/wrap-client.mjs",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
-    "check": "npm run typecheck && npm run test && npm run build",
+    "clean": "node build/clean.mjs",
+    "typecheck": "tsc -b tsconfig.host.json tsconfig.client.json",
+    "build:server": "tsc -p tsconfig.build.json && tsc -p tsconfig.dts-bin.json && node build/build-server.mjs",
+    "build:client": "node build/build-client.mjs",
+    "build:artifacts": "pnpm run clean && pnpm run typecheck && pnpm run build:server && pnpm run build:client",
+    "build": "pnpm run release:build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check",
+    "check": "pnpm run lint && pnpm run release:build && pnpm run test",
+    "release:promote": "node build/promote-release.mjs",
+    "release:verify": "node build/verify-release.mjs",
+    "release:build": "pnpm run build:artifacts && pnpm run release:promote",
+    "release:dry": "node scripts/release.mjs --dry-run",
+    "release:pack": "node scripts/release.mjs --pack",
     "verify:deployed": "node scripts/verify-deployed-catalog.mjs",
     "smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
-    "release:dry": "node scripts/release.mjs --dry-run",
-    "release": "node scripts/release.mjs"
+    "prepack": "pnpm run release:build"
   },
   "exports": {
     ".": {
@@ -149,7 +163,9 @@
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
+    "@biomejs/biome": "^2.5.8",
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
     "@deepseek-ai/dsh-attachment": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
@@ -164,11 +180,10 @@
     "@earendil-works/pi-ai": "0.84.2",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
+    "esbuild": "^0.28.2",
     "react": "^18.2.0",
-    "tsdown": "^0.22.2",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "undici": "^7.16.0",
-    "unrun": "^0.3.1",
     "vitest": "^4.1.8"
   },
   "overrides": {
