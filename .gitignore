@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+.DS_Store
+coverage/
+.turbo/
+
+# local-only design docs & reference materials (not published)
+docs/
+reference/
