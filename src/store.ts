@@ -3,12 +3,13 @@
  * @module dsh-coding-subscription-oauth/store
  */
 
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { withFileLock, writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import type { Credential, CredentialInfo, CredentialStore, OAuthCredential } from "@earendil-works/pi-ai";
 import { GROK_BUILD_AUTH_FILENAME, XAI_PI_PROVIDER } from "./ids.ts";
+import { OAuthSourceError, readHardenedOAuthSourceFile } from "./oauth-sources.ts";
 
 /** Current on-disk format; readers reject every other version. */
 const AUTH_FORMAT_VERSION = 1;
@@ -16,27 +17,6 @@ const AUTH_FORMAT_VERSION = 1;
 interface AuthDocument {
 	version: typeof AUTH_FORMAT_VERSION;
 	credential: OAuthCredential;
-}
-
-function isENOENT(error: unknown): boolean {
-	return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
-}
-
-async function assertOwnerOnly(filename: string, label: string): Promise<void> {
-	let mode: number;
-	try {
-		mode = (await stat(filename)).mode;
-	} catch (error) {
-		if (isENOENT(error)) return;
-		throw error;
-	}
-	if (process.platform === "win32") return;
-	if ((mode & 0o077) !== 0) {
-		throw new Error(
-			`${label}: ${filename} is readable beyond its owner (mode ${(mode & 0o777).toString(8)});` +
-				` run "chmod 600 ${filename}" before starting again`,
-		);
-	}
 }
 
 function parseDocument(text: string, filename: string, label: string): AuthDocument {
@@ -117,12 +97,14 @@ export class OAuthCredentialFileStore implements CredentialStore {
 	}
 
 	private async readCurrent(): Promise<OAuthCredential | undefined> {
-		await assertOwnerOnly(this.filename, this.label);
 		let text: string;
 		try {
-			text = await readFile(this.filename, "utf8");
+			text = (await readHardenedOAuthSourceFile(this.filename)).text;
 		} catch (error) {
-			if (isENOENT(error)) return undefined;
+			if (error instanceof OAuthSourceError && error.code === "not_found") return undefined;
+			if (error instanceof OAuthSourceError && error.code === "unsafe_source") {
+				throw new Error(`${this.label}: credential file failed owner-only no-follow validation`);
+			}
 			throw error;
 		}
 		return cloneCredential(parseDocument(text, this.filename, this.label).credential);

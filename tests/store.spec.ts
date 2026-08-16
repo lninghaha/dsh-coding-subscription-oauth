@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -46,6 +46,36 @@ describe("GrokBuildCredentialStore", () => {
 		const { stat } = await import("node:fs/promises");
 		const mode = (await stat(store.filename)).mode & 0o777;
 		expect(mode).toBe(0o600);
+	});
+
+	it("rejects a credential file that became group-readable", async () => {
+		if (process.platform === "win32") return;
+		const store = await tempStore();
+		await store.modify(XAI_PI_PROVIDER, async () => ({
+			type: "oauth",
+			access: "a",
+			refresh: "r",
+			expires: 1,
+		}));
+		await chmod(store.filename, 0o640);
+		await expect(store.read(XAI_PI_PROVIDER)).rejects.toThrow(/owner-only no-follow validation/);
+	});
+
+	it("rejects a leaf symlink even when its target is owner-only", async () => {
+		if (process.platform === "win32") return;
+		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-symlink-"));
+		const target = join(dir, "real-auth.json");
+		const store = new GrokBuildCredentialStore(join(dir, "auth.json"));
+		await writeFile(
+			target,
+			`${JSON.stringify({
+				version: 1,
+				credential: { type: "oauth", access: "a", refresh: "r", expires: 1 },
+			})}\n`,
+			{ mode: 0o600 },
+		);
+		await symlink(target, store.filename);
+		await expect(store.read(XAI_PI_PROVIDER)).rejects.toThrow(/owner-only no-follow validation/);
 	});
 
 	it("ignores other provider ids on read and refuses them on write", async () => {
