@@ -1,0 +1,25 @@
+diff --git a/lib/plugin-common-YSDKp1DG.mjs b/lib/plugin-common-YSDKp1DG.mjs
+index 3bd4405d9010705cdbfb675e62538645c4af5321..aeb9dd8375ac4dfc0376b525f44e4cf8eba67719 100644
+--- a/lib/plugin-common-YSDKp1DG.mjs
++++ b/lib/plugin-common-YSDKp1DG.mjs
+@@ -135,12 +135,17 @@ var AgyAdapter = class extends LlmAdapter {
+ 	providerInfo(_provider) {
+ 		return {
+ 			id: "agy",
+-			name: "Antigravity (agy)"
++			name: "Google Antigravity (OAuth)"
+ 		};
+ 	}
+ 	async listModels(_provider) {
+-		const session = await this.options.getSession();
+-		return listAgyModels(session?.auth.access, session?.account.projectId);
++		try {
++			const session = await this.options.getSession();
++			if (!session) return [];
++			return listAgyModels(session.auth.access, session.account.projectId);
++		} catch {
++			return [];
++		}
+ 	}
+ 	async resolveModel(provider, model) {
+ 		return resolveAgyModel(provider, model);

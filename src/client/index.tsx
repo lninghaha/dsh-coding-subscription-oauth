@@ -1,4 +1,4 @@
-/** Browser half: Grok Build account management inside dsh Settings. */
+/** Browser half: coding-subscription account management inside dsh Settings. */
 
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'

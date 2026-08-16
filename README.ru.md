@@ -1,0 +1,205 @@
+
+<!-- banner -->
+<div align="center">
+
+# 🔐 dsh-grok-build
+
+**v0.2.0**
+
+**Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
+
+[![npm version](https://img.shields.io/npm/v/dsh-grok-build?color=blue&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-grok-build?color=blueviolet&logo=npm)](https://www.npmjs.com/package/dsh-grok-build)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+*[English](README.md) · [中文版](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Português (BR)](README.pt-BR.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md)*
+
+</div>
+
+---
+
+## ✨ Возможности
+
+- 🧾 **Своя подписка** — используйте уже оплаченные планы для кодинга вместо отдельных API-ключей.
+- 🔑 **Локальный OAuth, без вставки ключа** — авторизация в странице настроек или CLI; токены никогда не попадают в чат.
+- 🧩 **Один плагин, пять провайдеров** — Grok Build, Codex, Kimi, Claude и Google Antigravity.
+- 🛡️ **Безопасность по замыслу** — файлы учётных данных только-владелец `0600`, атомарная запись, межпроцессная блокировка файла.
+- ⚙️ **Динамический каталог** — селектор моделей показывает ровно те провайдеры, которые вы авторизовали.
+- 🌐 **С учётом прокси** — проксируется только проверенные доверенные домены подписок.
+
+## Поддерживаемые провайдеры
+
+| Провайдер | Маршрут | Аутентификация | Сосуществует с |
+|---|---|---|---|
+| **xAI Grok Build** | `grok-build` | SuperGrok / X Premium OAuth | `xai` |
+| **OpenAI Codex** | `codex-oauth` | ChatGPT Plus/Pro OAuth | `openai` |
+| **Kimi Code** | `kimi-code-oauth` | Kimi Code OAuth | `kimi-coding` |
+| **Claude Code** | `claude-code-oauth` | Claude Pro/Max OAuth | — |
+| **Google Antigravity** | `agy` | `dsh-agy` Google OAuth | — |
+
+> Вход по устройству Grok Build, динамический каталог `/v1/models-v2` и потоковая инференция Responses проверены на реальных развёртываниях. Codex/Kimi/Claude используют нативный OAuth/refresh провайдера из `@earendil-works/pi-ai` вместо переписывания флоу каждого вендора.
+
+## 🚀 Быстрый старт
+
+```bash
+# 1. установите плагин в web-профиль
+dsh plugin --profile web add github:lninghaha/dsh-grok-build
+
+# 2. опционально — Google Antigravity (зафиксированная проверенная версия)
+dsh plugin --profile web add dsh-agy@0.1.2
+
+# 3. перезапустите резидентный сервис dsh web
+systemctl --user restart dsh-web.service
+```
+
+Затем откройте **Settings → Coding OAuth** и войдите в любого провайдера. Готово — выберите авторизованную модель в селекторе.
+
+## 📚 Содержание
+
+- [Установка](#установка)
+- [Страница настроек](#страница-настроек)
+- [CLI](#cli)
+- [Kimi в Китае](#kimi-в-китае)
+- [Сетевой прокси](#сетевой-прокси)
+- [Учётные данные](#учётные-данные)
+- [Архитектура](#архитектура)
+- [Технические заметки](#технические-заметки)
+- [Соответствие](#соответствие)
+- [Документация](#документация)
+- [Участие](#участие)
+- [Лицензия](#лицензия)
+
+## Установка
+
+Требуется DeepSeek Harness `0.1.0-rc.6+` и Node.js 22.19+. Полные детали в [заметках по установке](INSTALL.md).
+
+```bash
+# с GitHub
+dsh plugin --profile web add github:lninghaha/dsh-grok-build
+
+# или локальный dev-клоун
+dsh plugin --profile web add ./dsh-grok-build
+```
+
+После установки перезапустите `dsh web`. Проверка на реальном развёртывании:
+
+```bash
+npm run verify:deployed            # проверяет реальный /api/llm.models + статус OAuth
+DSH_EXPECT_AGY_AUTH=signed-in npm run verify:deployed   # если Google уже вошёл
+
+DSH_RESTORE_PROVIDER=openai \
+DSH_RESTORE_MODEL=gpt-5.6-sol \
+DSH_RESTORE_REASONING=max \
+npm run smoke:deployed             # реальные вызовы Codex/Kimi + replay второго turn
+```
+
+> `smoke:deployed` создаёт временную сессию, проверяет вызовы инструментов Codex и Kimi и второй пользовательский turn (регрессию `INVALID_REPLAY_STATE`), восстанавливает объявленную модель по умолчанию и затем архивирует сессию.
+
+## Страница настроек
+
+Откройте **Settings → Coding OAuth**:
+
+| Провайдер | Методы |
+|---|---|
+| Grok | код авторизации · код устройства · импорт CLI Grok · выбор моделей |
+| Codex | код устройства (рекомендуется на удалённом DSH) · PKCE в браузере |
+| Kimi | код устройства |
+| Claude | PKCE в браузере (удалённый браузер может вставить полный URL редиректа localhost) |
+| Antigravity | статус установки `dsh-agy` + локальные для профиля CLI-команды |
+
+Селектор показывает только маршруты, завершившие аутентификацию; неавторизованные провайдеры возвращают пустой список. Имена провайдеров получают `(OAuth)`, а каталог обновляется через `llm/adapters-updated` после входа/выхода.
+
+## CLI
+
+```bash
+# legacy (провайдер по умолчанию — Grok) — всё ещё поддерживается
+dsh-grok-build login [--pkce] | import | status | logout
+
+# более новые провайдеры
+dsh-grok-build login codex --device-auth | codex --browser | kimi | claude
+dsh-grok-build status all
+dsh-grok-build logout codex
+
+# Antigravity (сначала установите в web-профиль)
+pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+```
+
+> CLI `dsh-agy` изменяет пул аккаунтов вне процесса DSH, поэтому не может отправить событие каталога внутри процесса — после входа/выхода закройте и снова откройте селектор моделей.
+
+## Kimi в Китае
+
+OAuth подписки Kimi Code использует `https://auth.kimi.com`; инференция — `https://api.kimi.com/coding`. `https://api.moonshot.cn/v1` — это канал API-ключей с оплатой за использование **Moonshot Open Platform**; переключаемого «китайского OAuth-эндпоинта» не существует. Этот плагин использует отдельный маршрут `kimi-code-oauth` и не влияет на существующую конфигурацию `kimi-coding` по API-ключу.
+
+## Сетевой прокси
+
+Приоритет: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+
+```yaml
+- id: llm-grok-build-oauth
+  config:
+    proxy: http://127.0.0.1:7890
+    proxyKimi: false
+```
+
+Проксируются только проверенные домены подписок (xAI/Grok, OpenAI Codex, Claude/Anthropic, Google Antigravity); остальной трафик DSH сохраняет исходный диспетчер. Kimi по умолчанию работает напрямую и использует прокси только при `proxyKimi: true`.
+
+## Учётные данные
+
+Только-владелец `0600`, атомарная запись, межпроцессная блокировка файла:
+
+- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.codex-oauth-auth.json`
+- `$DSH_HOME/.kimi-code-oauth-auth.json`
+- `$DSH_HOME/.claude-code-oauth-auth.json`
+
+Кеши выбора живут в соответствующих файлах `*-models.json`. **Ни один HTTP-статус, лог или интерфейс не должен возвращать токен.**
+
+## Архитектура
+
+```mermaid
+flowchart LR
+    subgraph DSH["DSH Harness"]
+        UI[Настройки / Web · Coding OAuth] --> LLM[llm route]
+        LLM --> ALIA[Адаптер алиасов маршрутов]
+    end
+    ALIA --> PI[нативный провайдер pi-ai<br/>OAuth · refresh · stream]
+    PI --> GROK[Grok Build]
+    PI --> COD[Codex]
+    PI --> KIMI[Kimi]
+    PI --> CLAU[Claude]
+    AGY[плагин dsh-agy] --> GAL[Google Antigravity]
+```
+
+## Технические заметки
+
+- **Grok Build**: собственный провайдер Responses на `cli-chat-proxy.grok.com/v1`, заголовки fingerprint CLI, динамический каталог моделей.
+- **Codex/Kimi/Claude**: нативные провайдеры pi-ai отвечают за OAuth и refresh; адаптер алиасов маршрутов сопоставляет их с нативными id, при этом идентичность модели не меняется.
+- Токен доступа Kimi явно преобразуется в `Authorization: Bearer` — никогда не отправляется по ошибке как `x-api-key` Anthropic.
+- Google Antigravity здесь **не** реверс-инжинирится; используется выделенный плагин DSH с зафиксированной версией.
+
+## Соответствие
+
+Использование подписок на кодинг через сторонний harness может находиться в серой зоне условий каждого вендора и вызывать контроль квот, региона или риска аккаунта. **Используйте только свои аккаунты**; этот проект не поддерживает массовые аккаунты, перепродажу квот, удалённый relay, обход paywall или выдачу себя за клиента. Для коммерческого использования предпочитайте официальные каналы API-ключей вендоров.
+
+## Документация
+
+| Документ | Назначение |
+|---|---|
+| [`INSTALL.md`](INSTALL.md) | Детали установки и использования |
+| [`CHANGELOG.md`](CHANGELOG.md) | История релизов |
+| [`docs/00-project-rules.md`](docs/00-project-rules.md) | Версионирование, цикл релиза, разделение публичное/личное |
+| [`docs/02-architecture.md`](docs/02-architecture.md) | Внутренняя архитектура (маршруты, поток данных, модули, API) · [中文](docs/02-architecture.zh-CN.md) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Руководство по участию |
+
+## Связанное
+
+- [`dsh-agy`](https://www.npmjs.com/package/dsh-agy) — отдельный зафиксированный плагин для Google Antigravity.
+
+## Участие
+
+Приветствуются любые вклады — фичи, документация, переводы, отчёты об ошибках. См. **[CONTRIBUTING](CONTRIBUTING.md)** о порядке, конвенциях коммитов и цикле релиза. Если вашего языка нет в списке, отправьте PR с переводом README, и мы добавим его в таблицу выше.
+
+## Лицензия
+
+[Apache-2.0](LICENSE) · см. [NOTICE](NOTICE). Части заимствованы из проекта [dsh-xai](https://github.com/MirDie/dsh-xai) (Apache-2.0).

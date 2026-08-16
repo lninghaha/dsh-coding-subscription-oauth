@@ -1,32 +1,31 @@
 /**
- * Scoped egress proxy for Grok Build traffic.
- *
- * Node's global fetch ignores HTTP(S)_PROXY on every supported runtime, and
- * dsh installs no dispatcher of its own. Grok Build endpoints
- * (auth.x.ai / cli-chat-proxy.grok.com) are unreachable from some networks
- * without a proxy, so this module installs a process-wide undici dispatcher
- * that forwards ONLY those hosts through the configured proxy and leaves
- * every other request on the previous (direct) dispatcher.
- *
- * Proxy URL resolution order:
- *   explicit argument → GROK_BUILD_PROXY → HTTPS_PROXY → https_proxy
- *   → HTTP_PROXY → http_proxy
- * With no proxy configured the dispatcher is left untouched.
+ * Scoped egress proxy for coding-subscription OAuth and inference traffic.
  * @module dsh-grok-build/proxy
  */
 
 import { Dispatcher, getGlobalDispatcher, ProxyAgent, setGlobalDispatcher } from 'undici'
 
-/** Origins that must traverse the proxy when one is configured. */
-const PROXIED_HOSTS: readonly string[] = [
+const DEFAULT_PROXIED_HOSTS = [
   'auth.x.ai',
   'cli-chat-proxy.grok.com',
-]
+  'auth.openai.com',
+  'chatgpt.com',
+  'claude.ai',
+  'platform.claude.com',
+  'api.anthropic.com',
+  'accounts.google.com',
+  'oauth2.googleapis.com',
+  'cloudcode-pa.googleapis.com',
+  'www.googleapis.com',
+] as const
 
-class GrokBuildDispatcher extends Dispatcher {
+const KIMI_PROXIED_HOSTS = ['auth.kimi.com', 'api.kimi.com'] as const
+
+class CodingOAuthDispatcher extends Dispatcher {
   constructor(
     private readonly proxied: Dispatcher,
     private readonly fallback: Dispatcher,
+    private readonly hosts: ReadonlySet<string>,
   ) {
     super()
   }
@@ -38,12 +37,11 @@ class GrokBuildDispatcher extends Dispatcher {
       : typeof origin === 'string'
         ? new URL(origin).hostname
         : ''
-    if (PROXIED_HOSTS.includes(host)) return this.proxied.dispatch(options, handler)
+    if (this.hosts.has(host)) return this.proxied.dispatch(options, handler)
     return this.fallback.dispatch(options, handler)
   }
 
   override async close(): Promise<void> {
-    // Never close the shared fallback dispatcher we captured at install time.
     await this.proxied.close()
   }
 
@@ -63,13 +61,18 @@ function firstEnv(names: readonly string[]): string | undefined {
   return undefined
 }
 
-/**
- * Install the scoped dispatcher once. Returns the proxy URL in effect, or
- * undefined when no proxy is configured (traffic then stays fully direct).
- */
-export function ensureGrokBuildProxy(explicit?: string): string | undefined {
+export interface CodingOAuthProxyOptions {
+  proxyKimi?: boolean
+}
+
+/** Install one process-wide dispatcher that proxies only the audited host list. */
+export function ensureCodingOAuthProxy(
+  explicit?: string,
+  options: CodingOAuthProxyOptions = {},
+): string | undefined {
   if (installed) return installedProxy
   const url = explicit ?? firstEnv([
+    'CODING_OAUTH_PROXY',
     'GROK_BUILD_PROXY',
     'HTTPS_PROXY',
     'https_proxy',
@@ -77,14 +80,27 @@ export function ensureGrokBuildProxy(explicit?: string): string | undefined {
     'http_proxy',
   ])
   if (url === undefined) return undefined
+  const hosts = new Set<string>(DEFAULT_PROXIED_HOSTS)
+  if (options.proxyKimi === true) {
+    for (const host of KIMI_PROXIED_HOSTS) hosts.add(host)
+  }
   const fallback = getGlobalDispatcher()
-  setGlobalDispatcher(new GrokBuildDispatcher(new ProxyAgent(url), fallback))
+  setGlobalDispatcher(new CodingOAuthDispatcher(new ProxyAgent(url), fallback, hosts))
   installed = true
   installedProxy = url
   return url
 }
 
-/** The proxy URL installed by {@link ensureGrokBuildProxy}, if any. */
-export function grokBuildProxyInEffect(): string | undefined {
+/** Backward-compatible name retained for existing callers. */
+export function ensureGrokBuildProxy(explicit?: string): string | undefined {
+  return ensureCodingOAuthProxy(explicit)
+}
+
+export function codingOAuthProxyInEffect(): string | undefined {
   return installedProxy
+}
+
+/** Backward-compatible status accessor. */
+export function grokBuildProxyInEffect(): string | undefined {
+  return codingOAuthProxyInEffect()
 }

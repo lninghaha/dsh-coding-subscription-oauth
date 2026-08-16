@@ -15,6 +15,12 @@ describe('safeMessage', () => {
     )
   })
 
+  it('redacts Claude OAuth and bearer tokens in text or JSON', () => {
+    expect(safeMessage('Authorization: Bearer kimi-secret access_token":"json-secret" sk-ant-oat01-secret')).toBe(
+      'Authorization: Bearer [redacted] access_token":"[redacted]" [redacted token]',
+    )
+  })
+
   it('caps diagnostic length', () => {
     expect(safeMessage('x'.repeat(2000)).length).toBe(1000)
   })

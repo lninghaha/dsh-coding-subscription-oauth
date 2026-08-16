@@ -2,8 +2,8 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { XAI_PI_PROVIDER } from '../src/ids.ts'
-import { GrokBuildCredentialStore } from '../src/store.ts'
+import { CODEX_PI_PROVIDER, XAI_PI_PROVIDER } from '../src/ids.ts'
+import { GrokBuildCredentialStore, OAuthCredentialFileStore } from '../src/store.ts'
 
 const files: string[] = []
 
@@ -89,5 +89,38 @@ describe('GrokBuildCredentialStore', () => {
     await store.delete(XAI_PI_PROVIDER)
     expect(await store.read(XAI_PI_PROVIDER)).toBeUndefined()
     expect(await store.list()).toEqual([])
+  })
+})
+
+describe('OAuthCredentialFileStore', () => {
+  it('isolates provider ids and preserves Codex accountId', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-codex-store-'))
+    const store = new OAuthCredentialFileStore(CODEX_PI_PROVIDER, join(dir, 'codex.json'), 'codex-oauth')
+    const credential = await store.modify(CODEX_PI_PROVIDER, async () => ({
+      type: 'oauth',
+      access: 'codex-access',
+      refresh: 'codex-refresh',
+      expires: 1_800_000_000_000,
+      accountId: 'account-1',
+    }))
+    expect(credential).toMatchObject({ accountId: 'account-1' })
+    expect(await store.read(XAI_PI_PROVIDER)).toBeUndefined()
+    await expect(store.modify(XAI_PI_PROVIDER, async current => current)).rejects.toThrow(/does not own provider/)
+  })
+
+  it('keeps two provider files independent', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dsh-oauth-stores-'))
+    const codex = new OAuthCredentialFileStore(CODEX_PI_PROVIDER, join(dir, 'codex.json'), 'codex-oauth')
+    const other = new OAuthCredentialFileStore('anthropic', join(dir, 'claude.json'), 'claude-code-oauth')
+    await codex.modify(CODEX_PI_PROVIDER, async () => ({
+      type: 'oauth', access: 'c', refresh: 'cr', expires: 10,
+    }))
+    await other.modify('anthropic', async () => ({
+      type: 'oauth', access: 'a', refresh: 'ar', expires: 20,
+    }))
+    expect(await codex.read(CODEX_PI_PROVIDER)).toMatchObject({ access: 'c' })
+    expect(await other.read('anthropic')).toMatchObject({ access: 'a' })
+    await codex.delete(CODEX_PI_PROVIDER)
+    expect(await other.read('anthropic')).toMatchObject({ access: 'a' })
   })
 })

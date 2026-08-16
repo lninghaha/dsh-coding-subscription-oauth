@@ -1,6 +1,6 @@
-# Optional Grok Build (SuperGrok / X Premium coding subscription) route over
-# the base composition. A saved agent-default-model setting still wins over
-# this bundle value.
+# Optional coding-subscription routes over the base composition. Grok Build
+# remains the bundle fallback for backward compatibility; a saved
+# agent-default-model setting still wins over this value.
 
 - id: agent-default-model
   config:

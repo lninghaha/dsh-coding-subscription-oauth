@@ -1,8 +1,114 @@
 import z from "@deepseek-ai/schemastery";
+import { GenerateOptions, LlmAdapter, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, ResolvedRetryPolicy, StreamChunk } from "@deepseek-ai/dsh-llm";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
 import { Api, AuthInteraction, Credential, CredentialInfo, CredentialStore, Model, MutableModels, OAuthCredential, Provider } from "@earendil-works/pi-ai";
 import { Context } from "@deepseek-ai/cordis";
 import { AttachmentStore } from "@deepseek-ai/dsh-attachment";
+//#region src/ids.d.ts
+/** pi-ai provider ids used by login, refresh, and credential storage. */
+declare const XAI_PI_PROVIDER = "xai";
+declare const CODEX_PI_PROVIDER = "openai-codex";
+declare const KIMI_PI_PROVIDER = "kimi-coding";
+declare const CLAUDE_PI_PROVIDER = "anthropic";
+/** Harness LLM routes. OAuth aliases avoid the user's API-key route ids. */
+declare const GROK_BUILD_ROUTE = "grok-build";
+declare const CODEX_OAUTH_ROUTE = "codex-oauth";
+declare const KIMI_CODE_OAUTH_ROUTE = "kimi-code-oauth";
+declare const CLAUDE_CODE_OAUTH_ROUTE = "claude-code-oauth";
+declare const ANTIGRAVITY_ROUTE = "agy";
+declare const CODING_OAUTH_ROUTES: readonly ["grok-build", "codex-oauth", "kimi-code-oauth", "claude-code-oauth"];
+type CodingOAuthRoute = typeof CODING_OAUTH_ROUTES[number];
+type CodingOAuthProviderSlug = 'grok' | 'codex' | 'kimi' | 'claude';
+/** Basenames of private OAuth documents inside the Harness home. */
+declare const GROK_BUILD_AUTH_FILENAME = ".grok-build-auth.json";
+declare const CODEX_OAUTH_AUTH_FILENAME = ".codex-oauth-auth.json";
+declare const KIMI_CODE_OAUTH_AUTH_FILENAME = ".kimi-code-oauth-auth.json";
+declare const CLAUDE_CODE_OAUTH_AUTH_FILENAME = ".claude-code-oauth-auth.json";
+/** Basenames of model selection/catalog caches inside the Harness home. */
+declare const GROK_BUILD_MODELS_CACHE_FILENAME = ".grok-build-models.json";
+declare const CODEX_OAUTH_MODELS_CACHE_FILENAME = ".codex-oauth-models.json";
+declare const KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME = ".kimi-code-oauth-models.json";
+declare const CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME = ".claude-code-oauth-models.json";
+/** Fallback model when no live Grok catalog listing is available. */
+declare const DEFAULT_GROK_BUILD_MODEL = "grok-4.5";
+/** Provider idle ceiling used by every composite route. */
+declare const GROK_BUILD_STREAM_IDLE_TIMEOUT_MS = 300000;
+//#endregion
+//#region src/oauth-providers.d.ts
+type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, 'grok'>;
+type SubscriptionLoginMethod = 'browser' | 'device';
+interface OAuthProviderDefinition {
+  slug: SubscriptionProviderSlug;
+  route: string;
+  nativeProviderId: string;
+  displayName: string;
+  authFilename: string;
+  modelsCacheFilename: string;
+  loginMethods: readonly SubscriptionLoginMethod[];
+  recommendedLoginMethod: SubscriptionLoginMethod;
+  providerFactory(): Provider<Api>;
+  requestProvider(selectedIds?: readonly string[]): Provider<Api>;
+}
+declare const CODEX_OAUTH_PROVIDER: OAuthProviderDefinition;
+declare const KIMI_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
+declare const CLAUDE_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
+declare const OAUTH_PROVIDER_DEFINITIONS: readonly [OAuthProviderDefinition, OAuthProviderDefinition, OAuthProviderDefinition];
+declare function oauthProviderDefinition(slug: string): OAuthProviderDefinition | undefined;
+//#endregion
+//#region src/store.d.ts
+/** Resolve one private OAuth document path beneath DSH_HOME. */
+declare function oauthCredentialPath(basename: string, dshHome?: string): string;
+/** Resolve the legacy Grok Build OAuth document path. */
+declare function grokBuildAuthPath(dshHome?: string): string;
+/**
+ * File-backed pi-ai store scoped to exactly one provider id. Separate provider
+ * files prevent one corrupted or rotated credential from affecting another.
+ */
+declare class OAuthCredentialFileStore implements CredentialStore {
+  readonly providerId: string;
+  private readonly label;
+  readonly filename: string;
+  constructor(providerId: string, filename: string, label: string);
+  private readCurrent;
+  read(providerId: string): Promise<Credential | undefined>;
+  list(): Promise<readonly CredentialInfo[]>;
+  modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>): Promise<Credential | undefined>;
+  delete(providerId: string): Promise<void>;
+}
+/** Legacy-named store retained for existing imports and credential migration. */
+declare class GrokBuildCredentialStore extends OAuthCredentialFileStore {
+  constructor(filename?: string);
+}
+//#endregion
+//#region src/oauth-session.d.ts
+declare function oauthModelsCachePath(basename: string, dshHome?: string): string;
+interface OAuthProviderStatus {
+  authenticated: boolean;
+  expiresAt?: number;
+}
+declare class OAuthProviderSession {
+  readonly definition: OAuthProviderDefinition;
+  readonly store: OAuthCredentialFileStore;
+  readonly models: MutableModels;
+  private readonly catalog;
+  private readonly cacheFile;
+  private selectedIds;
+  constructor(definition: OAuthProviderDefinition, onCatalogChange?: () => void, store?: OAuthCredentialFileStore, cacheFile?: string);
+  private onCatalogChange;
+  availableModels(): Model<Api>[];
+  selectedModelIds(): string[] | undefined;
+  visibleModels(): Model<Api>[];
+  provider(): Provider;
+  loadCachedModels(): Promise<void>;
+  setSelectedModels(ids: readonly string[]): Promise<void>;
+  status(): Promise<OAuthProviderStatus>;
+  login(interaction: AuthInteraction): Promise<Credential>;
+  resolveAccessToken(): Promise<string | undefined>;
+  storedCredential(): Promise<OAuthCredential | undefined>;
+  logout(): Promise<void>;
+  private writeCache;
+}
+//#endregion
 //#region src/catalog.d.ts
 type CatalogSource = 'live' | 'cache' | 'fallback';
 /**
@@ -27,20 +133,6 @@ declare function preferredGrokBuildModelFrom(models: readonly {
  * fingerprint headers. Throws a secret-free error on failure.
  */
 declare function fetchLiveModelIds(accessToken: string, signal?: AbortSignal): Promise<string[]>;
-//#endregion
-//#region src/store.d.ts
-/** Resolve the default OAuth document path. */
-declare function grokBuildAuthPath(dshHome?: string): string;
-/** File-backed pi-ai store scoped to the single xAI OAuth credential. */
-declare class GrokBuildCredentialStore implements CredentialStore {
-  readonly filename: string;
-  constructor(filename?: string);
-  private readCurrent;
-  read(providerId: string): Promise<Credential | undefined>;
-  list(): Promise<readonly CredentialInfo[]>;
-  modify(providerId: string, fn: (current: Credential | undefined) => Promise<Credential | undefined>): Promise<Credential | undefined>;
-  delete(providerId: string): Promise<void>;
-}
 //#endregion
 //#region src/session.d.ts
 /** One process-local owner of the credential and the account model list. */
@@ -75,12 +167,34 @@ declare class GrokBuildSession {
 declare function preferredGrokBuildModel(models?: readonly {
   id: string;
 }[]): string;
-/**
- * Create the Grok Build adapter without a dsh fork.
- * The public pi-ai adapter owns streaming, tools, reasoning, and compaction;
- * this plugin supplies a refreshable OAuth token and an account model list.
- */
+/** Existing Grok-only constructor retained for public API compatibility. */
 declare function createGrokBuildAdapter(session: GrokBuildSession, resolveAttachments: () => AttachmentStore | undefined): PiAiAdapter;
+/** Create the four-route OAuth adapter while preserving each pi-ai native id. */
+declare function createCodingOAuthAdapter(grok: GrokBuildSession, subscriptions: readonly OAuthProviderSession[], resolveAttachments: () => AttachmentStore | undefined): LlmAdapter;
+//#endregion
+//#region src/alias-adapter.d.ts
+interface AliasLlmRoutePolicy {
+  /** User-facing provider name shown above models in the model selector. */
+  displayName?: string;
+  /** Return false to hide every model for this route from discovery. */
+  isAuthenticated?: () => Promise<boolean>;
+}
+/**
+ * Keeps pi-ai model.provider identities native while exposing collision-free
+ * Harness route names. Every public operation translates exactly once.
+ */
+declare class AliasLlmAdapter extends LlmAdapter {
+  private readonly inner;
+  private readonly aliases;
+  private readonly policies;
+  constructor(inner: LlmAdapter, aliases: ReadonlyMap<string, string>, policies?: ReadonlyMap<string, AliasLlmRoutePolicy>);
+  private nativeProvider;
+  providerInfo(provider: string): LlmProviderInfo;
+  providerRetryPolicy(provider: string): ResolvedRetryPolicy | undefined;
+  listModels(provider: string): Promise<readonly LlmModelInfo[]>;
+  resolveModel(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;
+  stream(options: GenerateOptions): AsyncIterable<StreamChunk>;
+}
 //#endregion
 //#region src/auth.d.ts
 /** Non-secret login state shown by the launcher. */
@@ -113,6 +227,12 @@ declare const GROK_BUILD_AUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/auth/
 declare const GROK_BUILD_AUTH_IMPORT_PATH = "/plugins/dsh-grok-build/auth/import";
 declare const GROK_BUILD_AUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/auth/logout";
 declare const GROK_BUILD_AUTH_MODELS_PATH = "/plugins/dsh-grok-build/auth/models";
+declare const CODING_OAUTH_STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
+declare const CODING_OAUTH_LOGIN_PATH = "/plugins/dsh-grok-build/oauth/login";
+declare const CODING_OAUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
+declare const CODING_OAUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
+declare const CODING_OAUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
+declare const CODING_OAUTH_MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
 type GrokBuildLoginMethod = 'pkce' | 'device';
 type GrokBuildWebAuthStatus = {
   status: 'signed-out';
@@ -174,8 +294,79 @@ declare class GrokBuildWebAuth {
   private readStoredStatus;
   private rejectChallenge;
 }
+type SubscriptionWebAuthStatus = {
+  provider: Exclude<CodingOAuthProviderSlug, 'grok'>;
+  route: string;
+  displayName: string;
+  loginMethods: readonly SubscriptionLoginMethod[];
+  recommendedLoginMethod: SubscriptionLoginMethod;
+  models: string[];
+  available: string[];
+  selected: string[];
+} & ({
+  status: 'signed-out';
+} | {
+  status: 'signing-in';
+  method: SubscriptionLoginMethod;
+  url?: string;
+  userCode?: string;
+} | {
+  status: 'signed-in';
+  expiresAt?: number;
+} | {
+  status: 'error';
+  message: string;
+});
+interface SubscriptionLoginChallenge {
+  method: SubscriptionLoginMethod;
+  url: string;
+  userCode?: string;
+}
+/** Web lifecycle for one pi-ai subscription OAuth provider. */
+declare class SubscriptionWebAuth {
+  readonly session: OAuthProviderSession;
+  private readonly challengeTimeoutMs;
+  private state;
+  private operation;
+  private cancellation;
+  private method;
+  private challenge;
+  private challengeWaiters;
+  private codeResolver;
+  constructor(session: OAuthProviderSession, challengeTimeoutMs?: number);
+  status(): Promise<SubscriptionWebAuthStatus>;
+  signIn(method: SubscriptionLoginMethod): Promise<SubscriptionLoginChallenge>;
+  submitCode(code: string): Promise<void>;
+  cancel(): Promise<void>;
+  setModels(ids: readonly string[]): Promise<void>;
+  signOut(): Promise<void>;
+  dispose(): Promise<void>;
+  private baseStatus;
+  private readStoredStatus;
+  private start;
+  private run;
+  private awaitCode;
+  private onEvent;
+  private acceptChallenge;
+  private rejectChallenge;
+}
 /** Register the plugin-owned OAuth routes when the Web server is composed. */
-declare function registerGrokBuildAuthRoutes(ctx: Context, session: GrokBuildSession): void;
+declare function registerGrokBuildAuthRoutes(ctx: Context, session: GrokBuildSession, existingAuth?: GrokBuildWebAuth): void;
+interface CodingOAuthWebStatus {
+  providers: {
+    grok: GrokBuildWebAuthStatus;
+    codex: SubscriptionWebAuthStatus;
+    kimi: SubscriptionWebAuthStatus;
+    claude: SubscriptionWebAuthStatus;
+  };
+  antigravity: {
+    installed: boolean;
+    route: typeof ANTIGRAVITY_ROUTE;
+    management: 'cli';
+  };
+}
+/** Register the unified Coding OAuth API plus the compatibility Grok routes. */
+declare function registerCodingOAuthRoutes(ctx: Context, grokSession: GrokBuildSession, subscriptionSessions: readonly OAuthProviderSession[]): void;
 //#endregion
 //#region src/grok-import.d.ts
 interface GrokImportProbe {
@@ -190,20 +381,6 @@ declare function parseGrokAuthDocument(text: string, filename: string): OAuthCre
 declare function probeGrokAuth(filename?: string): Promise<GrokImportProbe>;
 /** Copy Grok CLI tokens into the dsh store. Does not write the Grok file. */
 declare function importGrokAuth(store: GrokBuildCredentialStore, filename?: string): Promise<OAuthCredential>;
-//#endregion
-//#region src/ids.d.ts
-/** pi-ai provider id used by login, refresh, and the credential store. */
-declare const XAI_PI_PROVIDER = "xai";
-/** Harness LLM route. Distinct from the catalog `xai` API-key route. */
-declare const GROK_BUILD_ROUTE = "grok-build";
-/** Basename of the OAuth document inside the Harness home. */
-declare const GROK_BUILD_AUTH_FILENAME = ".grok-build-auth.json";
-/** Basename of the model catalog cache inside the Harness home. */
-declare const GROK_BUILD_MODELS_CACHE_FILENAME = ".grok-build-models.json";
-/** Fallback model when no live catalog listing is available. */
-declare const DEFAULT_GROK_BUILD_MODEL = "grok-4.5";
-/** Provider idle ceiling used by the composite route. */
-declare const GROK_BUILD_STREAM_IDLE_TIMEOUT_MS = 300000;
 //#endregion
 //#region src/provider.d.ts
 /** Inference backend base URL (Responses API lives under `${baseUrl}/responses`). */
@@ -298,27 +475,18 @@ declare function loginGrokBuildPkce(callbacks: PkceLoginCallbacks, overrides?: P
 //#endregion
 //#region src/proxy.d.ts
 /**
- * Scoped egress proxy for Grok Build traffic.
- *
- * Node's global fetch ignores HTTP(S)_PROXY on every supported runtime, and
- * dsh installs no dispatcher of its own. Grok Build endpoints
- * (auth.x.ai / cli-chat-proxy.grok.com) are unreachable from some networks
- * without a proxy, so this module installs a process-wide undici dispatcher
- * that forwards ONLY those hosts through the configured proxy and leaves
- * every other request on the previous (direct) dispatcher.
- *
- * Proxy URL resolution order:
- *   explicit argument → GROK_BUILD_PROXY → HTTPS_PROXY → https_proxy
- *   → HTTP_PROXY → http_proxy
- * With no proxy configured the dispatcher is left untouched.
+ * Scoped egress proxy for coding-subscription OAuth and inference traffic.
  * @module dsh-grok-build/proxy
  */
-/**
- * Install the scoped dispatcher once. Returns the proxy URL in effect, or
- * undefined when no proxy is configured (traffic then stays fully direct).
- */
+interface CodingOAuthProxyOptions {
+  proxyKimi?: boolean;
+}
+/** Install one process-wide dispatcher that proxies only the audited host list. */
+declare function ensureCodingOAuthProxy(explicit?: string, options?: CodingOAuthProxyOptions): string | undefined;
+/** Backward-compatible name retained for existing callers. */
 declare function ensureGrokBuildProxy(explicit?: string): string | undefined;
-/** The proxy URL installed by {@link ensureGrokBuildProxy}, if any. */
+declare function codingOAuthProxyInEffect(): string | undefined;
+/** Backward-compatible status accessor. */
 declare function grokBuildProxyInEffect(): string | undefined;
 //#endregion
 //#region src/redact.d.ts
@@ -332,12 +500,10 @@ declare const name = "llm-grok-build-oauth";
 declare const inject: string[];
 /** Plugin configuration; every field is optional. */
 interface Config {
-  /**
-   * HTTP(S) proxy URL for Grok Build traffic (auth.x.ai +
-   * cli-chat-proxy.grok.com only — every other request stays direct).
-   * Falls back to GROK_BUILD_PROXY / HTTPS_PROXY env vars.
-   */
+  /** HTTP(S) proxy URL for the audited coding-subscription host allowlist. */
   proxy?: string;
+  /** Kimi China traffic stays direct unless explicitly opted into the proxy. */
+  proxyKimi?: boolean;
 }
 declare const Config: z<Config>;
 /**
@@ -346,4 +512,4 @@ declare const Config: z<Config>;
  */
 declare function apply(ctx: Context, config: Config): void;
 //#endregion
-export { type CatalogSource, Config, DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_AUTH_FILENAME, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GROK_BUILD_BASE_URL, GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_MODELS_URL, GROK_BUILD_OAUTH_CLIENT_ID, GROK_BUILD_OAUTH_DEFAULT_PORT, GROK_BUILD_OAUTH_ISSUER, GROK_BUILD_OAUTH_SCOPE, GROK_BUILD_ROUTE, GROK_BUILD_STREAM_IDLE_TIMEOUT_MS, GROK_CLIENT_VERSION, type GrokBuildAuthStatus, GrokBuildCredentialStore, type GrokBuildLoginMethod, GrokBuildOAuthError, type GrokBuildOAuthErrorCode, type GrokBuildOAuthParams, GrokBuildSession, GrokBuildWebAuth, type GrokBuildWebAuthStatus, type GrokImportProbe, type LoginChallenge, type PkceLoginCallbacks, XAI_PI_PROVIDER, apply, buildAuthorizeUrl, createGrokBuildAdapter, discoverOAuthEndpoints, ensureGrokBuildProxy, extractCode, extractModelIds, fetchLiveModelIds, generatePkce, grokAuthPath, grokBuildAuthPath, grokBuildAuthStatus, grokBuildBaselineModels, grokBuildFingerprintHeaders, grokBuildProvider, grokBuildProxyInEffect, importGrokAuth, importGrokBuildFromGrok, importGrokBuildSession, inject, loginGrokBuild, loginGrokBuildPkce, loginGrokBuildSession, logoutGrokBuild, materializeLiveModel, mergeLiveCatalog, name, parseGrokAuthDocument, preferredGrokBuildModel, preferredGrokBuildModelFrom, probeGrokAuth, refreshGrokBuildToken, registerGrokBuildAuthRoutes, resolveOAuthParams, safeMessage };
+export { ANTIGRAVITY_ROUTE, AliasLlmAdapter, type AliasLlmRoutePolicy, CLAUDE_CODE_OAUTH_AUTH_FILENAME, CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME, CLAUDE_CODE_OAUTH_PROVIDER, CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER, CODEX_OAUTH_AUTH_FILENAME, CODEX_OAUTH_MODELS_CACHE_FILENAME, CODEX_OAUTH_PROVIDER, CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER, CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_ROUTES, CODING_OAUTH_STATUS_PATH, type CatalogSource, type CodingOAuthProviderSlug, type CodingOAuthProxyOptions, type CodingOAuthRoute, type CodingOAuthWebStatus, Config, DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_AUTH_FILENAME, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GROK_BUILD_BASE_URL, GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_MODELS_URL, GROK_BUILD_OAUTH_CLIENT_ID, GROK_BUILD_OAUTH_DEFAULT_PORT, GROK_BUILD_OAUTH_ISSUER, GROK_BUILD_OAUTH_SCOPE, GROK_BUILD_ROUTE, GROK_BUILD_STREAM_IDLE_TIMEOUT_MS, GROK_CLIENT_VERSION, type GrokBuildAuthStatus, GrokBuildCredentialStore, type GrokBuildLoginMethod, GrokBuildOAuthError, type GrokBuildOAuthErrorCode, type GrokBuildOAuthParams, GrokBuildSession, GrokBuildWebAuth, type GrokBuildWebAuthStatus, type GrokImportProbe, KIMI_CODE_OAUTH_AUTH_FILENAME, KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME, KIMI_CODE_OAUTH_PROVIDER, KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER, type LoginChallenge, OAUTH_PROVIDER_DEFINITIONS, OAuthCredentialFileStore, type OAuthProviderDefinition, OAuthProviderSession, type OAuthProviderStatus, type PkceLoginCallbacks, type SubscriptionLoginChallenge, type SubscriptionLoginMethod, type SubscriptionProviderSlug, SubscriptionWebAuth, type SubscriptionWebAuthStatus, XAI_PI_PROVIDER, apply, buildAuthorizeUrl, codingOAuthProxyInEffect, createCodingOAuthAdapter, createGrokBuildAdapter, discoverOAuthEndpoints, ensureCodingOAuthProxy, ensureGrokBuildProxy, extractCode, extractModelIds, fetchLiveModelIds, generatePkce, grokAuthPath, grokBuildAuthPath, grokBuildAuthStatus, grokBuildBaselineModels, grokBuildFingerprintHeaders, grokBuildProvider, grokBuildProxyInEffect, importGrokAuth, importGrokBuildFromGrok, importGrokBuildSession, inject, loginGrokBuild, loginGrokBuildPkce, loginGrokBuildSession, logoutGrokBuild, materializeLiveModel, mergeLiveCatalog, name, oauthCredentialPath, oauthModelsCachePath, oauthProviderDefinition, parseGrokAuthDocument, preferredGrokBuildModel, preferredGrokBuildModelFrom, probeGrokAuth, refreshGrokBuildToken, registerCodingOAuthRoutes, registerGrokBuildAuthRoutes, resolveOAuthParams, safeMessage };

@@ -1,7 +1,7 @@
 {
   "name": "dsh-grok-build",
-  "description": "xAI Grok Build (cli-chat-proxy.grok.com) OAuth for DeepSeek Harness — use a SuperGrok / X Premium coding subscription without XAI_API_KEY",
-  "version": "0.1.0",
+  "description": "Coding subscription OAuth for DeepSeek Harness: Grok Build, OpenAI Codex, Kimi Code, and Claude Code",
+  "version": "0.2.0",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -10,6 +10,18 @@
     "type": "git",
     "url": "git+https://github.com/lninghaha/dsh-grok-build.git"
   },
+  "bugs": "https://github.com/lninghaha/dsh-grok-build/issues",
+  "homepage": "https://github.com/lninghaha/dsh-grok-build#readme",
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "oauth",
+    "grok-build",
+    "openai-codex",
+    "kimi-code",
+    "claude-code",
+    "google-antigravity"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -20,7 +32,11 @@
     "build": "npm run typecheck && tsdown && node scripts/wrap-client.mjs",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "verify:deployed": "node scripts/verify-deployed-catalog.mjs",
+    "smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
+    "release:dry": "node scripts/release.mjs --dry-run",
+    "release": "node scripts/release.mjs"
   },
   "exports": {
     ".": {
@@ -40,6 +56,23 @@
     "src",
     "cordis.patch.yml",
     "INSTALL.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "docs/00-project-rules.md",
+    "docs/02-architecture.md",
+    "docs/02-architecture.zh-CN.md",
+    "README.zh-CN.md",
+    "README.ja.md",
+    "README.ko.md",
+    "README.pt-BR.md",
+    "README.es.md",
+    "README.fr.md",
+    "README.de.md",
+    "README.ru.md",
+    "patches/dsh-agy@0.1.2.patch",
+    "scripts/verify-deployed-catalog.mjs",
+    "scripts/smoke-deployed-routes.mjs",
+    "scripts/release.mjs",
     "LICENSE",
     "NOTICE"
   ],

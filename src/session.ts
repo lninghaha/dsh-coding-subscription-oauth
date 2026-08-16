@@ -157,10 +157,12 @@ export class GrokBuildSession {
       this.source = 'live'
       this.listingError = undefined
       await this.writeCache()
-      this.onCatalogChange?.()
     } catch (error) {
       this.listingError = error instanceof Error ? error.message : String(error)
       if (this.liveIds === undefined) this.source = 'fallback'
+    } finally {
+      // Login must reveal the fallback catalog even when live listing fails.
+      this.onCatalogChange?.()
     }
   }
 
@@ -172,14 +174,19 @@ export class GrokBuildSession {
   }
 
   async logout(): Promise<void> {
-    await this.store.delete(XAI_PI_PROVIDER)
-    this.liveIds = undefined
-    this.selectedIds = undefined
-    this.source = 'fallback'
-    this.listingError = undefined
-    await mkdir(dirname(this.cacheFile), { recursive: true, mode: 0o700 })
-    await rm(this.cacheFile, { force: true })
-    this.onCatalogChange?.()
+    try {
+      await this.store.delete(XAI_PI_PROVIDER)
+      this.liveIds = undefined
+      this.selectedIds = undefined
+      this.source = 'fallback'
+      this.listingError = undefined
+      await mkdir(dirname(this.cacheFile), { recursive: true, mode: 0o700 })
+      await rm(this.cacheFile, { force: true })
+    } finally {
+      // Credential deletion may succeed before cache cleanup fails. Always
+      // refresh discovery so an open selector cannot retain stale models.
+      this.onCatalogChange?.()
+    }
   }
 
   private async writeCache(): Promise<void> {
