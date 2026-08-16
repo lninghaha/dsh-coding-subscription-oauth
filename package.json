@@ -123,6 +123,7 @@
     "@deepseek-ai/dsh-invariants": "*",
     "@deepseek-ai/dsh-llm": "*",
     "@deepseek-ai/dsh-llm-pi-ai": "*",
+    "@deepseek-ai/dsh-tools": "*",
     "@deepseek-ai/schemastery": "^3.18.1-rc.1",
     "@earendil-works/pi-ai": "^0.84.2",
     "react": "^18.2.0"
@@ -155,6 +156,9 @@
     "@deepseek-ai/dsh-llm-pi-ai": {
       "optional": true
     },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
     "@deepseek-ai/schemastery": {
       "optional": true
     },
@@ -176,6 +180,7 @@
     "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
     "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
     "@deepseek-ai/dsh-llm-pi-ai": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "3.18.1",
     "@earendil-works/pi-ai": "0.84.2",
     "@types/node": "^22.20.0",
