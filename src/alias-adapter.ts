@@ -106,26 +106,26 @@ export class AliasLlmAdapter extends LlmAdapter {
     const messages = options.messages.map(message => normalizeReplayForRoute(message, route))
     let authFailureNotified = false
     for await (const chunk of this.inner.stream({ ...options, provider: native, messages })) {
+      if (
+        !authFailureNotified
+        && chunk.type === 'finish'
+        && chunk.reason.kind === 'error'
+        && chunk.reason.failure.code === 'AUTH'
+      ) {
+        authFailureNotified = true
+        const onAuthFailure = this.policies.get(route)?.onAuthFailure
+        if (onAuthFailure !== undefined) {
+          try {
+            await onAuthFailure()
+          } catch {
+            // Invalidation is best-effort: the original AUTH failure must
+            // surface unchanged even when the credential store is unreadable.
+          }
+        }
+      }
       if (chunk.type === 'finish' && chunk.replayState !== undefined) {
         yield { ...chunk, replayState: routePiAiReplayState(chunk.replayState, route) }
       } else {
-        if (
-          !authFailureNotified
-          && chunk.type === 'finish'
-          && chunk.reason.kind === 'error'
-          && chunk.reason.failure.code === 'AUTH'
-        ) {
-          authFailureNotified = true
-          const onAuthFailure = this.policies.get(route)?.onAuthFailure
-          if (onAuthFailure !== undefined) {
-            try {
-              await onAuthFailure()
-            } catch {
-              // Invalidation is best-effort: the original AUTH failure must
-              // surface unchanged even when the credential store is unreadable.
-            }
-          }
-        }
         yield chunk
       }
     }
