@@ -631,7 +631,11 @@ describe("destination inspection and conflict classes", () => {
 		expect(readable.credential).toMatchObject({ access: GROK_ACCESS, accountId: "user-1" });
 		expect((await inspectOAuthDestinationFile(join(home, "missing.json"))).status).toBe("missing");
 		await writeOwnerOnly(join(home, "bad.json"), "{not-json");
-		expect((await inspectOAuthDestinationFile(join(home, "bad.json"))).status).toBe("unreadable");
+		const unreadable = await inspectOAuthDestinationFile(join(home, "bad.json"));
+		expect(unreadable.status).toBe("unreadable");
+		expect(unreadable.payloadMac).toMatch(/^[0-9a-f]{64}$/iu);
+		expect(unreadable.payloadMac).not.toContain("{not-json");
+		expect(JSON.stringify(unreadable)).not.toContain("{not-json");
 	});
 });
 
@@ -746,6 +750,49 @@ describe("two-phase preview and commit", () => {
 		});
 		expect(outcome.result.action).toBe("overwritten");
 		expect(outcome.takePersist()).toMatchObject({ access: KIMI_ACCESS, refresh: KIMI_REFRESH, accountId: "kimi-user" });
+	});
+
+	it("peeks a live ticket without consuming it and rejects a kind mismatch without consume", async () => {
+		const home = await tempHome();
+		await writeKind(home, "grok", grokDocument());
+		const session = createOAuthImportSession();
+		const preview = await session.preview({ kind: "grok", ...sandbox(home) });
+		const claim = session.peekPreview(preview.previewId);
+		expect(claim).toEqual({ kind: "grok", ticketExpiresAt: preview.ticketExpiresAt });
+		expect(Object.keys(claim).sort()).toEqual(["kind", "ticketExpiresAt"]);
+		await expect(
+			session.commit({ previewId: preview.previewId, kind: "claude", ...sandbox(home) }),
+		).rejects.toMatchObject({ code: "unsupported" });
+		expect(session.peekPreview(preview.previewId).kind).toBe("grok");
+		const outcome = await session.commit({ previewId: preview.previewId, kind: "grok", ...sandbox(home) });
+		expect(outcome.result.action).toBe("imported");
+		try {
+			session.peekPreview(preview.previewId);
+			throw new Error("expected peekPreview to reject a consumed ticket");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "preview_invalid" });
+		}
+	});
+
+	it("reports an expired peek once as preview_expired then as preview_invalid", async () => {
+		const home = await tempHome();
+		await writeKind(home, "claude", claudeDocument());
+		let now = 1_700_000_000_000;
+		const session = createOAuthImportSession({ now: () => now });
+		const preview = await session.preview({ kind: "claude", ...sandbox(home) });
+		now += OAUTH_IMPORT_PREVIEW_TTL_MS + 1;
+		try {
+			session.peekPreview(preview.previewId);
+			throw new Error("expected peekPreview to reject an expired ticket");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "preview_expired" });
+		}
+		try {
+			session.peekPreview(preview.previewId);
+			throw new Error("expected peekPreview to reject a consumed expired ticket");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "preview_invalid" });
+		}
 	});
 
 	it("treats preview ids as one-use and expires them after five minutes", async () => {
@@ -893,21 +940,58 @@ describe("two-phase preview and commit", () => {
 
 	it("classifies an unreadable destination and still overwrites after confirm", async () => {
 		const home = await tempHome();
+		const sourcePath = await writeKind(home, "grok", grokDocument());
+		const dest = join(home, "dest.json");
+		await writeOwnerOnly(dest, "{not-json");
+		const session = createOAuthImportSession();
+		const preview = await session.preview({ kind: "grok", ...sandbox(home), destination: { path: dest } });
+		expect(preview.conflict).toBe("unreadable_destination");
+		expect(preview.action).toBe("overwrite");
+		expect(preview.confirmOverwriteRequired).toBe(true);
+		assertNoSecrets(preview);
+		expect(JSON.stringify(preview)).not.toContain("{not-json");
+		expect(JSON.stringify(preview)).not.toContain(dest);
+		expect(JSON.stringify(preview)).not.toContain(sourcePath);
+		await expect(
+			session.commit({
+				previewId: preview.previewId,
+				...sandbox(home),
+				destination: { path: dest },
+			}),
+		).rejects.toMatchObject({ code: "confirm_required" });
+
+		const previewAgain = await session.preview({ kind: "grok", ...sandbox(home), destination: { path: dest } });
+		const outcome = await session.commit({
+			previewId: previewAgain.previewId,
+			confirmOverwrite: true,
+			...sandbox(home),
+			destination: { path: dest },
+		});
+		expect(outcome.result.action).toBe("overwritten");
+		assertNoSecrets(outcome.result);
+		expect(JSON.stringify(outcome)).not.toContain("{not-json");
+		expect(outcome.takePersist()?.access).toBe(GROK_ACCESS);
+	});
+
+	it("treats same-size unreadable destination garbage as a CAS change", async () => {
+		const home = await tempHome();
 		await writeKind(home, "grok", grokDocument());
 		const dest = join(home, "dest.json");
 		await writeOwnerOnly(dest, "{not-json");
 		const session = createOAuthImportSession();
 		const preview = await session.preview({ kind: "grok", ...sandbox(home), destination: { path: dest } });
 		expect(preview.conflict).toBe("unreadable_destination");
-		expect(preview.confirmOverwriteRequired).toBe(true);
-		const outcome = await session.commit({
-			previewId: preview.previewId,
-			confirmOverwrite: true,
-			...sandbox(home),
-			destination: { path: dest },
-		});
-		expect(outcome.result.action).toBe("overwritten");
-		expect(outcome.takePersist()?.access).toBe(GROK_ACCESS);
+		await writeOwnerOnly(dest, "{bad-json");
+		await expect(
+			session.commit({
+				previewId: preview.previewId,
+				confirmOverwrite: true,
+				...sandbox(home),
+				destination: { path: dest },
+			}),
+		).rejects.toMatchObject({ code: "destination_changed" });
+		expect(await readFile(dest, "utf8")).toBe("{bad-json");
+		assertNoSecrets(preview);
 	});
 
 	it("honors a parent-supplied destination revision and cancel()", async () => {

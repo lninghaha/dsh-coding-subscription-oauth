@@ -5,7 +5,7 @@
  * @module dsh-coding-subscription-oauth/oauth-sources
  */
 
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { constants, type Stats } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -127,6 +127,8 @@ export interface OAuthDestinationInspection {
 	identity?: OAuthSourceFileIdentity;
 	/** Internal. Never serialize this field to a client. */
 	credential?: OAuthSourceCredential;
+	/** Internal digest of unreadable dest bytes. Never serialize this field to a client. */
+	payloadMac?: string;
 }
 
 export interface OAuthImportPreview {
@@ -160,8 +162,16 @@ export interface OAuthImportPreviewInput extends OAuthSourcePathOptions {
 
 export interface OAuthImportCommitInput extends OAuthSourcePathOptions {
 	previewId: string;
+	/** When set, must match the ticket kind; a mismatch does not consume the ticket. */
+	kind?: OAuthSourceKind;
 	confirmOverwrite?: boolean;
 	destination?: OAuthImportDestinationView;
+}
+
+/** Secret-free preview claim used to route a ticket to its destination store. */
+export interface OAuthImportPreviewClaim {
+	kind: OAuthSourceKind;
+	ticketExpiresAt: number;
 }
 
 interface Ticket {
@@ -325,7 +335,7 @@ export async function inspectOAuthDestinationFile(filename: string): Promise<OAu
 		const read = await readHardenedOAuthSourceFile(filename);
 		const credential = parseStoredOAuthCredentialDocument(read.text);
 		if (credential === undefined) {
-			return { status: "unreadable", identity: read.identity };
+			return { status: "unreadable", identity: read.identity, payloadMac: payloadMacOf(read.text) };
 		}
 		return { status: "readable", identity: read.identity, credential };
 	} catch (error) {
@@ -484,7 +494,9 @@ export async function discoverOAuthSources(options: OAuthSourcePathOptions = {})
 
 /**
  * In-memory two-phase import controller. Preview IDs are random, one-use, and
- * expire after five minutes. HMAC fingerprints and persist material stay internal.
+ * expire after five minutes. `peekPreview` exposes only kind + ticket expiry so
+ * routes can bind a destination without a second ticket map. HMAC fingerprints
+ * and persist material stay internal.
  */
 export class OAuthImportSession {
 	readonly #tickets = new Map<string, Ticket>();
@@ -500,6 +512,14 @@ export class OAuthImportSession {
 	async discover(options: OAuthSourcePathOptions = {}): Promise<OAuthSourceDiscovery[]> {
 		this.#purge(this.#now());
 		return discoverOAuthSources(options);
+	}
+
+	/**
+	 * Secret-free peek. Does not consume a live ticket. An expired ticket is
+	 * deleted and reported as {@link OAuthSourceError} `preview_expired` once.
+	 */
+	peekPreview(previewId: string): OAuthImportPreviewClaim {
+		return this.#peekTicket(previewId, this.#now());
 	}
 
 	async preview(input: OAuthImportPreviewInput): Promise<OAuthImportPreview> {
@@ -545,6 +565,12 @@ export class OAuthImportSession {
 	 */
 	async commit(input: OAuthImportCommitInput): Promise<OAuthImportCommitOutcome> {
 		const now = this.#now();
+		if (input.kind !== undefined) {
+			const claim = this.#peekTicket(input.previewId, now);
+			if (claim.kind !== input.kind) {
+				throw new OAuthSourceError("unsupported", "oauth import: kind does not match the preview");
+			}
+		}
 		const ticket = this.#takeTicket(input.previewId, now);
 
 		const expectedPath = resolveOAuthSourcePath(ticket.kind, input);
@@ -621,6 +647,7 @@ export class OAuthImportSession {
 		const inspected = await inspectOAuthDestinationFile(path);
 		const extras = {
 			...(inspected.identity === undefined ? {} : { identity: inspected.identity }),
+			...(inspected.payloadMac === undefined ? {} : { payloadMac: inspected.payloadMac }),
 			...(revision === undefined ? {} : { revision }),
 		};
 		if (inspected.status === "unsafe") {
@@ -651,6 +678,20 @@ export class OAuthImportSession {
 			sameRevision(ticket.destinationRevision, this.#destinationRevision(destination)) &&
 			sameRevision(ticket.destinationFingerprint, this.#destinationFingerprint(destination))
 		);
+	}
+
+	#peekTicket(previewId: string, now: number): OAuthImportPreviewClaim {
+		const ticket = this.#tickets.get(previewId);
+		if (ticket !== undefined && ticket.ticketExpiresAt <= now) {
+			this.#tickets.delete(previewId);
+			this.#purge(now);
+			throw new OAuthSourceError("preview_expired", "oauth import: preview has expired");
+		}
+		this.#purge(now);
+		if (ticket === undefined) {
+			throw new OAuthSourceError("preview_invalid", "oauth import: preview is not valid");
+		}
+		return { kind: ticket.kind, ticketExpiresAt: ticket.ticketExpiresAt };
 	}
 
 	#takeTicket(previewId: string, now: number): Ticket {
@@ -727,6 +768,8 @@ interface ResolvedDestination {
 	credential?: OAuthSourceCredential;
 	identity?: OAuthSourceFileIdentity;
 	revision?: string;
+	/** Internal digest of unreadable dest bytes. Never sent to a client. */
+	payloadMac?: string;
 }
 
 function publicPreview(ticket: Ticket, now: number): OAuthImportPreview {
@@ -965,7 +1008,15 @@ function serializeDestination(destination: ResolvedDestination): string {
 					String(identity.uid),
 					String(identity.mode),
 				].join("\0");
-	return [destination.status, credentialPart, identityPart].join("\n");
+	const digestPart =
+		destination.payloadMac === undefined || destination.payloadMac.length === 0
+			? ""
+			: ["h", destination.payloadMac].join("\0");
+	return [destination.status, credentialPart, identityPart, digestPart].join("\n");
+}
+
+function payloadMacOf(text: string): string {
+	return createHash("sha256").update(text).digest("hex");
 }
 
 function hmacHex(key: Buffer, data: string): string {

@@ -52,9 +52,13 @@ export type CapabilitySettingsPatch = Partial<CapabilitySettings>;
 
 /** Inclusive bounds and schema defaults for each numeric limit. */
 export const CAPABILITY_SETTINGS_BOUNDS = {
-	searchResults: { min: 1, max: 8, default: 5 },
+	searchResults: { min: 1, max: 20, default: 5 },
 	imageCount: { min: 1, max: 4, default: 1 },
-	videoArtifactTtlMs: { min: 60_000, max: 7 * 24 * 60 * 60 * 1000, default: 7 * 24 * 60 * 60 * 1000 },
+	videoArtifactTtlMs: {
+		min: 60 * 60 * 1000,
+		max: 7 * 24 * 60 * 60 * 1000,
+		default: 7 * 24 * 60 * 60 * 1000,
+	},
 } as const;
 
 /** Schema defaults: every flag off, every limit at its conservative default. */
@@ -412,17 +416,11 @@ export class CapabilitySettingsController {
 	private attachScope(): void {
 		const register = this.settings?.register;
 		if (register === undefined) return;
-		try {
-			this.scope = register.call(this.settings, CAPABILITY_SETTINGS_NAMESPACE, CapabilitySettingsSchema, {
-				base: this.base,
-				applies: "live",
-				validate: assertServiceableCapabilitySettings,
-			});
-		} catch {
-			// Duplicate registration, or the parent already installed this namespace.
-			this.scope = undefined;
-			return;
-		}
+		this.scope = register.call(this.settings, CAPABILITY_SETTINGS_NAMESPACE, CapabilitySettingsSchema, {
+			base: this.base,
+			applies: "live",
+			validate: assertServiceableCapabilitySettings,
+		});
 		this.scopeDisposer = this.scope.watch(() => {
 			if (this.disposed) return;
 			this.reconcile();

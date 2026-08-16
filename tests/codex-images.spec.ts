@@ -85,6 +85,7 @@ describe("isCodexImageCapableRoute", () => {
 		expect(isCodexImageCapableRoute({ provider: "codex-oauth-fast", inputModalities: ["image"] })).toBe(true);
 		expect(isCodexImageCapableRoute({ provider: "codex-oauth", inputModalities: ["text"] })).toBe(false);
 		expect(isCodexImageCapableRoute({ provider: "codex-oauth" })).toBe(false);
+		expect(isCodexImageCapableRoute(undefined)).toBe(false);
 		expect(isCodexImageCapableRoute({ provider: "grok-build", inputModalities: ["image"] })).toBe(false);
 	});
 });
@@ -266,6 +267,29 @@ describe("createCodexImageController", () => {
 			fetchImpl,
 		});
 		await expect(controller.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it("fails closed when the session route is missing or has no modalities", async () => {
+		const fetchImpl = mockFetch();
+		const auth = {
+			resolve: async () => ({ accessToken: jwtWithAccount("acct-img") }),
+			invalidate: async () => {},
+		};
+		const missing = createCodexImageController({
+			auth,
+			attachments: memoryAttachments(),
+			session: { deriveMessages: () => [] },
+			fetchImpl,
+		});
+		const identityOnly = createCodexImageController({
+			auth,
+			attachments: memoryAttachments(),
+			session: { deriveMessages: () => [], route: { provider: "codex-oauth", model: "gpt-5.4" } },
+			fetchImpl,
+		});
+		await expect(missing.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		await expect(identityOnly.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 });

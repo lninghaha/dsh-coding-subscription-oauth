@@ -12,7 +12,9 @@ import {
 	CODEX_IMAGE_EDIT_TOOL,
 	CODEX_IMAGE_GENERATE_TOOL,
 	type CreateCodexImageController,
+	callingRouteIdentity,
 	createCapabilityTools,
+	resolveCodexImageRouteFromLlm,
 } from "../src/capability-tools.ts";
 import type { CodexAuthSession } from "../src/codex-http.ts";
 import { CODEX_IMAGE_MODEL, type CodexImageController, type CodexImageSessionContext } from "../src/codex-images.ts";
@@ -77,6 +79,22 @@ function fakeExec(overrides: Partial<ToolRunContext> = {}): ToolRunContext {
 		concludeTurn: () => {},
 		...overrides,
 	};
+}
+
+function fakeAgent(
+	input: {
+		options?: { provider?: string; model?: string };
+		header?: { provider: string; model: string };
+		deriveMessages?: () => readonly unknown[];
+	} = {},
+): NonNullable<ToolRunContext["agent"]> {
+	return {
+		options: input.options ?? {},
+		session: {
+			...(input.deriveMessages === undefined ? {} : { deriveMessages: input.deriveMessages }),
+			...(input.header === undefined ? {} : { requestHeader: () => ({ config: input.header }) }),
+		},
+	} as unknown as NonNullable<ToolRunContext["agent"]>;
 }
 
 function toolByName(tools: readonly ToolDefinition[], name: string): ToolDefinition {
@@ -191,8 +209,8 @@ afterEach(() => {
 });
 
 describe("createCapabilityTools", () => {
-	it("returns the five named tools without registering anything", () => {
-		const tools = createCapabilityTools({
+	it("returns the five named tools without registering anything", async () => {
+		const tools = await createCapabilityTools({
 			current: () => DEFAULT_CAPABILITY_SETTINGS,
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -209,14 +227,25 @@ describe("createCapabilityTools", () => {
 		const generate = vi.fn();
 		const edit = vi.fn();
 		const imagine = fakeImagine();
-		const tools = createCapabilityTools({
+		const resolveCodexImageRoute = vi.fn(async () => ({
+			provider: "codex-oauth",
+			model: "gpt-5.4",
+			inputModalities: ["text", "image"],
+		}));
+		const tools = await createCapabilityTools({
 			current: () => DEFAULT_CAPABILITY_SETTINGS,
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
 			imagine,
 			createCodexController: () => fakeCodexController({ generate, edit }),
+			resolveCodexImageRoute,
 		});
-		const exec = fakeExec();
+		const exec = fakeExec({
+			agent: fakeAgent({
+				options: { provider: "codex-oauth", model: "gpt-5.4" },
+				header: { provider: "codex-oauth", model: "gpt-5.4" },
+			}),
+		});
 		await expect(toolByName(tools, CODEX_IMAGE_GENERATE_TOOL).execute({ prompt: "cube" }, exec)).rejects.toMatchObject({
 			message: expect.stringContaining("disabled"),
 		});
@@ -234,6 +263,7 @@ describe("createCapabilityTools", () => {
 		).rejects.toMatchObject({ message: expect.stringContaining("disabled") });
 		expect(generate).not.toHaveBeenCalled();
 		expect(edit).not.toHaveBeenCalled();
+		expect(resolveCodexImageRoute).not.toHaveBeenCalled();
 		expect(imagine.generateImage).not.toHaveBeenCalled();
 		expect(imagine.startVideo).not.toHaveBeenCalled();
 		expect(imagine.videoStatus).not.toHaveBeenCalled();
@@ -242,7 +272,7 @@ describe("createCapabilityTools", () => {
 	it("re-checks live flags after the tools already exist", async () => {
 		let settings = enabledSettings();
 		const generate = vi.fn();
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => settings,
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -273,7 +303,7 @@ describe("createCapabilityTools", () => {
 			warnings: [],
 		}));
 		const imagineGenerate = vi.fn(async () => leakyImagineImage());
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings({ imageCount: 2 }),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -293,7 +323,7 @@ describe("createCapabilityTools", () => {
 
 	it("renders Codex and Imagine images from the canonical returned attachment refs", async () => {
 		const generated = imageRef("generated");
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings(),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -348,7 +378,7 @@ describe("createCapabilityTools", () => {
 			sessions.push(session);
 			return fakeCodexController({ edit });
 		});
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings(),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -366,10 +396,10 @@ describe("createCapabilityTools", () => {
 			{ prompt: "blue", imageIds: ["owned"] },
 			fakeExec({
 				signal,
-				agent: {
-					session: { deriveMessages },
+				agent: fakeAgent({
 					options: { provider: "codex-oauth", model: "gpt-5.4" },
-				} as unknown as NonNullable<ToolRunContext["agent"]>,
+					deriveMessages,
+				}),
 			}),
 		);
 		expect(sessions).toHaveLength(1);
@@ -387,7 +417,7 @@ describe("createCapabilityTools", () => {
 			warnings: [],
 		}));
 		const sessions: CodexImageSessionContext[] = [];
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings(),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -404,7 +434,7 @@ describe("createCapabilityTools", () => {
 	});
 
 	it("returns opaque Imagine outputs without upstream URLs or tokens", async () => {
-		const tools = createCapabilityTools({
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings(),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
@@ -456,20 +486,27 @@ describe("createCapabilityTools", () => {
 	it("requires both Codex image flags for edits and grokImagineVideo for status", async () => {
 		const edit = vi.fn();
 		const imagine = fakeImagine();
-		const tools = createCapabilityTools({
+		const resolveCodexImageRoute = vi.fn(async () => ({
+			provider: "codex-oauth",
+			model: "gpt-5.4",
+			inputModalities: ["text", "image"],
+		}));
+		const tools = await createCapabilityTools({
 			current: () => enabledSettings({ codexImages: false, grokImagineVideo: false }),
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
 			imagine,
 			createCodexController: () => fakeCodexController({ edit }),
+			resolveCodexImageRoute,
 		});
 		await expect(
 			toolByName(tools, CODEX_IMAGE_EDIT_TOOL).execute(
 				{ prompt: "blue", imageIds: ["owned"] },
 				fakeExec({
-					agent: { session: { deriveMessages: () => [] }, options: {} } as unknown as NonNullable<
-						ToolRunContext["agent"]
-					>,
+					agent: fakeAgent({
+						options: { provider: "codex-oauth", model: "gpt-5.4" },
+						deriveMessages: () => [],
+					}),
 				}),
 			),
 		).rejects.toMatchObject({ message: expect.stringContaining("disabled") });
@@ -477,6 +514,183 @@ describe("createCapabilityTools", () => {
 			toolByName(tools, GROK_IMAGINE_VIDEO_STATUS_TOOL).execute({ requestId: "req_video_1" }, fakeExec()),
 		).rejects.toMatchObject({ message: expect.stringContaining("disabled") });
 		expect(edit).not.toHaveBeenCalled();
+		expect(resolveCodexImageRoute).not.toHaveBeenCalled();
 		expect(imagine.videoStatus).not.toHaveBeenCalled();
+	});
+});
+
+describe("Codex image route resolution", () => {
+	it("prefers requestHeader.config over agent.options and falls back when the header is absent", () => {
+		expect(
+			callingRouteIdentity(
+				fakeExec({
+					agent: fakeAgent({
+						options: { provider: "codex-oauth", model: "gpt-5.4" },
+						header: { provider: "codex-oauth", model: "gpt-5.3-codex-spark" },
+					}),
+				}),
+			),
+		).toEqual({ provider: "codex-oauth", model: "gpt-5.3-codex-spark" });
+		expect(
+			callingRouteIdentity(
+				fakeExec({
+					agent: fakeAgent({ options: { provider: "codex-oauth-fast", model: "gpt-5.4" } }),
+				}),
+			),
+		).toEqual({ provider: "codex-oauth-fast", model: "gpt-5.4" });
+		expect(callingRouteIdentity(fakeExec())).toBeUndefined();
+		expect(
+			callingRouteIdentity(fakeExec({ agent: fakeAgent({ options: { provider: "codex-oauth" } }) })),
+		).toBeUndefined();
+	});
+
+	it("copies authoritative modalities and omits them when lookup fails", async () => {
+		const exec = fakeExec({
+			agent: fakeAgent({ options: { provider: "codex-oauth", model: "gpt-5.4" } }),
+		});
+		const resolveModelInfo = vi.fn(async () => ({ inputModalities: ["text", "image"] as const }));
+		await expect(resolveCodexImageRouteFromLlm(exec, resolveModelInfo)).resolves.toEqual({
+			provider: "codex-oauth",
+			model: "gpt-5.4",
+			inputModalities: ["text", "image"],
+		});
+		expect(resolveModelInfo).toHaveBeenCalledWith("codex-oauth", "gpt-5.4", exec.signal);
+
+		await expect(
+			resolveCodexImageRouteFromLlm(exec, async () => {
+				throw new Error("UNKNOWN_MODEL");
+			}),
+		).resolves.toEqual({ provider: "codex-oauth", model: "gpt-5.4" });
+		await expect(resolveCodexImageRouteFromLlm(exec, async () => ({}))).resolves.toEqual({
+			provider: "codex-oauth",
+			model: "gpt-5.4",
+		});
+		await expect(resolveCodexImageRouteFromLlm(fakeExec(), resolveModelInfo)).resolves.toBeUndefined();
+	});
+
+	it("fails the real controller closed without a resolver, identity, or image modality", async () => {
+		const attachments = fakeAttachments();
+		const tools = await createCapabilityTools({
+			current: () => enabledSettings(),
+			auth: fakeAuth(),
+			attachments,
+			imagine: fakeImagine(),
+		});
+		const generate = toolByName(tools, CODEX_IMAGE_GENERATE_TOOL);
+		await expect(generate.execute({ prompt: "cube" }, fakeExec())).rejects.toMatchObject({
+			code: "UNSUPPORTED_CONTENT",
+		});
+
+		const resolveModelInfo = vi.fn(async (provider: string, model: string) => {
+			if (model === "gpt-5.3-codex-spark") return { inputModalities: ["text"] as const };
+			if (provider === "grok-build") return { inputModalities: ["text", "image"] as const };
+			throw new Error("UNKNOWN_MODEL");
+		});
+		const gated = await createCapabilityTools({
+			current: () => enabledSettings(),
+			auth: fakeAuth(),
+			attachments,
+			imagine: fakeImagine(),
+			resolveCodexImageRoute: (exec) => resolveCodexImageRouteFromLlm(exec, resolveModelInfo),
+		});
+		const gatedGenerate = toolByName(gated, CODEX_IMAGE_GENERATE_TOOL);
+		await expect(
+			gatedGenerate.execute(
+				{ prompt: "cube" },
+				fakeExec({
+					agent: fakeAgent({
+						options: { provider: "codex-oauth", model: "gpt-5.4" },
+						header: { provider: "codex-oauth", model: "gpt-5.3-codex-spark" },
+					}),
+				}),
+			),
+		).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		expect(resolveModelInfo).toHaveBeenCalledWith("codex-oauth", "gpt-5.3-codex-spark", expect.any(AbortSignal));
+		await expect(
+			gatedGenerate.execute(
+				{ prompt: "cube" },
+				fakeExec({ agent: fakeAgent({ options: { provider: "grok-build", model: "grok-4.6" } }) }),
+			),
+		).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		await expect(
+			gatedGenerate.execute(
+				{ prompt: "cube" },
+				fakeExec({ agent: fakeAgent({ options: { provider: "codex-oauth", model: "missing" } }) }),
+			),
+		).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		expect(attachments.saveImage).not.toHaveBeenCalled();
+	});
+
+	it("forwards the resolved route without inventing modalities and keeps edit ownership", async () => {
+		const sessions: CodexImageSessionContext[] = [];
+		const deriveMessages = vi.fn(() => [
+			{
+				content: [
+					{ type: "image", attachment: imageRef("owned") },
+					{ type: "tool-result", content: [{ type: "image", attachment: imageRef("nested") }] },
+				],
+			},
+		]);
+		const generate = vi.fn<CodexImageController["generate"]>(async () => ({
+			operation: "generate",
+			model: CODEX_IMAGE_MODEL,
+			images: [imageRef("generated")],
+			references: [],
+			warnings: [],
+		}));
+		const edit = vi.fn<CodexImageController["edit"]>(async () => ({
+			operation: "edit",
+			model: CODEX_IMAGE_MODEL,
+			images: [imageRef("edited")],
+			references: [imageRef("owned")],
+			warnings: [],
+		}));
+		const resolveModelInfo = vi.fn(async () => ({ inputModalities: ["image"] as const }));
+		const tools = await createCapabilityTools({
+			current: () => enabledSettings(),
+			auth: fakeAuth(),
+			attachments: fakeAttachments(),
+			imagine: fakeImagine(),
+			createCodexController: (session) => {
+				sessions.push(session);
+				return fakeCodexController({ generate, edit });
+			},
+			resolveCodexImageRoute: (exec) => resolveCodexImageRouteFromLlm(exec, resolveModelInfo),
+		});
+		const signal = new AbortController().signal;
+		await toolByName(tools, CODEX_IMAGE_GENERATE_TOOL).execute(
+			{ prompt: "cube" },
+			fakeExec({
+				signal,
+				agent: fakeAgent({
+					options: { provider: "codex-oauth", model: "gpt-5.4" },
+					header: { provider: "openai-codex", model: "gpt-5.5" },
+				}),
+			}),
+		);
+		expect(sessions[0]?.deriveMessages()).toEqual([]);
+		expect(sessions[0]?.route).toEqual({
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			inputModalities: ["image"],
+		});
+		expect(resolveModelInfo).toHaveBeenCalledWith("openai-codex", "gpt-5.5", signal);
+
+		await toolByName(tools, CODEX_IMAGE_EDIT_TOOL).execute(
+			{ prompt: "blue", imageIds: ["owned"] },
+			fakeExec({
+				agent: fakeAgent({
+					options: { provider: "codex-oauth-fast", model: "gpt-5.4" },
+					deriveMessages,
+				}),
+			}),
+		);
+		expect(sessions[1]?.deriveMessages()).toEqual(deriveMessages.mock.results[0]?.value);
+		expect(sessions[1]?.route).toEqual({
+			provider: "codex-oauth-fast",
+			model: "gpt-5.4",
+			inputModalities: ["image"],
+		});
+		expect(edit).toHaveBeenCalledWith(expect.objectContaining({ imageIds: ["owned"] }), expect.any(AbortSignal));
 	});
 });

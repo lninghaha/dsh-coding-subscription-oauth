@@ -1,6 +1,6 @@
 /** Same-origin Web settings routes for Grok Build OAuth. */
 
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-host-webserver";
 import type {} from "@deepseek-ai/dsh-llm";
@@ -15,6 +15,8 @@ import type { SubscriptionLoginMethod } from "./oauth-providers.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
 import { safeMessage } from "./redact.ts";
 import type { GrokBuildSession } from "./session.ts";
+import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export const GROK_BUILD_AUTH_STATUS_PATH = "/plugins/dsh-grok-build/auth/status";
 export const GROK_BUILD_AUTH_LOGIN_PATH = "/plugins/dsh-grok-build/auth/login";
@@ -156,9 +158,12 @@ export class GrokBuildWebAuth {
 	}
 
 	async dispose(): Promise<void> {
-		this.cancellation?.abort(new Error("grok-build: plugin disposed"));
+		const failure = new Error("grok-build: plugin disposed");
+		this.cancellation?.abort(failure);
+		this.rejectChallenge(failure);
 		await this.operation?.catch(() => undefined);
 		this.codeResolver = undefined;
+		this.challenge = undefined;
 	}
 
 	private start(method: GrokBuildLoginMethod): void {
@@ -542,21 +547,6 @@ export class SubscriptionWebAuth {
 	}
 }
 
-function trustedRequest(req: IncomingMessage): boolean {
-	const remote = req.socket.remoteAddress;
-	if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") return false;
-	if (req.headers["sec-fetch-site"] === "cross-site") return false;
-	const host = req.headers.host;
-	if (host === undefined) return false;
-	const origin = req.headers.origin;
-	if (origin === undefined) return true;
-	try {
-		return new URL(origin).host === new URL(`http://${host}`).host;
-	} catch {
-		return false;
-	}
-}
-
 function json(res: ServerResponse, status: number, value: unknown): void {
 	res.writeHead(status, {
 		"content-type": "application/json; charset=utf-8",
@@ -579,23 +569,26 @@ export function registerGrokBuildAuthRoutes(
 ): void {
 	const auth = existingAuth ?? new GrokBuildWebAuth(session);
 	const ownsAuth = existingAuth === undefined;
+	if (ownsAuth) {
+		ctx.effect(() => () => auth.dispose(), "dsh-coding-subscription-oauth: Grok OAuth auth lifetime");
+	}
 	ctx.effect(() => {
-		const routes = [
-			ctx.webServer.register({
+		const releaseRoutes = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => [
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_STATUS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					json(res, 200, await auth.status());
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_LOGIN_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						json(res, 200, await auth.signIn(readLoginMethod(await readJsonRequest(req))));
 					} catch (error: unknown) {
@@ -603,12 +596,12 @@ export function registerGrokBuildAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_LOGIN_CODE_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const code = typeof body === "object" && body !== null && "code" in body ? body.code : undefined;
@@ -622,36 +615,31 @@ export function registerGrokBuildAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					await auth.cancel();
 					json(res, 200, await auth.status());
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_IMPORT_PATH,
-				handler: async (req, res) => {
+				handler: (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
-					try {
-						await auth.importGrok();
-						json(res, 200, await auth.status());
-					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
-					}
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					json(res, 410, { error: "legacy import retired; use OAuth Pull preview and confirmation" });
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_MODELS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const selected =
@@ -666,21 +654,18 @@ export function registerGrokBuildAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: GROK_BUILD_AUTH_LOGOUT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					await auth.signOut();
 					json(res, 200, { ok: true });
 				},
 			}),
-		];
-		return async () => {
-			for (const dispose of routes) dispose();
-			if (ownsAuth) await auth.dispose();
-		};
+		]);
+		return releaseRoutes;
 	}, "dsh-coding-subscription-oauth: Web OAuth routes");
 }
 
@@ -726,6 +711,11 @@ export function registerCodingOAuthRoutes(
 		if (auth === undefined) throw new Error(`OAuth provider "${slug}" is not configured`);
 		return auth;
 	};
+	ctx.effect(
+		() => () =>
+			Promise.all([grok.dispose(), ...[...subscriptions.values()].map((auth) => auth.dispose())]).then(() => undefined),
+		"dsh-coding-subscription-oauth: Coding OAuth auth lifetime",
+	);
 
 	registerGrokBuildAuthRoutes(ctx, grokSession, grok);
 
@@ -759,13 +749,13 @@ export function registerCodingOAuthRoutes(
 	};
 
 	ctx.effect(() => {
-		const routes = [
-			ctx.webServer.register({
+		const releaseRoutes = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => [
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_STATUS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						json(res, 200, await allStatus());
 					} catch (error: unknown) {
@@ -773,12 +763,12 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_LOGIN_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -799,12 +789,12 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_LOGIN_CODE_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -820,12 +810,12 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_LOGIN_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -837,12 +827,12 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_MODELS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -858,12 +848,12 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: CODING_OAUTH_LOGOUT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -875,10 +865,7 @@ export function registerCodingOAuthRoutes(
 					}
 				},
 			}),
-		];
-		return async () => {
-			for (const dispose of routes) dispose();
-			await Promise.all([grok.dispose(), ...[...subscriptions.values()].map((auth) => auth.dispose())]);
-		};
+		]);
+		return releaseRoutes;
 	}, "dsh-coding-subscription-oauth: Coding OAuth routes");
 }

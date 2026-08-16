@@ -111,17 +111,22 @@ function createHarness(options?: {
 	controller?: FakeController;
 	usage?: () => unknown | Promise<unknown>;
 	credentialInfo?: () => unknown | Promise<unknown>;
+	failOnPath?: string;
+	routes?: Map<string, RegisteredRoute["handler"]>;
 }): {
 	controller: FakeController;
 	routes: Map<string, RegisteredRoute["handler"]>;
 	dispose: () => void;
 } {
 	const controller = options?.controller ?? new FakeController();
-	const routes = new Map<string, RegisteredRoute["handler"]>();
+	const routes = options?.routes ?? new Map<string, RegisteredRoute["handler"]>();
 	const dispose = registerCapabilityRoutes(
 		{
 			webServer: {
 				register(route: RegisteredRoute) {
+					if (options?.failOnPath !== undefined && route.path === options.failOnPath) {
+						throw new Error(`webserver: duplicate exact route "${route.path}"`);
+					}
 					routes.set(route.path, route.handler);
 					return () => {
 						routes.delete(route.path);
@@ -172,6 +177,35 @@ describe("capability route registrar", () => {
 		});
 		expect(full.routes.has(CODEX_USAGE_PATH)).toBe(true);
 		expect(full.routes.has(IMAGINE_CREDENTIAL_STATUS_PATH)).toBe(true);
+	});
+
+	it("rolls back the capabilities route when the usage route fails to register", () => {
+		const routes = new Map<string, RegisteredRoute["handler"]>();
+		expect(() =>
+			createHarness({
+				routes,
+				usage: () => ({ remaining: 1 }),
+				credentialInfo: () => ({ configured: false, source: "none", writable: false }),
+				failOnPath: CODEX_USAGE_PATH,
+			}),
+		).toThrow(`webserver: duplicate exact route "${CODEX_USAGE_PATH}"`);
+		expect(routes.size).toBe(0);
+		expect(routes.has(CAPABILITY_SETTINGS_PATH)).toBe(false);
+	});
+
+	it("rolls back earlier capability routes when the credential-status route fails", () => {
+		const routes = new Map<string, RegisteredRoute["handler"]>();
+		expect(() =>
+			createHarness({
+				routes,
+				usage: () => ({ remaining: 1 }),
+				credentialInfo: () => ({ configured: false, source: "none", writable: false }),
+				failOnPath: IMAGINE_CREDENTIAL_STATUS_PATH,
+			}),
+		).toThrow(`webserver: duplicate exact route "${IMAGINE_CREDENTIAL_STATUS_PATH}"`);
+		expect(routes.size).toBe(0);
+		expect(routes.has(CAPABILITY_SETTINGS_PATH)).toBe(false);
+		expect(routes.has(CODEX_USAGE_PATH)).toBe(false);
 	});
 });
 
@@ -367,6 +401,20 @@ describe("optional capability read surfaces", () => {
 		expect(called).toBe(0);
 	});
 
+	it("redacts internal 500 diagnostics from optional read surfaces", async () => {
+		const controller = new FakeController();
+		controller.value = { ...DEFAULT_CAPABILITY_SETTINGS, codexUsage: true };
+		const { routes } = createHarness({
+			controller,
+			usage: () => {
+				throw new Error("failed reading /home/private/oauth.json with token secret");
+			},
+		});
+		const response = await invoke(routes.get(CODEX_USAGE_PATH), request("GET"));
+		expect(response.status).toBe(500);
+		expect(response.body).toEqual({ error: "request failed" });
+	});
+
 	it("delegates usage only when the flag is on and never returns secret values", async () => {
 		const controller = new FakeController();
 		controller.value = { ...DEFAULT_CAPABILITY_SETTINGS, codexUsage: true };
@@ -394,5 +442,13 @@ describe("optional capability read surfaces", () => {
 		expect(status.body).not.toHaveProperty("apiKey");
 		expect(status.body).not.toHaveProperty("access_token");
 		expect(status.body).not.toHaveProperty("credential");
+	});
+
+	it("redacts unbounded or path-shaped credential source labels", async () => {
+		const { routes } = createHarness({
+			credentialInfo: () => ({ configured: true, source: "/home/private/XAI_API_KEY", writable: true }),
+		});
+		const status = await invoke(routes.get(IMAGINE_CREDENTIAL_STATUS_PATH), request("GET"));
+		expect(status.body).toEqual({ configured: true, source: "unknown", writable: true });
 	});
 });

@@ -53,6 +53,7 @@ export interface CodexModelCapabilitiesOptions {
 
 export interface CodexModelCapabilities {
 	refresh(signal?: AbortSignal): Promise<readonly CodexModelCapability[]>;
+	clear(): void;
 	getCached(): readonly CodexModelCapability[] | undefined;
 	serviceTiers(modelId: string): readonly string[];
 	isPriorityEligible(modelId: string): boolean;
@@ -270,6 +271,7 @@ export function createCodexModelCapabilities(options: CodexModelCapabilitiesOpti
 	const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
 	let cached: { fetchedAt: number; models: readonly CodexModelCapability[] } | undefined;
 	let inFlight: Promise<readonly CodexModelCapability[]> | undefined;
+	let epoch = 0;
 
 	const isFresh = (): boolean => cached !== undefined && now() - cached.fetchedAt < ttlMs;
 
@@ -278,7 +280,7 @@ export function createCodexModelCapabilities(options: CodexModelCapabilitiesOpti
 	const lookup = (modelId: string): CodexModelCapability | undefined =>
 		freshModels()?.find((model) => model.id === modelId);
 
-	const load = async (signal?: AbortSignal): Promise<readonly CodexModelCapability[]> => {
+	const load = async (startedEpoch: number, signal?: AbortSignal): Promise<readonly CodexModelCapability[]> => {
 		try {
 			const payload = await http.requestJson({
 				url: codexModelsUrl(clientVersion),
@@ -287,7 +289,7 @@ export function createCodexModelCapabilities(options: CodexModelCapabilitiesOpti
 				...(signal === undefined ? {} : { signal }),
 			});
 			const models = parseCodexModelCapabilities(payload);
-			cached = { fetchedAt: now(), models };
+			if (startedEpoch === epoch) cached = { fetchedAt: now(), models };
 			return models;
 		} catch {
 			return freshModels() ?? [];
@@ -298,11 +300,17 @@ export function createCodexModelCapabilities(options: CodexModelCapabilitiesOpti
 		async refresh(signal) {
 			if (isFresh() && cached !== undefined) return cached.models;
 			if (inFlight !== undefined) return inFlight;
-			const current = load(signal).finally(() => {
+			const startedEpoch = epoch;
+			const current = load(startedEpoch, signal).finally(() => {
 				if (inFlight === current) inFlight = undefined;
 			});
 			inFlight = current;
 			return current;
+		},
+		clear() {
+			epoch += 1;
+			cached = undefined;
+			inFlight = undefined;
 		},
 		getCached: () => freshModels(),
 		serviceTiers: (modelId) => lookup(modelId)?.serviceTiers ?? [],

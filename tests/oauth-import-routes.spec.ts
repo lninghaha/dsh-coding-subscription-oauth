@@ -17,6 +17,7 @@ import {
 	registerOAuthImportRoutes,
 } from "../src/oauth-import-routes.ts";
 import {
+	OAUTH_IMPORT_MAX_PREVIEW_TICKETS,
 	OAUTH_IMPORT_PREVIEW_TTL_MS,
 	type OAuthSourceCredential,
 	type OAuthSourceKind,
@@ -249,6 +250,24 @@ describe("oauth import route trust", () => {
 });
 
 describe("oauth import discovery and preview", () => {
+	it("redacts internal 500 diagnostics", async () => {
+		const home = await tempHome();
+		await writeGrokSource(home);
+		const prepared = emptyDestinations(home);
+		Object.defineProperty(prepared.stores.grok, "filename", {
+			get() {
+				throw new Error("failed opening /home/private/oauth.json with token secret");
+			},
+		});
+		const { handlers } = registerRoutes(home, prepared);
+		const response = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_PREVIEW_PATH),
+			request("POST", JSON.stringify({ kind: "grok" })),
+		);
+		expect(response.status).toBe(500);
+		expect(response.body).toEqual({ error: "request failed" });
+	});
+
 	it("lists secret-free discovery and preview, then imports without rewriting the CLI source", async () => {
 		const home = await tempHome();
 		const sourcePath = await writeGrokSource(home);
@@ -440,7 +459,7 @@ describe("oauth import ticket lifetime", () => {
 		const home = await tempHome();
 		await writeGrokSource(home);
 		let now = 1_700_000_000_000;
-		const { handlers } = registerRoutes(home, { now: () => now });
+		const { handlers, stores } = registerRoutes(home, { now: () => now });
 
 		const first = await invoke(
 			requireHandler(handlers, OAUTH_IMPORT_PREVIEW_PATH),
@@ -452,12 +471,14 @@ describe("oauth import ticket lifetime", () => {
 			request("POST", JSON.stringify({ kind: "grok", previewId: firstId })),
 		);
 		expect(used.status).toBe(200);
+		expect(stores.grok.modifyCount).toBe(1);
 		const reused = await invoke(
 			requireHandler(handlers, OAUTH_IMPORT_COMMIT_PATH),
 			request("POST", JSON.stringify({ kind: "grok", previewId: firstId })),
 		);
 		expect(reused.status).toBe(404);
 		expect(reused.body).toMatchObject({ code: "preview_invalid" });
+		expect(stores.grok.modifyCount).toBe(1);
 		assertNoSecrets(reused.body);
 
 		const second = await invoke(
@@ -471,7 +492,69 @@ describe("oauth import ticket lifetime", () => {
 		);
 		expect(expired.status).toBe(410);
 		expect(expired.body).toMatchObject({ code: "preview_expired" });
+		expect(stores.grok.modifyCount).toBe(1);
 		assertNoSecrets(expired.body);
+	});
+
+	it("rejects a kind mismatch without consuming the ticket or locking destination", async () => {
+		const home = await tempHome();
+		await writeGrokSource(home);
+		const { handlers, stores } = registerRoutes(home);
+		const previewed = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_PREVIEW_PATH),
+			request("POST", JSON.stringify({ kind: "grok" })),
+		);
+		const previewId = (previewed.body as { previewId: string }).previewId;
+		const mismatched = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_COMMIT_PATH),
+			request("POST", JSON.stringify({ kind: "claude", previewId })),
+		);
+		expect(mismatched.status).toBe(400);
+		expect(mismatched.body).toMatchObject({ code: "unsupported" });
+		expect(stores.grok.modifyCount).toBe(0);
+		expect(stores.claude.modifyCount).toBe(0);
+		assertNoSecrets(mismatched.body);
+
+		const committed = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_COMMIT_PATH),
+			request("POST", JSON.stringify({ kind: "grok", previewId })),
+		);
+		expect(committed.status).toBe(200);
+		expect(committed.body).toMatchObject({ action: "imported" });
+		expect(stores.grok.modifyCount).toBe(1);
+		expect(stores.claude.modifyCount).toBe(0);
+	});
+
+	it("evicts the oldest ticket at the session cap without leaving a commitable leftover", async () => {
+		const home = await tempHome();
+		await writeGrokSource(home);
+		const { handlers, stores } = registerRoutes(home);
+		const previewIds: string[] = [];
+		for (let index = 0; index <= OAUTH_IMPORT_MAX_PREVIEW_TICKETS; index += 1) {
+			const previewed = await invoke(
+				requireHandler(handlers, OAUTH_IMPORT_PREVIEW_PATH),
+				request("POST", JSON.stringify({ kind: "grok" })),
+			);
+			expect(previewed.status).toBe(200);
+			previewIds.push((previewed.body as { previewId: string }).previewId);
+		}
+		const oldest = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_COMMIT_PATH),
+			request("POST", JSON.stringify({ kind: "grok", previewId: previewIds[0] })),
+		);
+		expect(oldest.status).toBe(404);
+		expect(oldest.body).toMatchObject({ code: "preview_invalid" });
+		expect(stores.grok.modifyCount).toBe(0);
+
+		const newestId = previewIds.at(-1);
+		if (newestId === undefined) throw new Error("newest preview missing");
+		const newest = await invoke(
+			requireHandler(handlers, OAUTH_IMPORT_COMMIT_PATH),
+			request("POST", JSON.stringify({ kind: "grok", previewId: newestId })),
+		);
+		expect(newest.status).toBe(200);
+		expect(newest.body).toMatchObject({ action: "imported" });
+		expect(stores.grok.modifyCount).toBe(1);
 	});
 
 	it("cancels a preview ticket without writing the source or destination", async () => {
@@ -501,8 +584,82 @@ describe("oauth import ticket lifetime", () => {
 			),
 		);
 		expect(committed.status).toBe(404);
-		expect(stores.grok.modifyCount).toBe(1);
+		expect(committed.body).toMatchObject({ code: "preview_invalid" });
+		expect(stores.grok.modifyCount).toBe(0);
 		expect(stores.grok.current).toBeUndefined();
 		expect(await readFile(sourcePath)).toEqual(original);
+	});
+});
+
+function dummyImportDestinations(): OAuthImportDestinations {
+	const store: OAuthImportDestinationStore = {
+		filename: "unused.json",
+		modify: async () => undefined,
+	};
+	return {
+		grok: { providerId: XAI_PI_PROVIDER, store },
+		codex: { providerId: CODEX_PI_PROVIDER, store },
+		kimi: { providerId: KIMI_PI_PROVIDER, store },
+		claude: { providerId: CLAUDE_PI_PROVIDER, store },
+	};
+}
+
+function createImportWebServer(failOnPath?: string): {
+	handlers: Map<string, RegisteredRoute["handler"]>;
+	webServer: OAuthImportRouteContext["webServer"];
+} {
+	const handlers = new Map<string, RegisteredRoute["handler"]>();
+	return {
+		handlers,
+		webServer: {
+			register(route) {
+				if (failOnPath !== undefined && route.path === failOnPath) {
+					throw new Error(`webserver: duplicate exact route "${route.path}"`);
+				}
+				handlers.set(route.path, route.handler);
+				return () => {
+					handlers.delete(route.path);
+				};
+			},
+		},
+	};
+}
+
+describe("oauth import route registrar atomic setup", () => {
+	it("rolls back earlier import routes when a later register throws", () => {
+		const { handlers, webServer } = createImportWebServer(OAUTH_IMPORT_PREVIEW_PATH);
+		expect(() =>
+			registerOAuthImportRoutes(
+				{
+					webServer,
+					effect(setup) {
+						setup();
+					},
+				},
+				dummyImportDestinations(),
+			),
+		).toThrow(`webserver: duplicate exact route "${OAUTH_IMPORT_PREVIEW_PATH}"`);
+		expect(handlers.size).toBe(0);
+		expect(handlers.has(OAUTH_IMPORT_SOURCES_PATH)).toBe(false);
+	});
+
+	it("returns a disposer that clears routes when ctx.effect is absent", () => {
+		const { handlers, webServer } = createImportWebServer();
+		const dispose = registerOAuthImportRoutes({ webServer }, dummyImportDestinations());
+		expect(handlers.has(OAUTH_IMPORT_SOURCES_PATH)).toBe(true);
+		expect(handlers.has(OAUTH_IMPORT_PREVIEW_PATH)).toBe(true);
+		expect(handlers.has(OAUTH_IMPORT_COMMIT_PATH)).toBe(true);
+		expect(handlers.has(OAUTH_IMPORT_CANCEL_PATH)).toBe(true);
+		dispose();
+		dispose();
+		expect(handlers.size).toBe(0);
+	});
+
+	it("rolls back without an effect when a later register throws", () => {
+		const { handlers, webServer } = createImportWebServer(OAUTH_IMPORT_COMMIT_PATH);
+		expect(() => registerOAuthImportRoutes({ webServer }, dummyImportDestinations())).toThrow(
+			`webserver: duplicate exact route "${OAUTH_IMPORT_COMMIT_PATH}"`,
+		);
+		expect(handlers.size).toBe(0);
 	});
 });

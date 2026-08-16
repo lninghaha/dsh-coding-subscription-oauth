@@ -17,6 +17,8 @@ import {
 } from "./capability-settings.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import { safeMessage } from "./redact.ts";
+import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
 export const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
@@ -35,7 +37,7 @@ export interface CapabilityRouteContext {
 			handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 		}): () => void;
 	};
-	effect(callback: () => void | (() => void | Promise<void>), label?: string): unknown;
+	effect(callback: () => () => void | Promise<void>, label?: string): unknown;
 }
 
 /** Owner-facing subset of {@link import("./capability-settings.ts").CapabilitySettingsController}. */
@@ -72,51 +74,32 @@ class CapabilityRouteRequestError extends Error {
 /** Register the plugin-owned capability routes. Owns and returns the route disposer. */
 export function registerCapabilityRoutes(ctx: CapabilityRouteContext, options: CapabilityRouteOptions): () => void {
 	const { controller, usage, credentialInfo } = options;
-	const releases: Array<() => void> = [];
-	let disposed = false;
-
-	const dispose = (): void => {
-		if (disposed) return;
-		disposed = true;
-		for (const release of releases.splice(0)) {
-			try {
-				release();
-			} catch {
-				// One route disposer must not strand the rest.
-			}
-		}
-	};
-
+	let dispose = (): void => undefined;
 	ctx.effect(() => {
-		releases.push(
-			ctx.webServer.register({
+		dispose = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => {
+			webServer.register({
 				kind: "exact",
 				path: CAPABILITY_SETTINGS_PATH,
 				handler: (req, res) => handleCapabilities(req, res, controller),
-			}),
-		);
-		if (usage !== undefined) {
-			releases.push(
-				ctx.webServer.register({
+			});
+			if (usage !== undefined) {
+				webServer.register({
 					kind: "exact",
 					path: CODEX_USAGE_PATH,
 					handler: (req, res) => handleUsage(req, res, controller, usage),
-				}),
-			);
-		}
-		if (credentialInfo !== undefined) {
-			releases.push(
-				ctx.webServer.register({
+				});
+			}
+			if (credentialInfo !== undefined) {
+				webServer.register({
 					kind: "exact",
 					path: IMAGINE_CREDENTIAL_STATUS_PATH,
 					handler: (req, res) => handleCredentialStatus(req, res, credentialInfo),
-				}),
-			);
-		}
+				});
+			}
+		});
 		return dispose;
 	}, "dsh-coding-subscription-oauth: capability routes");
-
-	return dispose;
+	return () => dispose();
 }
 
 async function handleCapabilities(
@@ -129,7 +112,7 @@ async function handleCapabilities(
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!trustedRequest(req)) {
+	if (!isTrustedLoopbackWebRequest(req)) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -147,7 +130,8 @@ async function handleCapabilities(
 		const { expectedRevision, payload } = readWriteEnvelope(body, "value");
 		json(res, 200, await controller.replace(admitCapabilitySection(payload, "value"), expectedRevision));
 	} catch (error: unknown) {
-		json(res, statusFor(error), errorBody(error));
+		const status = statusFor(error);
+		json(res, status, errorBody(error, status));
 	}
 }
 
@@ -161,7 +145,7 @@ async function handleUsage(
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!trustedRequest(req)) {
+	if (!isTrustedLoopbackWebRequest(req)) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -172,7 +156,8 @@ async function handleUsage(
 		}
 		json(res, 200, await usage());
 	} catch (error: unknown) {
-		json(res, statusFor(error), errorBody(error));
+		const status = statusFor(error);
+		json(res, status, errorBody(error, status));
 	}
 }
 
@@ -185,29 +170,15 @@ async function handleCredentialStatus(
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!trustedRequest(req)) {
+	if (!isTrustedLoopbackWebRequest(req)) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
 	try {
 		json(res, 200, publicCredentialStatus(await credentialInfo()));
 	} catch (error: unknown) {
-		json(res, statusFor(error), errorBody(error));
-	}
-}
-
-function trustedRequest(req: IncomingMessage): boolean {
-	const remote = req.socket.remoteAddress;
-	if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") return false;
-	if (req.headers["sec-fetch-site"] === "cross-site") return false;
-	const host = req.headers.host;
-	if (host === undefined) return false;
-	const origin = req.headers.origin;
-	if (origin === undefined) return true;
-	try {
-		return new URL(origin).host === new URL(`http://${host}`).host;
-	} catch {
-		return false;
+		const status = statusFor(error);
+		json(res, status, errorBody(error, status));
 	}
 }
 
@@ -247,9 +218,10 @@ function admitCapabilitySection(input: Record<string, unknown>, label: string): 
 
 function publicCredentialStatus(info: unknown): ImagineCredentialStatus {
 	const record = isPlainObject(info) ? info : {};
+	const source = record["source"];
 	return {
 		configured: record["configured"] === true,
-		source: typeof record["source"] === "string" ? record["source"] : "none",
+		source: typeof source === "string" && source.length <= 40 && /^[a-z0-9._-]+$/iu.test(source) ? source : "unknown",
 		writable: record["writable"] === true,
 	};
 }
@@ -271,8 +243,8 @@ function statusFor(error: unknown): number {
 	return 500;
 }
 
-function errorBody(error: unknown): Record<string, unknown> {
-	const body: Record<string, unknown> = { error: safeMessage(error) };
+function errorBody(error: unknown, status: number): Record<string, unknown> {
+	const body: Record<string, unknown> = { error: status >= 500 ? "request failed" : safeMessage(error) };
 	const conflict = conflictInfo(error);
 	if (conflict !== undefined) {
 		body["code"] = "SETTINGS_CONFLICT";

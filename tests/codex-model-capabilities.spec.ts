@@ -92,6 +92,29 @@ describe("createCodexModelCapabilities", () => {
 		expect(fetchImpl).toHaveBeenCalledOnce();
 	});
 
+	it("clears account-scoped eligibility and forces a fresh catalog read", async () => {
+		const fetchImpl = mockFetch(async () =>
+			jsonResponse(200, {
+				models: [{ slug: "gpt-5.4", service_tiers: [{ id: "priority" }] }],
+			}),
+		);
+		const caps = createCodexModelCapabilities({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-models") }),
+				invalidate: async () => {},
+			},
+			fetchImpl,
+			sleep: async () => {},
+		});
+		await caps.refresh();
+		expect(caps.isPriorityEligible("gpt-5.4")).toBe(true);
+		caps.clear();
+		expect(caps.getCached()).toBeUndefined();
+		expect(caps.isPriorityEligible("gpt-5.4")).toBe(false);
+		await caps.refresh();
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
 	it("leaves eligibility empty when the live catalog fails", async () => {
 		const fetchImpl = mockFetch(async () => jsonResponse(500, { error: "down" }));
 		const caps = createCodexModelCapabilities({

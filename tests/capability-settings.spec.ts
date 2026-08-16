@@ -241,6 +241,16 @@ describe("CapabilitySettingsController without a provider", () => {
 });
 
 describe("CapabilitySettingsController with a fake provider", () => {
+	it("fails loudly when the settings namespace cannot be registered", () => {
+		const failure = new Error("duplicate settings namespace");
+		const settings: CapabilitySettingsService = {
+			register: () => {
+				throw failure;
+			},
+		};
+		expect(() => createCapabilitySettingsController({ settings })).toThrow(failure);
+	});
+
 	it("registers the namespace and treats the user section as authoritative when writable", async () => {
 		const settings = new FakeSettingsService(true, { searchResults: 2, grokImagineImage: true });
 		const controller = new CapabilitySettingsController({
@@ -261,11 +271,11 @@ describe("CapabilitySettingsController with a fake provider", () => {
 			imageCount: 2,
 		});
 
-		const next = await controller.patch({ codexImages: true, searchResults: 8 }, initial.revision);
+		const next = await controller.patch({ codexImages: true, searchResults: 20 }, initial.revision);
 		expect(next.revision).toBe(1);
-		expect(next.user).toEqual({ searchResults: 8, grokImagineImage: true, codexImages: true });
+		expect(next.user).toEqual({ searchResults: 20, grokImagineImage: true, codexImages: true });
 		expect(next.value.codexImages).toBe(true);
-		expect(next.value.searchResults).toBe(8);
+		expect(next.value.searchResults).toBe(20);
 		expect(next.value.codexSearch).toBe(true);
 		expect(next.secrets).toEqual([]);
 	});

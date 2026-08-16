@@ -1,7 +1,8 @@
 /**
  * Same-origin Web API for allowlisted CLI OAuth source discovery and
- * two-phase import into destination stores. Preview tickets stay in one
- * process-local session; persist happens inside the destination store lock.
+ * two-phase import into destination stores. Preview tickets live only in the
+ * process-local session; `peekPreview` supplies ticket.kind as the destination
+ * authority before the store lock. Persist happens inside that lock.
  * @module dsh-coding-subscription-oauth/oauth-import-routes
  */
 
@@ -11,7 +12,6 @@ import {
 	createOAuthImportSession,
 	isOAuthSourceError,
 	isOAuthSourceKind,
-	OAUTH_IMPORT_MAX_PREVIEW_TICKETS,
 	type OAuthImportCommitAction,
 	type OAuthImportCommitResult,
 	type OAuthImportPreview,
@@ -19,11 +19,14 @@ import {
 	type OAuthImportSessionOptions,
 	type OAuthSourceCredential,
 	type OAuthSourceDiscovery,
+	OAuthSourceError,
 	type OAuthSourceErrorCode,
 	type OAuthSourceKind,
 	type OAuthSourcePathOptions,
 } from "./oauth-sources.ts";
 import { safeMessage } from "./redact.ts";
+import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export const OAUTH_IMPORT_SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
 export const OAUTH_IMPORT_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
@@ -38,7 +41,7 @@ export interface OAuthImportRouteContext {
 			handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>;
 		}): () => void;
 	};
-	effect?(setup: () => void | (() => void | Promise<void>), label?: string): void;
+	effect?(setup: () => () => void | Promise<void>, label?: string): void;
 }
 
 export interface OAuthImportDestinationStore {
@@ -79,26 +82,24 @@ export function registerOAuthImportRoutes(
 	ctx: OAuthImportRouteContext,
 	destinations: OAuthImportDestinations,
 	options: OAuthImportRouteOptions = {},
-): void {
+): () => void {
 	const importer = createOAuthImportSession({
 		...(options.now === undefined ? {} : { now: options.now }),
 		...(options.ttlMs === undefined ? {} : { ttlMs: options.ttlMs }),
 	});
-	const previewKinds = new Map<string, { kind: OAuthSourceKind; expiresAt: number }>();
-	const now = options.now ?? Date.now;
 	const pathOptions: OAuthSourcePathOptions = {
 		...(options.home === undefined ? {} : { home: options.home }),
 		...(options.env === undefined ? {} : { env: options.env }),
 	};
 
-	const attach = (): (() => void) => {
-		const routes = [
-			ctx.webServer.register({
+	const attach = (): (() => void) =>
+		registerWebRouteSetupAtomically(ctx.webServer, (webServer) => [
+			webServer.register({
 				kind: "exact",
 				path: OAUTH_IMPORT_SOURCES_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						json(res, 200, await discoverSources(importer, pathOptions));
 					} catch (error: unknown) {
@@ -106,91 +107,78 @@ export function registerOAuthImportRoutes(
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: OAUTH_IMPORT_PREVIEW_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const kind = readExactKind(await readJsonRequest(req));
 						if (kind === undefined) {
 							return json(res, 400, { error: "kind must be grok, codex, kimi, or claude" });
 						}
-						const preview = await previewSource(importer, destinations[kind], kind, pathOptions);
-						for (const [previewId, tracked] of previewKinds) {
-							if (tracked.expiresAt <= now()) previewKinds.delete(previewId);
-						}
-						while (previewKinds.size >= OAUTH_IMPORT_MAX_PREVIEW_TICKETS) {
-							const oldest = previewKinds.keys().next().value;
-							if (oldest === undefined) break;
-							previewKinds.delete(oldest);
-						}
-						previewKinds.set(preview.previewId, { kind, expiresAt: preview.ticketExpiresAt });
-						json(res, 200, preview);
+						json(res, 200, await previewSource(importer, destinations[kind], kind, pathOptions));
 					} catch (error: unknown) {
 						writeError(res, error);
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: OAUTH_IMPORT_COMMIT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const parsed = readCommitBody(await readJsonRequest(req));
 						if (parsed.error !== undefined) {
 							return json(res, 400, { error: parsed.error });
 						}
-						const expected = previewKinds.get(parsed.previewId);
-						if (expected !== undefined && expected.kind !== parsed.kind) {
-							return json(res, 400, { error: "kind does not match the preview" });
+						const claim = importer.peekPreview(parsed.previewId);
+						if (claim.kind !== parsed.kind) {
+							throw new OAuthSourceError("unsupported", "oauth import: kind does not match the preview");
 						}
-						previewKinds.delete(parsed.previewId);
-						const result = await commitSource(
-							importer,
-							destinations[parsed.kind],
-							parsed,
-							pathOptions,
-							options.onImported,
+						json(
+							res,
+							200,
+							await commitSource(
+								importer,
+								destinations[claim.kind],
+								{ ...parsed, kind: claim.kind },
+								pathOptions,
+								options.onImported,
+							),
 						);
-						json(res, 200, result);
 					} catch (error: unknown) {
 						writeError(res, error);
 					}
 				},
 			}),
-			ctx.webServer.register({
+			webServer.register({
 				kind: "exact",
 				path: OAUTH_IMPORT_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!trustedRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
 					try {
 						const previewId = readPreviewId(await readJsonRequest(req));
 						if (previewId === undefined) {
 							return json(res, 400, { error: "previewId must be a non-empty string" });
 						}
-						previewKinds.delete(previewId);
 						json(res, 200, { ok: true, cancelled: importer.cancel(previewId) } satisfies OAuthImportCancelResult);
 					} catch (error: unknown) {
 						writeError(res, error);
 					}
 				},
 			}),
-		];
-		return () => {
-			for (const dispose of routes) dispose();
-		};
-	};
+		]);
 
 	if (typeof ctx.effect === "function") {
 		ctx.effect(attach, "dsh-coding-subscription-oauth: OAuth source import routes");
-		return;
+		return () => undefined;
 	}
-	attach();
+	return attach();
 }
 
 async function discoverSources(
@@ -224,6 +212,7 @@ async function commitSource(
 	await destination.store.modify(destination.providerId, async (current) => {
 		const outcome = await importer.commit({
 			previewId: input.previewId,
+			kind: input.kind,
 			...(input.confirmOverwrite === undefined ? {} : { confirmOverwrite: input.confirmOverwrite }),
 			...pathOptions,
 			destination: { path: destination.store.filename },
@@ -244,21 +233,6 @@ async function commitSource(
 	return result;
 }
 
-function trustedRequest(req: IncomingMessage): boolean {
-	const remote = req.socket.remoteAddress;
-	if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") return false;
-	if (req.headers["sec-fetch-site"] === "cross-site") return false;
-	const host = req.headers.host;
-	if (host === undefined) return false;
-	const origin = req.headers.origin;
-	if (origin === undefined) return true;
-	try {
-		return new URL(origin).host === new URL(`http://${host}`).host;
-	} catch {
-		return false;
-	}
-}
-
 function json(res: ServerResponse, status: number, value: unknown): void {
 	res.writeHead(status, {
 		"content-type": "application/json; charset=utf-8",
@@ -269,9 +243,12 @@ function json(res: ServerResponse, status: number, value: unknown): void {
 }
 
 function writeError(res: ServerResponse, error: unknown): void {
-	const payload: { error: string; code?: OAuthSourceErrorCode } = { error: safeMessage(error) };
+	const status = oauthImportErrorStatus(error);
+	const payload: { error: string; code?: OAuthSourceErrorCode } = {
+		error: status >= 500 ? "request failed" : safeMessage(error),
+	};
 	if (isOAuthSourceError(error)) payload.code = error.code;
-	json(res, oauthImportErrorStatus(error), payload);
+	json(res, status, payload);
 }
 
 export function oauthImportErrorStatus(error: unknown): number {

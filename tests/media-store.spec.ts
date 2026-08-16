@@ -105,10 +105,53 @@ describe("MediaStore", () => {
 	it("hard-clamps maxBytes and retention to the ship-safe ceilings", async () => {
 		const store = await tempStore({
 			maxBytes: MEDIA_STORE_MAX_BYTES * 4,
+			maxTotalBytes: MEDIA_STORE_MAX_BYTES * 4,
 			retentionMs: MEDIA_STORE_RETENTION_MS * 4,
 		});
 		expect(store.maxBytes).toBe(MEDIA_STORE_MAX_BYTES);
+		expect(store.maxTotalBytes).toBe(MEDIA_STORE_MAX_BYTES);
 		expect(store.retentionMs).toBe(MEDIA_STORE_RETENTION_MS);
+	});
+
+	it("caps aggregate unique object bytes while allowing deduplicated ids", async () => {
+		const firstData = sampleVideo("quota-first");
+		const secondData = sampleVideo("quota-second");
+		const store = await tempStore({
+			maxBytes: Math.max(firstData.byteLength, secondData.byteLength),
+			maxTotalBytes: firstData.byteLength,
+		});
+		const first = await store.save({ data: firstData, mediaType: "video/mp4" });
+		const duplicate = await store.save({ data: firstData, mediaType: "video/webm" });
+		expect(duplicate.artifactId).not.toBe(first.artifactId);
+		await expect(store.save({ data: secondData, mediaType: "video/mp4" })).rejects.toMatchObject({
+			code: "TOO_LARGE",
+		});
+	});
+
+	it("cleans expired objects before enforcing the aggregate quota", async () => {
+		const firstData = sampleVideo("quota-expired");
+		const secondData = sampleVideo("quota-fresh");
+		const store = await tempStore({
+			maxBytes: Math.max(firstData.byteLength, secondData.byteLength),
+			maxTotalBytes: Math.max(firstData.byteLength, secondData.byteLength),
+			retentionMs: 10,
+		});
+		await store.save({ data: firstData, mediaType: "video/mp4" });
+		clock += 11;
+		await expect(store.save({ data: secondData, mediaType: "video/mp4" })).resolves.toMatchObject({
+			bytes: secondData.byteLength,
+		});
+	});
+
+	it("applies live retention changes only to future artifacts and keeps hard clamps", async () => {
+		const store = await tempStore({ retentionMs: 100 });
+		const first = await store.save({ data: sampleVideo("first"), mediaType: "video/mp4" });
+		expect(store.setRetentionMs(20)).toBe(20);
+		const second = await store.save({ data: sampleVideo("second"), mediaType: "video/mp4" });
+		expect(first.expiresAt - first.createdAt).toBe(100);
+		expect(second.expiresAt - second.createdAt).toBe(20);
+		expect(store.setRetentionMs(MEDIA_STORE_RETENTION_MS * 2)).toBe(MEDIA_STORE_RETENTION_MS);
+		expect(() => store.setRetentionMs(0)).toThrow(/positive finite/iu);
 	});
 
 	it("treats expired and unknown ids as missing and refuses path-shaped lookups", async () => {
@@ -124,14 +167,14 @@ describe("MediaStore", () => {
 		expect(await store.delete("../secret")).toBe(false);
 	});
 
-	it("deletes one artifact and cleans expired index plus unreferenced objects", async () => {
+	it("cleans expired indexes before save and deletes a live artifact", async () => {
 		const store = await tempStore({ retentionMs: 10 });
 		const live = await store.save({ data: sampleVideo("live"), mediaType: "video/mp4" });
 		const stale = await store.save({ data: sampleVideo("stale"), mediaType: "video/mp4" });
 		clock += 11;
 		const refreshed = await store.save({ data: sampleVideo("fresh"), mediaType: "video/mp4" });
 		const report = await store.cleanup();
-		expect(report.expiredArtifacts).toBeGreaterThanOrEqual(2);
+		expect(report.expiredArtifacts).toBe(0);
 		expect(await store.lookup(live.artifactId)).toBeUndefined();
 		expect(await store.lookup(stale.artifactId)).toBeUndefined();
 		expect(await store.lookup(refreshed.artifactId)).toMatchObject({ artifactId: refreshed.artifactId });

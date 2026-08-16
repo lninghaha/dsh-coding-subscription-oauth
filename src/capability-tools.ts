@@ -7,12 +7,11 @@
 
 import type { ImageAttachmentRef } from "@deepseek-ai/dsh-attachment";
 import { LlmError } from "@deepseek-ai/dsh-llm";
-import { defineTool, type ToolDefinition, type ToolRunContext } from "@deepseek-ai/dsh-tools";
+import type { ToolDefinition, ToolRunContext } from "@deepseek-ai/dsh-tools";
 import { CAPABILITY_SETTINGS_BOUNDS, type CapabilitySettings } from "./capability-settings.ts";
 import type { CodexAuthSession } from "./codex-http.ts";
 import {
 	CODEX_IMAGE_BACKGROUNDS,
-	CODEX_IMAGE_CAPABLE_PROVIDERS,
 	CODEX_IMAGE_MODEL,
 	CODEX_IMAGE_QUALITIES,
 	CODEX_IMAGE_SIZES,
@@ -72,6 +71,48 @@ export type CapabilityImagineClient = Pick<GrokImagineClient, "generateImage" | 
 /** Per-exec Codex controller factory. Tests inject a fake; production binds auth + attachments. */
 export type CreateCodexImageController = (session: CodexImageSessionContext) => CodexImageController;
 
+/** Resolve authoritative host model metadata for the calling route. */
+export type ResolveCodexImageRoute = (exec: ToolRunContext) => Promise<CodexImageRoute | undefined>;
+
+/** Exact provider/model identity from the live request header, then agent options. */
+export function callingRouteIdentity(exec: ToolRunContext): { provider: string; model: string } | undefined {
+	const session = exec.agent?.session;
+	const header =
+		session !== undefined && typeof session.requestHeader === "function" ? session.requestHeader()?.config : undefined;
+	const provider = header?.provider ?? exec.agent?.options.provider;
+	const model = header?.model ?? exec.agent?.options.model;
+	if (typeof provider !== "string" || provider.length === 0) return undefined;
+	if (typeof model !== "string" || model.length === 0) return undefined;
+	return { provider, model };
+}
+
+/**
+ * Copy host-resolved modalities onto the calling identity. Never invents
+ * `inputModalities`; lookup failures keep the identity and omit the field so
+ * the image-capability gate fails closed.
+ */
+export async function resolveCodexImageRouteFromLlm(
+	exec: ToolRunContext,
+	resolveModelInfo: (
+		provider: string,
+		model: string,
+		signal?: AbortSignal,
+	) => Promise<{ inputModalities?: readonly string[] }>,
+): Promise<CodexImageRoute | undefined> {
+	const identity = callingRouteIdentity(exec);
+	if (identity === undefined) return undefined;
+	try {
+		const info = await resolveModelInfo(identity.provider, identity.model, exec.signal);
+		const modalities = info.inputModalities;
+		return {
+			...identity,
+			...(Array.isArray(modalities) ? { inputModalities: [...modalities] } : {}),
+		};
+	} catch {
+		return identity;
+	}
+}
+
 export interface CapabilityToolsOptions {
 	/** Live capability section. Re-read on every execute so a disable takes effect immediately. */
 	current(): CapabilitySettings;
@@ -79,6 +120,7 @@ export interface CapabilityToolsOptions {
 	readonly attachments: CodexImageAttachmentStore;
 	readonly imagine: CapabilityImagineClient;
 	readonly createCodexController?: CreateCodexImageController;
+	readonly resolveCodexImageRoute?: ResolveCodexImageRoute;
 }
 
 const attachmentRefSchema = {
@@ -147,32 +189,45 @@ function resolveImageCount(n: number | undefined, settings: CapabilitySettings):
 	return value;
 }
 
-function routeFromExec(exec: ToolRunContext): CodexImageRoute | undefined {
-	const provider = exec.agent?.options.provider;
-	if (typeof provider !== "string" || provider.length === 0) return undefined;
-	const model = exec.agent?.options.model;
-	const capable = (CODEX_IMAGE_CAPABLE_PROVIDERS as readonly string[]).includes(provider);
-	return {
-		provider,
-		...(typeof model === "string" ? { model } : {}),
-		...(capable ? { inputModalities: ["text", "image"] } : {}),
-	};
+async function routeFromExec(
+	exec: ToolRunContext,
+	resolve: ResolveCodexImageRoute | undefined,
+): Promise<CodexImageRoute | undefined> {
+	if (resolve === undefined) return undefined;
+	try {
+		const resolved = await resolve(exec);
+		if (resolved === undefined) return undefined;
+		const modalities = resolved.inputModalities;
+		return {
+			...(typeof resolved.provider === "string" && resolved.provider.length > 0 ? { provider: resolved.provider } : {}),
+			...(typeof resolved.model === "string" && resolved.model.length > 0 ? { model: resolved.model } : {}),
+			...(Array.isArray(modalities) ? { inputModalities: [...modalities] } : {}),
+		};
+	} catch {
+		return undefined;
+	}
 }
 
-function generateSession(exec: ToolRunContext): CodexImageSessionContext {
-	const route = routeFromExec(exec);
+async function generateSession(
+	exec: ToolRunContext,
+	resolve: ResolveCodexImageRoute | undefined,
+): Promise<CodexImageSessionContext> {
+	const route = await routeFromExec(exec, resolve);
 	return {
 		deriveMessages: () => [],
 		...(route === undefined ? {} : { route }),
 	};
 }
 
-function requireEditSession(exec: ToolRunContext): CodexImageSessionContext {
+async function requireEditSession(
+	exec: ToolRunContext,
+	resolve: ResolveCodexImageRoute | undefined,
+): Promise<CodexImageSessionContext> {
 	const session = exec.agent?.session;
 	if (session === undefined || typeof session.deriveMessages !== "function") {
 		throw new LlmError("codex_image_edit requires an active agent session", "INVALID_ARGS");
 	}
-	const route = routeFromExec(exec);
+	const route = await routeFromExec(exec, resolve);
 	return {
 		deriveMessages: () => session.deriveMessages(),
 		...(route === undefined ? {} : { route }),
@@ -309,9 +364,11 @@ function renderImageRefs(
 
 /**
  * Build the five optional capability tools. Callers register the returned
- * definitions; this function has no Cordis / registry side effects.
+ * definitions; this function has no Cordis / registry side effects. The tools
+ * peer is loaded only after Cordis has composed the optional `tools` service.
  */
-export function createCapabilityTools(options: CapabilityToolsOptions): readonly ToolDefinition[] {
+export async function createCapabilityTools(options: CapabilityToolsOptions): Promise<readonly ToolDefinition[]> {
+	const { defineTool } = await import("@deepseek-ai/dsh-tools");
 	const createController: CreateCodexImageController =
 		options.createCodexController ??
 		((session) =>
@@ -359,7 +416,7 @@ export function createCapabilityTools(options: CapabilityToolsOptions): readonly
 			const settings = options.current();
 			if (!settings.codexImages) disabled(CODEX_IMAGE_GENERATE_TOOL);
 			const n = resolveImageCount(args.n, settings);
-			const result = await createController(generateSession(exec)).generate(
+			const result = await createController(await generateSession(exec, options.resolveCodexImageRoute)).generate(
 				{
 					prompt: args.prompt,
 					n,
@@ -417,7 +474,7 @@ export function createCapabilityTools(options: CapabilityToolsOptions): readonly
 			const settings = options.current();
 			if (!settings.codexImageEdits || !settings.codexImages) disabled(CODEX_IMAGE_EDIT_TOOL);
 			const n = resolveImageCount(args.n, settings);
-			const result = await createController(requireEditSession(exec)).edit(
+			const result = await createController(await requireEditSession(exec, options.resolveCodexImageRoute)).edit(
 				{
 					prompt: args.prompt,
 					imageIds: args.imageIds,

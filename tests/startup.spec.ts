@@ -16,10 +16,12 @@ describe("plugin startup catalog initialization", () => {
 			.spyOn(GrokBuildSession.prototype, "refreshLiveCatalog")
 			.mockRejectedValue(new Error("refresh failed"));
 		const warn = vi.fn();
-		const registerAdapter = vi.fn();
+		const registration = Object.assign(vi.fn(), { replace: vi.fn() });
+		const registerAdapter = vi.fn(() => registration);
 		const context = {
 			logger: () => ({ warn }),
 			emit: vi.fn(),
+			effect: vi.fn((setup: () => unknown) => setup()),
 			llm: { registerAdapter },
 			get: vi.fn(() => undefined),
 			inject: vi.fn(),

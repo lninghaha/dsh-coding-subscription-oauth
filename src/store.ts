@@ -97,6 +97,15 @@ export class OAuthCredentialFileStore implements CredentialStore {
 	}
 
 	private async readCurrent(): Promise<OAuthCredential | undefined> {
+		return this.loadCurrent({ allowUnreadable: false });
+	}
+
+	/**
+	 * Hardened load. `read`/`list` keep parse failures loud. `modify` treats a
+	 * safe-but-unparseable document as absent so a confirmed replace can proceed.
+	 * Unsafe/symlink/wrong-owner/too-large files still throw.
+	 */
+	private async loadCurrent(options: { allowUnreadable: boolean }): Promise<OAuthCredential | undefined> {
 		let text: string;
 		try {
 			text = (await readHardenedOAuthSourceFile(this.filename)).text;
@@ -107,7 +116,25 @@ export class OAuthCredentialFileStore implements CredentialStore {
 			}
 			throw error;
 		}
-		return cloneCredential(parseDocument(text, this.filename, this.label).credential);
+		try {
+			return cloneCredential(parseDocument(text, this.filename, this.label).credential);
+		} catch (error) {
+			if (options.allowUnreadable) return undefined;
+			throw error;
+		}
+	}
+
+	/** Refuse a dest that became unsafe after the lock was taken and before rename. */
+	private async assertDestinationReplaceable(): Promise<void> {
+		try {
+			await readHardenedOAuthSourceFile(this.filename);
+		} catch (error) {
+			if (error instanceof OAuthSourceError && error.code === "not_found") return;
+			if (error instanceof OAuthSourceError && (error.code === "unsafe_source" || error.code === "too_large")) {
+				throw new Error(`${this.label}: credential file failed owner-only no-follow validation`);
+			}
+			throw error;
+		}
 	}
 
 	async read(providerId: string): Promise<Credential | undefined> {
@@ -127,7 +154,7 @@ export class OAuthCredentialFileStore implements CredentialStore {
 		}
 		await mkdir(dirname(this.filename), { recursive: true, mode: 0o700 });
 		return withFileLock(this.filename, async () => {
-			const current = await this.readCurrent();
+			const current = await this.loadCurrent({ allowUnreadable: true });
 			const candidate = await fn(current);
 			if (candidate === undefined) return current;
 			const document = parseDocument(
@@ -138,6 +165,7 @@ export class OAuthCredentialFileStore implements CredentialStore {
 				this.filename,
 				this.label,
 			);
+			await this.assertDestinationReplaceable();
 			await writeFileAtomic(this.filename, `${JSON.stringify(document, null, 2)}\n`, {
 				mode: 0o600,
 				dirMode: 0o700,

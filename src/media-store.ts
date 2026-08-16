@@ -10,7 +10,7 @@ import { constants as fsConstants } from "node:fs";
 import { chmod, link, lstat, mkdir, open, readdir, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-/** Hard ceiling for one stored artifact. Callers cannot raise this. */
+/** Hard ceiling for one artifact and for aggregate stored object bytes. */
 export const MEDIA_STORE_MAX_BYTES = 256 * 1024 * 1024;
 
 /** Hard ceiling for artifact retention. Callers cannot raise this. */
@@ -79,7 +79,10 @@ export interface MediaCleanupReport {
 
 export interface MediaStoreOptions {
 	now?: () => number;
+	/** Per-artifact ceiling, capped at {@link MEDIA_STORE_MAX_BYTES}. */
 	maxBytes?: number;
+	/** Aggregate unique-object ceiling, capped at {@link MEDIA_STORE_MAX_BYTES}. */
+	maxTotalBytes?: number;
 	retentionMs?: number;
 	randomId?: () => string;
 }
@@ -426,6 +429,17 @@ function toMeta(document: IndexDocument): MediaArtifactMeta {
 	return meta;
 }
 
+async function storedObjectBytes(root: string): Promise<number> {
+	let total = 0;
+	for (const file of await listRegularFiles(root, "objects")) {
+		const stat = await lstatOrUndefined(file);
+		if (stat === undefined || stat.isSymbolicLink() || !stat.isFile()) continue;
+		total += stat.size;
+		if (!Number.isSafeInteger(total)) throw new MediaStoreError("CORRUPT", "media store byte accounting overflowed");
+	}
+	return total;
+}
+
 async function listRegularFiles(root: string, kind: "index" | "objects"): Promise<string[]> {
 	const base = join(root, kind);
 	const rootStat = await lstatOrUndefined(base);
@@ -537,7 +551,8 @@ export function assertTrustedImagineAuthz(authz: TrustedImagineAuthz): void {
 export class MediaStore {
 	readonly root: string;
 	readonly maxBytes: number;
-	readonly retentionMs: number;
+	readonly maxTotalBytes: number;
+	retentionMs: number;
 	private readonly now: () => number;
 	private readonly randomId: () => string;
 	private tail: Promise<void> = Promise.resolve();
@@ -549,8 +564,15 @@ export class MediaStore {
 		this.root = resolve(root);
 		this.now = options.now ?? Date.now;
 		this.maxBytes = clampPositive(options.maxBytes, MEDIA_STORE_MAX_BYTES, "maxBytes");
+		this.maxTotalBytes = clampPositive(options.maxTotalBytes, MEDIA_STORE_MAX_BYTES, "maxTotalBytes");
 		this.retentionMs = clampPositive(options.retentionMs, MEDIA_STORE_RETENTION_MS, "retentionMs");
 		this.randomId = options.randomId ?? generateArtifactId;
+	}
+
+	/** Apply a live retention setting to future artifacts, clamped to the hard ceiling. */
+	setRetentionMs(retentionMs: number): number {
+		this.retentionMs = clampPositive(retentionMs, MEDIA_STORE_RETENTION_MS, "retentionMs");
+		return this.retentionMs;
 	}
 
 	async save(input: SaveMediaInput): Promise<MediaArtifactMeta> {
@@ -634,6 +656,7 @@ export class MediaStore {
 		await ensurePrivateDir(this.root, join(this.root, "objects"));
 		await ensurePrivateDir(this.root, join(this.root, "index"));
 		await ensurePrivateDir(this.root, dirname(object));
+		await this.cleanupUnlocked();
 		const existingObject = await lstatOrUndefined(object);
 		if (existingObject !== undefined) {
 			if (existingObject.isSymbolicLink() || !existingObject.isFile()) {
@@ -644,6 +667,10 @@ export class MediaStore {
 				throw new MediaStoreError("CORRUPT", "stored object failed integrity verification");
 			}
 		} else {
+			const currentBytes = await storedObjectBytes(this.root);
+			if (currentBytes + input.data.byteLength > this.maxTotalBytes) {
+				throw new MediaStoreError("TOO_LARGE", `media store exceeds the ${this.maxTotalBytes} byte total ceiling`);
+			}
 			try {
 				await writeExclusiveFile(this.root, object, input.data);
 			} catch (error) {

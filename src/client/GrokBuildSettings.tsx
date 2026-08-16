@@ -1,7 +1,7 @@
 /** Plugin-owned coding subscription account section inside the dsh Settings shell. */
 
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GrokBuildSettingsKey } from "./locales.ts";
 
 const STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
@@ -10,10 +10,10 @@ const LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
 const LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
 const LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
 const MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
-const IMPORT_PATH = "/plugins/dsh-grok-build/auth/import";
 const SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
 const SOURCES_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
 const SOURCES_COMMIT_PATH = "/plugins/dsh-grok-build/oauth/sources/commit";
+const SOURCES_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
 const CAPABILITIES_PATH = "/plugins/dsh-grok-build/capabilities";
 const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
 const IMAGINE_CREDENTIAL_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
@@ -505,6 +505,31 @@ function isConflictError(error: unknown): boolean {
 	return error.status === 409 || error.code === "SETTINGS_CONFLICT" || /conflict/iu.test(error.message);
 }
 
+const CONSUMED_PREVIEW_CODES = new Set([
+	"preview_invalid",
+	"preview_expired",
+	"source_changed",
+	"destination_changed",
+	"confirm_required",
+	"unsafe_destination",
+]);
+
+function isConsumedPreviewError(error: unknown): boolean {
+	if (!isPluginRequestError(error)) return false;
+	if (error.code !== undefined && CONSUMED_PREVIEW_CODES.has(error.code)) return true;
+	return error.status === 404 || error.status === 410;
+}
+
+function cancelPreviewTicket(previewId: string, keepalive = false): void {
+	void fetch(SOURCES_CANCEL_PATH, {
+		method: "POST",
+		headers: { accept: "application/json", "content-type": "application/json" },
+		credentials: "same-origin",
+		body: JSON.stringify({ previewId }),
+		...(keepalive ? { keepalive: true } : {}),
+	}).catch(() => undefined);
+}
+
 async function jsonRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
 	const response = await fetch(path, {
 		method,
@@ -792,6 +817,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [sourcesError, setSourcesError] = useState<string | undefined>(undefined);
 	const [sourcesBusy, setSourcesBusy] = useState(false);
 	const [preview, setPreview] = useState<SourcePreview | undefined>(undefined);
+	const previewRef = useRef<SourcePreview | undefined>(undefined);
+	const previewEpochRef = useRef(0);
+	const mountedRef = useRef(true);
 	const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 	const [sourcesNotice, setSourcesNotice] = useState<string | undefined>(undefined);
 	const [capabilities, setCapabilities] = useState<CapabilitySnapshot | undefined>(undefined);
@@ -863,6 +891,18 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		void refreshCapabilities();
 		void refreshImagine();
 	}, [refresh, refreshSources, refreshCapabilities, refreshImagine]);
+	useEffect(() => {
+		previewRef.current = preview;
+	}, [preview]);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			previewEpochRef.current += 1;
+			const active = previewRef.current;
+			if (active !== undefined) cancelPreviewTicket(active.previewId, true);
+		};
+	}, []);
 	useEffect(() => {
 		const signingIn =
 			status !== undefined && Object.values(status.providers).some((provider) => provider.status === "signing-in");
@@ -952,32 +992,33 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
-	const importGrok = async (): Promise<void> => {
-		setBusyProvider("grok");
-		try {
-			await jsonRequest<unknown>(IMPORT_PATH, "POST");
-			await refresh();
-		} catch (error: unknown) {
-			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
-		} finally {
-			setBusyProvider(undefined);
-		}
-	};
-
 	const previewSource = async (kind: SourceKind): Promise<void> => {
+		const epoch = ++previewEpochRef.current;
+		const previous = previewRef.current;
+		if (previous !== undefined) {
+			previewRef.current = undefined;
+			setPreview(undefined);
+			cancelPreviewTicket(previous.previewId);
+		}
 		setSourcesBusy(true);
 		setSourcesNotice(undefined);
 		setConfirmOverwrite(false);
 		try {
 			const next = parsePreview(await jsonRequest<unknown>(SOURCES_PREVIEW_PATH, "POST", { kind }));
 			if (next === undefined) throw new Error(t("sourcesPreviewFailed"));
+			if (!mountedRef.current || epoch !== previewEpochRef.current) {
+				cancelPreviewTicket(next.previewId, !mountedRef.current);
+				return;
+			}
+			previewRef.current = next;
 			setPreview(next);
 			setSourcesError(undefined);
 		} catch (error: unknown) {
+			if (!mountedRef.current || epoch !== previewEpochRef.current) return;
 			setPreview(undefined);
 			setSourcesError(error instanceof Error ? error.message : t("sourcesPreviewFailed"));
 		} finally {
-			setSourcesBusy(false);
+			if (mountedRef.current && epoch === previewEpochRef.current) setSourcesBusy(false);
 		}
 	};
 
@@ -993,6 +1034,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 				confirmOverwrite,
 			});
 			const action = parseCommitAction(result);
+			previewRef.current = undefined;
 			setPreview(undefined);
 			setConfirmOverwrite(false);
 			setSourcesNotice(
@@ -1002,8 +1044,31 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			await refreshSources();
 			await refresh();
 		} catch (error: unknown) {
+			if (isConsumedPreviewError(error)) {
+				previewRef.current = undefined;
+				setPreview(undefined);
+				setConfirmOverwrite(false);
+			}
 			setSourcesError(error instanceof Error ? error.message : t("sourcesCommitFailed"));
 			await refreshSources();
+		} finally {
+			setSourcesBusy(false);
+		}
+	};
+
+	const cancelSourcePreview = async (): Promise<void> => {
+		if (preview === undefined) return;
+		const previewId = preview.previewId;
+		previewEpochRef.current += 1;
+		previewRef.current = undefined;
+		setPreview(undefined);
+		setConfirmOverwrite(false);
+		setSourcesBusy(true);
+		try {
+			await jsonRequest<unknown>(SOURCES_CANCEL_PATH, "POST", { previewId });
+			setSourcesError(undefined);
+		} catch (error: unknown) {
+			setSourcesError(error instanceof Error ? error.message : t("requestFailed"));
 		} finally {
 			setSourcesBusy(false);
 		}
@@ -1207,8 +1272,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 													style={buttonStyle}
 													disabled={sourcesBusy}
 													onClick={() => {
-														setPreview(undefined);
-														setConfirmOverwrite(false);
+														void cancelSourcePreview();
 													}}
 												>
 													{t("sourcesCancelPreview")}
@@ -1315,27 +1379,8 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 										</button>
 									))
 								)}
-								{grokProviderStatus !== undefined &&
-								grokProviderStatus.status !== "signing-in" &&
-								grokProviderStatus.grokImportAvailable ? (
-									<button
-										type="button"
-										style={buttonStyle}
-										disabled={busy}
-										onClick={() => {
-											void importGrok();
-										}}
-									>
-										{t("importGrok")}
-									</button>
-								) : null}
 							</div>
 							{providerStatus.status === "error" ? <p style={errorStyle}>{providerStatus.message}</p> : null}
-							{grokProviderStatus !== undefined &&
-							grokProviderStatus.status !== "signed-in" &&
-							grokProviderStatus.grokImportAvailable ? (
-								<p style={bodyStyle}>{t("importHint")}</p>
-							) : null}
 							{providerStatus.status === "signing-in" && providerStatus.userCode !== undefined ? (
 								<p style={bodyStyle}>
 									{t("userCode")} <span style={codeStyle}>{providerStatus.userCode}</span>
