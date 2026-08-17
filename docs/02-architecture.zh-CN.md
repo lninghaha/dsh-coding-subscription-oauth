@@ -110,7 +110,7 @@ GET    /plugins/dsh-grok-build/imagine/media/<id>
 
 ## 6. 兼容性
 
-正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。新旧 npm 名称目前都尚未发布。第一次公开 npm / GitHub Release 的目标是 **`0.4.1`**，需在工作区干净、changelog 折版、annotated tag `v0.4.1` 且 maintainer 批准后再 `npm publish --access public`（优先 Trusted Publishing）。在此之前以 GitHub 或本地 tarball 安装。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.4.1`）。GitHub 与本地 tarball 安装仍然有效。
 
 以下标识保持稳定（无迁移方案前不要改名）：
 

@@ -4,6 +4,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.4.1 - 2026-08-17
+
 ### Added
 
 - Add accessible live numeric controls for `searchResults`, `imageCount`, and video artifact retention (shown as 1–168 hours), using the same compare-and-swap conflict handling as capability switches. Lowering retention rewrites and cleans existing expiries; raising it affects only new artifacts.
@@ -14,7 +16,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 - Resolve the Codex search model at call time so sign-in, sign-out, and live catalog changes do not leave a stale model captured by an existing provider.
 - Clarify browser, device-code, and manual redirect/code sign-in guidance; use the profile-aware Antigravity command `dsh plugin --profile web exec dsh-agy login --headless`.
 - Raise the `undici` floor to `^7.24.8` so scoped `socks5://` proxies are supported.
-- Document the GitHub-first install path and the first public npm target (`0.4.1` after maintainer approval), matching other DSH plugins' `dsh plugin add <name>@<version>` flow.
+- Document the first public install path as `dsh plugin --profile web add dsh-coding-subscription-oauth@0.4.1`, matching other DSH plugins.
 
 ### Fixed
 
