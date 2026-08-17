@@ -1,0 +1,10 @@
+{
+  "name": "dsh-coding-subscription-oauth",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "user": "ubuntu",
+  "install": "true",
+  "start": "bash .cursor/ensure-dockerd.sh"
+}
