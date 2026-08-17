@@ -36,8 +36,11 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 - 🔑 **OAuth local, sans coller de clé** — autorisez dans la page de configuration ou la CLI ; les tokens n'entrent jamais dans le chat.
 - 🧩 **Un plugin, cinq fournisseurs** — Grok Build, Codex, Kimi, Claude et Google Antigravity.
 - 🛡️ **Sécurisé par conception** — fichiers d'identification propriétaire-seul `0600`, écriture atomique, verrou de fichier inter-processus.
-- ⚙️ **Catalogue dynamique** — le sélecteur de modèles liste exactement les fournisseurs que vous avez authentifiés.
+- ⚙️ **Catalogue dynamique** — le sélecteur n'affiche que les routes authentifiées, étiquetées `(OAuth)`, y compris le `xhigh` de grok-4.6.
 - 🌐 **Conscient du proxy** — ne proxifie que les domaines d'abonnement examinés et de confiance.
+- 📥 **CLI Pull manuel** — les paramètres découvrent en lecture seule les fichiers OAuth officiels des CLI Grok/Codex/Kimi/Claude autorisés ; vous récupérez une copie à sens unique après prévisualisation et confirmation d'écrasement.
+- 🗂️ **Paramètres en onglets** — Accounts, Gateway, Capabilities et About remplacent le long défilement ; les cartes des fournisseurs connectés restent repliées jusqu'à leur expansion.
+- 🎛️ **Capacités optionnelles, désactivées par défaut** — recherche Codex, usage/quota, génération/édition d'images, Fast et Grok Imagine s'appliquent en direct dès leur activation.
 - 🔌 **Passerelle API locale opt-in** — serveur loopback compatible OpenAI/Anthropic, désactivé par défaut ; pour vos propres outils, jamais un relais public.
 
 ## Problèmes d'intégration que ce plugin résout
@@ -85,9 +88,13 @@ Ensuite ouvrez **Settings → Coding OAuth** et connectez-vous à n'importe quel
 ## 📚 Sommaire
 
 - [Changement de nom](#changement-de-nom)
+- [Fonctionnalités](#-fonctionnalités)
 - [Problèmes d'intégration que ce plugin résout](#problèmes-dintégration-que-ce-plugin-résout)
+- [Fournisseurs pris en charge](#fournisseurs-pris-en-charge)
+- [Démarrage rapide](#-démarrage-rapide)
 - [Installation](#installation)
 - [Page de configuration](#page-de-configuration)
+- [Capacités optionnelles](#capacités-optionnelles)
 - [Passerelle API locale](#passerelle-api-locale)
 - [CLI](#cli)
 - [Kimi en Chine](#kimi-en-chine)
@@ -98,6 +105,7 @@ Ensuite ouvrez **Settings → Coding OAuth** et connectez-vous à n'importe quel
 - [Notes techniques](#notes-techniques)
 - [Conformité](#conformité)
 - [Documentation](#documentation)
+- [Lié](#lié)
 - [Contribution](#contribution)
 - [Licence](#licence)
 

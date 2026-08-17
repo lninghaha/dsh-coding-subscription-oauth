@@ -91,7 +91,10 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 ## 📚 Table of contents
 
 - [Name change](#name-change)
+- [Features](#-features)
 - [Problems this plugin solves](#problems-this-plugin-solves)
+- [Supported providers](#supported-providers)
+- [Quick start](#-quick-start)
 - [Install](#install)
 - [Settings page](#settings-page)
 - [Optional capabilities](#optional-capabilities)
@@ -105,6 +108,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 - [Technical notes](#technical-notes)
 - [Compliance](#compliance)
 - [Documentation](#documentation)
+- [Related](#related)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -123,7 +127,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-Restart `dsh web` after installing. Verification against a live deployment:
+Restart `dsh web` after installing. Maintainers can verify a live deployment from a source checkout (npm installs do not include these scripts):
 
 ```bash
 pnpm run verify:deployed            # checks real /api/llm.models + OAuth state
@@ -178,7 +182,7 @@ gateway:
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
 
-On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
+On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key reveal is loopback-only and is never persisted to browser storage. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 
 ## CLI
 

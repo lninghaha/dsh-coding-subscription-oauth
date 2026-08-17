@@ -1,5 +1,9 @@
 # 02 · 架构设计
 
+> 中文版 · [**English**](02-architecture.md)
+
+本文描述 `dsh-coding-subscription-oauth` 的内部架构，是 `README.md` 技术说明的来源，面向贡献者与维护者。
+
 ## 1. 路由与原生 provider
 
 ```text

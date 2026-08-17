@@ -51,7 +51,7 @@ gateway:
   port: 18080
 ```
 
-或在 Settings → Coding OAuth → Local API gateway 打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
+或在 Settings → Coding OAuth → Gateway 标签页打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
 
 ## Antigravity 安全配置
 
@@ -193,6 +193,8 @@ rm -f ~/.dsh/.grok-build-models.json ~/.dsh/.codex-oauth-models.json \
 只有在确认不再需要账号后才删除凭据文件。
 
 ## 部署验收
+
+以下命令面向维护者，需要在源码 checkout 中运行；通过 npm 安装的用户无需执行。
 
 ```bash
 pnpm run verify:deployed

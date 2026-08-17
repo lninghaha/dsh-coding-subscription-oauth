@@ -36,8 +36,11 @@ Empezó como **`dsh-grok-build`** (solo Grok Build). Ahora cubre SuperGrok / Cod
 - 🔑 **OAuth local, sin pegar claves** — autoriza en la página de configuración o la CLI; los tokens nunca entran en el chat.
 - 🧩 **Un plugin, cinco proveedores** — Grok Build, Codex, Kimi, Claude y Google Antigravity.
 - 🛡️ **Seguro por diseño** — archivos de credenciales solo-propietario `0600`, escritura atómica, bloqueo de archivo entre procesos.
-- ⚙️ **Catálogo dinámico** — el selector de modelos lista exactamente los proveedores que autenticaste.
+- ⚙️ **Catálogo dinámico** — el selector lista solo rutas autenticadas, etiquetadas con `(OAuth)`, incluido el `xhigh` de grok-4.6.
 - 🌐 **Consciente de proxy** — solo hace proxy de dominios de suscripción revisados y confiables.
+- 📥 **CLI Pull manual** — la configuración descubre los archivos OAuth oficiales de los CLI Grok/Codex/Kimi/Claude permitidos, en modo solo lectura; extraes una copia unidireccional tras previsualizar y confirmar la sobrescritura.
+- 🗂️ **Configuración en pestañas** — Accounts, Gateway, Capabilities y About sustituyen el desplazamiento largo; las tarjetas de proveedores autenticados permanecen contraídas hasta expandirlas.
+- 🎛️ **Capacidades opcionales, desactivadas por defecto** — búsqueda de Codex, uso/cuota, generación/edición de imágenes, Fast y Grok Imagine se aplican en vivo al activarlas.
 - 🔌 **Gateway de API local opt-in** — servidor loopback compatible con OpenAI/Anthropic, desactivado por defecto; para tus propias herramientas, nunca un relé público.
 
 ## Problemas de integración que resuelve este plugin
@@ -85,9 +88,13 @@ Luego abre **Settings → Coding OAuth** e inicia sesión en cualquier proveedor
 ## 📚 Índice
 
 - [Cambio de nombre](#cambio-de-nombre)
+- [Funciones](#-funciones)
 - [Problemas de integración que resuelve este plugin](#problemas-de-integración-que-resuelve-este-plugin)
+- [Proveedores soportados](#proveedores-soportados)
+- [Inicio rápido](#-inicio-rápido)
 - [Instalación](#instalación)
 - [Página de configuración](#página-de-configuración)
+- [Capacidades opcionales](#capacidades-opcionales)
 - [Gateway de API local](#gateway-de-api-local)
 - [CLI](#cli)
 - [Kimi en China](#kimi-en-china)
@@ -98,6 +105,7 @@ Luego abre **Settings → Coding OAuth** e inicia sesión en cualquier proveedor
 - [Notas técnicas](#notas-técnicas)
 - [Cumplimiento](#cumplimiento)
 - [Documentación](#documentación)
+- [Relacionados](#relacionados)
 - [Contribución](#contribución)
 - [Licencia](#licencia)
 

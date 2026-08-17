@@ -89,7 +89,10 @@ systemctl --user restart dsh-web.service
 ## 📚 目录
 
 - [项目更名](#项目更名)
+- [特性](#-特性)
 - [本插件解决的接入问题](#本插件解决的接入问题)
+- [支持的供应商](#支持的供应商)
+- [快速开始](#-快速开始)
 - [安装](#安装)
 - [设置页](#设置页)
 - [可选能力](#可选能力)
@@ -103,6 +106,7 @@ systemctl --user restart dsh-web.service
 - [技术方案](#技术方案)
 - [合规](#合规)
 - [文档](#文档)
+- [相关项目](#相关项目)
 - [贡献](#贡献)
 - [许可证](#许可证)
 
@@ -121,7 +125,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-安装后重启 `dsh web`。对实际部署的验证：
+安装后重启 `dsh web`。维护者可在源码 checkout 中对实际部署做验证（npm 安装不包含这些脚本）：
 
 ```bash
 pnpm run verify:deployed            # 核对真实 /api/llm.models 与 OAuth 状态
@@ -176,7 +180,7 @@ gateway:
 
 端点：`GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer key 保存在 `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）。
 
-在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
+在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；密钥显示仅限 loopback，且不会写入浏览器存储；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
 
 ## CLI
 

@@ -101,4 +101,4 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 - 「另一个 checkout 才是规范仓」——规范仓由当前 Git 历史确定。
 - 「vitest 63/76」或任何固定测试计数——数量会随功能增长，以当前 checkout 的测试套件为准。
 - 「client wrapper id = `dsh-grok-build`」——现为 **`dsh-coding-subscription-oauth`**。
-- 「README/INSTALL 仍写 npm/tsdown」——社区文档已按 pnpm + GitHub 安装路径更新。
+- 「README/INSTALL 仍写 npm/tsdown」——社区文档已按 pnpm + GitHub 安装路径更新。（v0.5.2 起普通用户首选路径已改为 npm 发布包 `dsh-coding-subscription-oauth`；GitHub/本地目录仅作开发备用。）
