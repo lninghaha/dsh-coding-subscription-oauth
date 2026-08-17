@@ -8,7 +8,14 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-当前新旧 npm 名称均尚未发布，请使用上述 GitHub 地址或本地目录安装；旧 GitHub 地址会解析到同一条 `main`。
+当前新旧 npm 名称均尚未发布。第一次公开发布目标是 maintainer 批准后的 **`0.4.1`**。在此之前请用 GitHub 或本地目录；发布后：
+
+```bash
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.4.1
+dsh plugin --profile web update dsh-coding-subscription-oauth
+```
+
+旧 GitHub 地址会解析到同一条 `main`。
 
 ## 前置条件
 

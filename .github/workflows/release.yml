@@ -1,0 +1,59 @@
+# Tag-triggered release. Do not push a v* tag until npm Trusted Publishing
+# is bound for this repository and a maintainer has approved the version.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify inside an isolated Docker sandbox
+        run: |
+          docker build \
+            --target verify \
+            --build-arg NODE_VERSION=22.19.0 \
+            --resource memory=3g \
+            --resource cpu-quota=200000 \
+            --tag test-dsh-coding-oauth:release-verify \
+            .
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          gh release create "${tag}" \
+            --title "dsh-coding-subscription-oauth ${tag}" \
+            --notes "Install or update:
+
+          \`\`\`bash
+          dsh plugin --profile web add dsh-coding-subscription-oauth@${version}
+          dsh plugin --profile web update dsh-coding-subscription-oauth
+          \`\`\`
+
+          Restart an existing \`dsh web\` process and hard-refresh the browser.
+
+          See CHANGELOG.md for the folded ${tag} notes."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+          registry-url: "https://registry.npmjs.org"
+
+      # Requires this GitHub repo to be bound as an npm Trusted Publisher.
+      # Do not push v* tags until that binding exists.
+      - name: Publish to npm with provenance
+        run: npm publish --access public --provenance --ignore-scripts

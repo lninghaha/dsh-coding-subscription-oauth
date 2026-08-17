@@ -24,7 +24,7 @@
 | | 请用这个 | 仍然可用 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同一条 `main`） |
-| npm | 尚未发布；请从 GitHub 安装 | 没有发布过旧 npm 包 |
+| npm | 尚未发布；第一次公开发布目标是 maintainer 批准后的 `0.4.1`。在此之前从 GitHub 安装。发布后：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.4.1`，之后 `dsh plugin --profile web update dsh-coding-subscription-oauth` | 没有发布过旧 npm 包 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
 | 设置页 HTTP API | `/plugins/dsh-grok-build/*` | 不变 |

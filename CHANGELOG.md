@@ -14,6 +14,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 - Resolve the Codex search model at call time so sign-in, sign-out, and live catalog changes do not leave a stale model captured by an existing provider.
 - Clarify browser, device-code, and manual redirect/code sign-in guidance; use the profile-aware Antigravity command `dsh plugin --profile web exec dsh-agy login --headless`.
 - Raise the `undici` floor to `^7.24.8` so scoped `socks5://` proxies are supported.
+- Document the GitHub-first install path and the first public npm target (`0.4.1` after maintainer approval), matching other DSH plugins' `dsh plugin add <name>@<version>` flow.
 
 ### Fixed
 
