@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.1 - 2026-08-18
+
+### Documentation
+
+- Sync the English and translated READMEs with the v0.5.0 Settings tabs, collapsed account cards, local gateway copy/reveal/rotation controls, persisted listen-port controls, and npm installation path.
+
 ## v0.5.0 - 2026-08-17
 
 ### Added

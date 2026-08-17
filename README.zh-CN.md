@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · 原名 `dsh-grok-build`
+**v0.5.1** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -24,7 +24,7 @@
 | | 请用这个 | 仍然可用 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同一条 `main`） |
-| npm | 当前版本是 `0.5.0`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.0`，之后 `dsh plugin --profile web update dsh-coding-subscription-oauth`。GitHub 安装仍然可用。 | 没有发布过旧 npm 包 |
+| npm | 当前版本是 `0.5.1`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1`，之后 `dsh plugin --profile web update dsh-coding-subscription-oauth`。GitHub 安装仍然可用。 | 没有发布过旧 npm 包 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
 | 设置页 HTTP API | `/plugins/dsh-grok-build/*` | 不变 |
@@ -39,8 +39,9 @@
 - ⚙️ **动态目录** —— 选择器只列出已登录路由并标注 `(OAuth)`，含 grok-4.6 的 `xhigh`。
 - 🌐 **代理感知** —— 只代理审核过的订阅域名；Kimi 中国流量默认直连。
 - 📥 **手动 CLI 拉取** —— 设置页只读发现白名单内的官方 Grok/Codex/Kimi/Claude CLI OAuth 文件；预览并确认覆盖后，单向拉取一份副本。
+- 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About 四个顶部标签替代漫长瀑布流；已登录供应商卡片默认收起，展开后再编辑。
 - 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。
-- 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，只给你自己的工具用，不是公网中继。
+- 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
 
 ## 本插件解决的接入问题
 
@@ -92,6 +93,7 @@ systemctl --user restart dsh-web.service
 - [安装](#安装)
 - [设置页](#设置页)
 - [可选能力](#可选能力)
+- [本地 API 网关](#本地-api-网关)
 - [CLI](#cli)
 - [Kimi 中国说明](#kimi-中国说明)
 - [网络代理](#网络代理)
@@ -109,11 +111,12 @@ systemctl --user restart dsh-web.service
 需要 DeepSeek Harness `0.1.0-rc.6+` 与 Node.js 22.19+。完整细节见[安装说明](INSTALL.md)。
 
 ```bash
-# 从 GitHub
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# 当前 npm 版本
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
 
-# 或本地开发目录
-dsh plugin --profile web add ./dsh-coding-subscription-oauth
+# 或从 GitHub / 本地开发目录
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 安装后重启 `dsh web`。对实际部署的验证：
@@ -132,7 +135,7 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 ## 设置页
 
-打开 **设置 → 编码 OAuth**：
+打开 **设置 → 编码 OAuth**。页面拆成四个顶部标签：**Accounts**、**Gateway**、**Capabilities**、**About**，不再需要长距离滚动。已登录供应商卡片默认折叠，展开后可编辑模型或使用卡片内的 CLI 拉取；CLI 预览占满内容宽度，Capabilities 标签还会显示实时可选开关和 Imagine 状态。
 
 | 供应商 | 方式 |
 |---|---|
@@ -157,6 +160,21 @@ DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供�
 Codex 搜索、用量和图像是**需显式打开**的私有 `chatgpt.com/backend-api` 端点。图像生成固定使用 `gpt-image-2`。图像编辑只接受当前会话顶层、且由本会话持有的附件 id。
 
 Grok Imagine 只走官方 `https://api.x.ai`，模型为 `grok-imagine-image-2.0` 与 `grok-imagine-video-1.5`。凭据是独立的 DSH 凭据引用 `XAI_API_KEY`——不用 Grok OAuth，也不回退到进程环境变量。生成结果在 MIME / 大小 / 超时 / 重定向 / DNS 控制下，仅从冻结主机 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai` 下载，存入私有产物库（单件与唯一对象总量均硬限 256 MiB，最长七天），并只通过同源 loopback 路由提供。
+
+## 本地 API 网关
+
+默认**关闭**。启用后会在 `127.0.0.1:18080` 启动独立的 `node:http` 服务（不占用 DSH web 端口），复用已经登录的 OAuth 会话：
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+端点：`GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer key 保存在 `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）。
+
+在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
 
 ## CLI
 

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · anciennement `dsh-grok-build`
+**v0.5.1 · anciennement `dsh-grok-build`
 
 **Plugin OAuth pour abonnements de codage de [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Connectez-vous une fois avec les abonnements que vous payez déjà, puis utilisez leurs modèles depuis la page de configuration ou la CLI dsh. **Aucun token collé dans le chat.**
 
@@ -38,6 +38,7 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 - 🛡️ **Sécurisé par conception** — fichiers d'identification propriétaire-seul `0600`, écriture atomique, verrou de fichier inter-processus.
 - ⚙️ **Catalogue dynamique** — le sélecteur de modèles liste exactement les fournisseurs que vous avez authentifiés.
 - 🌐 **Conscient du proxy** — ne proxifie que les domaines d'abonnement examinés et de confiance.
+- 🔌 **Passerelle API locale opt-in** — serveur loopback compatible OpenAI/Anthropic, désactivé par défaut ; pour vos propres outils, jamais un relais public.
 
 ## Problèmes d'intégration que ce plugin résout
 
@@ -87,6 +88,7 @@ Ensuite ouvrez **Settings → Coding OAuth** et connectez-vous à n'importe quel
 - [Problèmes d'intégration que ce plugin résout](#problèmes-dintégration-que-ce-plugin-résout)
 - [Installation](#installation)
 - [Page de configuration](#page-de-configuration)
+- [Passerelle API locale](#passerelle-api-locale)
 - [CLI](#cli)
 - [Kimi en Chine](#kimi-en-chine)
 - [Proxy réseau](#proxy-réseau)
@@ -137,11 +139,26 @@ Ouvrez **Settings → Coding OAuth** :
 | Claude | PKCE navigateur (un navigateur distant peut coller l'URL complète de redirect localhost) |
 | Antigravity | état d'installation de `dsh-agy` + commandes CLI locales au profil |
 
+La page de configuration est divisée en quatre onglets principaux : **Accounts**, **Gateway**, **Capabilities** et **About**. Les cartes des fournisseurs connectés se replient en un résumé compact et se déplient pour l'édition des modèles. L'aperçu du pull CLI occupe toute la largeur, et le statut d'Imagine s'affiche dans l'onglet Capabilities.
+
 Le sélecteur ne liste que les routes ayant terminé l'authentification ; les fournisseurs non authentifiés renvoient une liste vide. Les noms de fournisseurs portent `(OAuth)` et le catalogue est rafraîchi via `llm/adapters-updated` après connexion/déconnexion.
 
 ## Capacités optionnelles
 
 Les sept options `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` et `grokImagineVideo` sont désactivées par défaut et s'appliquent à chaud, sans redémarrage. Les limites sont `searchResults` (1–20, défaut 5), `imageCount` (1–4, défaut 1) et `videoArtifactTtlMs` (1 heure–7 jours, défaut 7 jours ; l'interface affiche 1–168 heures). Réduire la rétention raccourcit et nettoie immédiatement les artefacts existants ; l'augmenter ne concerne que les nouveaux.
+
+## Passerelle API locale
+
+Désactivée par défaut. Une fois activée, elle démarre un serveur `node:http` isolé (pas le port web de DSH) sur `127.0.0.1:18080` et réutilise les mêmes sessions OAuth authentifiées :
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+Endpoints : `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Une clé Bearer est stockée dans `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). La configuration permet de copier l'URL de base OpenAI (base + `/v1`), l'URL de base Anthropic et la clé Bearer actuelle sans la régénérer ; la révélation de la clé est limitée au loopback et n'est pas persistée dans le stockage du navigateur. La rotation est une action destructive avec confirmation. Le port d'écoute peut être modifié directement puis enregistré avec Apply, ou rempli par Random (18100–18999) ; le port choisi est persisté dans le document de passerelle propriétaire-seul, et un listener en cours d'exécution se rebind. Le bind reste configurable uniquement en YAML ; un bind non loopback exige une clé. Ce n'est pas un relais distant.
 
 ## CLI
 

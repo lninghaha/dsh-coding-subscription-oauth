@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · 旧名 `dsh-grok-build`
+**v0.5.1 · 旧名 `dsh-grok-build`
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
@@ -38,6 +38,7 @@
 - 🛡️ **セキュリティ設計** — 認証情報ファイルはオーナー専用 `0600`、アトミック書き込み、クロスプロセスファイルロック。
 - ⚙️ **動的カタログ** — モデルセレクターには認証済みプロバイダーのみが表示されます。
 - 🌐 **プロキシ対応** — レビュー済みの信頼できるサブスクリプションドメインのみをプロキシします。
+- 🔌 **オプトインのローカル API ゲートウェイ** — 既定オフのループバック OpenAI/Anthropic 互換サーバー。自分のツール専用で、公開リレーではありません。
 
 ## このプラグインが解く接続の問題
 
@@ -87,6 +88,7 @@ systemctl --user restart dsh-web.service
 - [このプラグインが解く接続の問題](#このプラグインが解く接続の問題)
 - [インストール](#インストール)
 - [設定ページ](#設定ページ)
+- [ローカル API ゲートウェイ](#ローカル-api-ゲートウェイ)
 - [CLI](#cli)
 - [中国での Kimi](#中国での-kimi)
 - [ネットワークプロキシ](#ネットワークプロキシ)
@@ -137,11 +139,26 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 | Claude | ブラウザ PKCE（リモートブラウザは完全な localhost redirect URL を貼り付け可能） |
 | Antigravity | `dsh-agy` インストール状態 + profile-local CLI コマンド |
 
+設定ページは **Accounts**、**Gateway**、**Capabilities**、**About** の 4 つのトップタブに分かれています。サインイン済みプロバイダーのカードはコンパクトな概要に折りたたまれ、モデル編集時に展開されます。CLI pull のプレビューは全幅表示で、Imagine のステータスは Capabilities タブに表示されます。
+
 セレクターは認証を完了したルートのみを一覧表示します。未認証プロバイダーは空リストを返します。プロバイダー名は `(OAuth)` を伴い、サインイン/アウト後に `llm/adapters-updated` でカタログが更新されます。
 
 ## オプション機能
 
 7 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
+
+## ローカル API ゲートウェイ
+
+既定は**オフ**です。有効にすると、DSH の web ポートとは別の独立した `node:http` サーバーが `127.0.0.1:18080` で起動し、同じサインイン済み OAuth セッションを再利用します:
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+エンドポイント: `GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer キーは `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）に保存されます。設定ページから OpenAI ベース URL（ベース + `/v1`）、Anthropic ベース URL、現在の Bearer キーをローテーションせずにコピーできます。キーの表示はループバックからのみ可能で、ブラウザストレージには保存されません。ローテーションは確認付きの破壊的操作です。リッスンポートは直接編集して Apply で保存するか、Random（18100–18999）で自動入力できます。選択したポートはオーナー専用のゲートウェイドキュメントに永続化され、稼働中のリスナーは再バインドされます。bind は YAML のみで変更でき、非ループバックの bind にはキーが必須です。これはリモートリレーではありません。
 
 ## CLI
 

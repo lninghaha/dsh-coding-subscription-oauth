@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · 이전 이름 `dsh-grok-build`
+**v0.5.1 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -38,6 +38,7 @@
 - 🛡️ **안전한 설계** — 인증 파일은 소유자 전용 `0600`, 원자적 쓰기, 크로스 프로세스 파일 잠금.
 - ⚙️ **동적 카탈로그** — 모델 선택기에 인증을 완료한 프로바이더만 표시됩니다.
 - 🌐 **프록시 인지형** — 검증된 신뢰 가능한 구독 도메인만 프록시합니다.
+- 🔌 **옵트인 로컬 API 게이트웨이** — 기본 꺼짐의 루프백 OpenAI/Anthropic 호환 서버. 내 도구 전용이며 공개 릴레이가 아닙니다.
 
 ## 이 플러그인이 푸는 연동 문제
 
@@ -87,6 +88,7 @@ systemctl --user restart dsh-web.service
 - [이 플러그인이 푸는 연동 문제](#이-플러그인이-푸는-연동-문제)
 - [설치](#설치)
 - [설정 페이지](#설정-페이지)
+- [로컬 API 게이트웨이](#로컬-api-게이트웨이)
 - [CLI](#cli)
 - [중국에서의 Kimi](#중국에서의-kimi)
 - [네트워크 프록시](#네트워크-프록시)
@@ -137,11 +139,26 @@ pnpm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 | Claude | 브라우저 PKCE(원격 브라우저는 전체 localhost redirect URL을 붙여넣기 가능) |
 | Antigravity | `dsh-agy` 설치 상태 + profile-local CLI 명령 |
 
+설정 페이지는 **Accounts**, **Gateway**, **Capabilities**, **About** 네 개의 상위 탭으로 나뉩니다. 로그인된 프로바이더 카드는 간결한 요약으로 접히고 모델 편집 시 펼쳐집니다. CLI pull 미리보기는 전체 너비로 표시되고, Imagine 상태는 Capabilities 탭에서 확인할 수 있습니다.
+
 선택기는 인증을 완료한 라우트만 나열하며, 인증되지 않은 프로바이더는 빈 목록을 반환합니다. 프로바이더 이름에는 `(OAuth)`가 붙고, 로그인/아웃 후 `llm/adapters-updated`를 통해 카탈로그가 갱신됩니다.
 
 ## 선택적 기능
 
 7개 스위치 `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage`, `grokImagineVideo`는 모두 기본적으로 꺼져 있으며 재시작 없이 즉시 적용됩니다. 숫자 설정은 `searchResults`(1–20, 기본 5), `imageCount`(1–4, 기본 1), `videoArtifactTtlMs`(1시간–7일, 기본 7일, UI에서는 1–168시간)입니다. 보존 시간을 낮추면 기존 아티팩트도 즉시 단축·정리되며, 높인 값은 이후 생성된 아티팩트에만 적용됩니다.
+
+## 로컬 API 게이트웨이
+
+기본값은 **꺼짐**입니다. 활성화하면 DSH 웹 포트와 분리된 독립 `node:http` 서버가 `127.0.0.1:18080`에서 시작되어 같은 로그인 OAuth 세션을 재사용합니다:
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+엔드포인트: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Bearer 키는 `$DSH_HOME/.coding-oauth-gateway.json`(`0600`)에 저장됩니다. 설정에서 OpenAI 베이스 URL(베이스 + `/v1`), Anthropic 베이스 URL, 현재 Bearer 키를 로테이션 없이 복사할 수 있습니다. 키 표시는 루프백에서만 가능하며 브라우저 스토리지에 저장되지 않습니다. 로테이션은 확인이 필요한 파괴적 작업입니다. 리슨 포트는 직접 편집해 Apply로 저장하거나 Random(18100–18999)으로 채울 수 있습니다. 선택한 포트는 소유자 전용 게이트웨이 문서에 저장되고 실행 중인 리스너가 다시 바인딩됩니다. bind는 YAML에서만 변경할 수 있으며, 루프백이 아닌 bind에는 키가 필요합니다. 원격 릴레이가 아닙니다.
 
 ## CLI
 

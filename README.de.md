@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · früher `dsh-grok-build`
+**v0.5.1 · früher `dsh-grok-build`
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -38,6 +38,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 - 🛡️ **Sicherheit by Design** — Zugangsdateien nur-eigentümer `0600`, atomares Schreiben, dateiübergreifende Prozesssperre.
 - ⚙️ **Dynamischer Katalog** — der Modellwähler listet genau die Anbieter, die Sie authentifiziert haben.
 - 🌐 **Proxy-bewusst** — nur geprüfte, vertrauenswürdige Abonnement-Domänen werden über den Proxy geleitet.
+- 🔌 **Opt-in lokales API-Gateway** — standardmäßig ausgeschalteter Loopback-Server, OpenAI-/Anthropic-kompatibel; für Ihre eigenen Werkzeuge, niemals ein öffentliches Relay.
 
 ## Integrationsprobleme, die dieses Plugin löst
 
@@ -87,6 +88,7 @@ Danach **Settings → Coding OAuth** öffnen und bei einem beliebigen Anbieter a
 - [Integrationsprobleme, die dieses Plugin löst](#integrationsprobleme-die-dieses-plugin-löst)
 - [Installation](#installation)
 - [Einstellungsseite](#einstellungsseite)
+- [Lokales API-Gateway](#lokales-api-gateway)
 - [CLI](#cli)
 - [Kimi in China](#kimi-in-china)
 - [Netzwerk-Proxy](#netzwerk-proxy)
@@ -137,11 +139,26 @@ pnpm run smoke:deployed             # echte Codex/Kimi-Tool-Calls + Replay des z
 | Claude | Browser-PKCE (ein Remote-Browser kann die vollständige localhost-Redirect-URL einfügen) |
 | Antigravity | `dsh-agy`-Installationsstatus + profil-lokale CLI-Befehle |
 
+Die Einstellungsseite ist in vier obere Tabs aufgeteilt: **Accounts**, **Gateway**, **Capabilities** und **About**. Karten angemeldeter Anbieter klappen zu einer kompakten Zusammenfassung zusammen und werden für die Modellbearbeitung aufgeklappt. Die CLI-Pull-Vorschau ist volle Breite, und der Imagine-Status erscheint im Tab Capabilities.
+
 Der Wähler listet nur Routen, die die Authentifizierung abgeschlossen haben; nicht authentifizierte Anbieter liefern eine leere Liste. Anbieternamen tragen `(OAuth)`, und der Katalog wird nach An-/Abmeldung über `llm/adapters-updated` aktualisiert.
 
 ## Optionale Funktionen
 
 Die sieben Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
+
+## Lokales API-Gateway
+
+Standardmäßig **aus**. Wenn aktiviert, startet es einen isolierten `node:http`-Server (nicht der DSH-Web-Port) auf `127.0.0.1:18080` und nutzt dieselben angemeldeten OAuth-Sitzungen:
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Ein Bearer-Schlüssel wird in `$DSH_HOME/.coding-oauth-gateway.json` (`0600`) gespeichert. In den Einstellungen lassen sich die OpenAI-Basis-URL (Basis + `/v1`), die Anthropic-Basis-URL und der aktuelle Bearer-Schlüssel kopieren, ohne ihn zu rotieren; die Schlüsselanzeige ist nur über Loopback möglich und wird nicht im Browser-Speicher persistiert. Die Rotation ist eine bestätigte destruktive Aktion. Der Listen-Port kann direkt bearbeitet und mit Apply gespeichert oder per Random (18100–18999) gefüllt werden; der gewählte Port wird im Nur-Eigentümer-Gateway-Dokument persistiert, und ein laufender Listener bindet sich neu. Das Bind bleibt YAML-only; ein Nicht-Loopback-Bind erfordert einen Schlüssel. Dies ist kein Remote-Relay.
 
 ## CLI
 

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.0** · formerly `dsh-grok-build`
+**v0.5.1** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -24,7 +24,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 | | Use this | Still works |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
-| npm | Current release is `0.5.0`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.0` then `dsh plugin --profile web update dsh-coding-subscription-oauth`. GitHub install still works. | No legacy npm package was published |
+| npm | Current release is `0.5.1`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1` then `dsh plugin --profile web update dsh-coding-subscription-oauth`. GitHub install still works. | No legacy npm package was published |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
 | Settings HTTP API | `/plugins/dsh-grok-build/*` | unchanged |
@@ -39,8 +39,9 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - ⚙️ **Dynamic catalog** — the selector lists only signed-in routes, labelled `(OAuth)`, including grok-4.6 `xhigh`.
 - 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
 - 📥 **Manual CLI Pull** — Settings discovers allowlisted official Grok/Codex/Kimi/Claude CLI OAuth files read-only; you pull a one-way copy after preview and overwrite confirmation.
+- 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About replace the long waterfall; signed-in provider cards stay collapsed until you expand them.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on.
-- 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools; never a public relay.
+- 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
 
 ## Problems this plugin solves
 
@@ -75,8 +76,8 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 ## 🚀 Quick start
 
 ```bash
-# 1. install the plugin into the web profile
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# 1. install the current npm release into the web profile
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -94,6 +95,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 - [Install](#install)
 - [Settings page](#settings-page)
 - [Optional capabilities](#optional-capabilities)
+- [Local API gateway](#local-api-gateway)
 - [CLI](#cli)
 - [Kimi in China](#kimi-in-china)
 - [Network proxy](#network-proxy)
@@ -111,11 +113,12 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 Requires DeepSeek Harness `0.1.0-rc.6+` and Node.js 22.19+. Full details in the [installation notes](INSTALL.md).
 
 ```bash
-# from GitHub
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# current npm release
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
 
-# or a local dev checkout
-dsh plugin --profile web add ./dsh-coding-subscription-oauth
+# or from GitHub / a local dev checkout
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
 Restart `dsh web` after installing. Verification against a live deployment:
@@ -134,7 +137,7 @@ pnpm run smoke:deployed             # real Codex/Kimi tool-calls + second-turn r
 
 ## Settings page
 
-Open **Settings → Coding OAuth**:
+Open **Settings → Coding OAuth**. The page is organized into four top tabs — **Accounts**, **Gateway**, **Capabilities**, and **About** — so it no longer requires a long waterfall scroll. Signed-in provider cards collapse to a compact summary; expand one to edit models or use its CLI Pull controls. CLI previews span the full content width, and the Capabilities tab shows live optional switches plus Imagine status.
 
 | Provider | Methods |
 |---|---|
@@ -171,7 +174,9 @@ gateway:
   port: 18080
 ```
 
-Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). Settings can toggle and rotate the key; bind/port stay YAML-only. Non-loopback bind requires a key. This is not a remote relay.
+Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
+
+On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 
 ## CLI
 
