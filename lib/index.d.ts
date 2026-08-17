@@ -7,6 +7,7 @@ import type { Context } from "@deepseek-ai/cordis";
 import { type RetryPolicyConfig } from "@deepseek-ai/dsh-llm";
 import z from "@deepseek-ai/schemastery";
 import { type CapabilitySettingsPatch } from "./capability-settings.js";
+import { type GatewayConfig } from "./gateway-config.js";
 export { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "./adapter.js";
 export type { AliasLlmRoutePolicy } from "./alias-adapter.js";
 export { AliasLlmAdapter } from "./alias-adapter.js";
@@ -56,6 +57,8 @@ export interface Config {
     retryPolicy?: RetryPolicyConfig;
     /** Secret-free composition/YAML defaults below live user settings. */
     capabilities?: CapabilitySettingsPatch;
+    /** Opt-in isolated local OpenAI-compatible gateway. Default off. */
+    gateway?: Partial<GatewayConfig>;
 }
 export declare const Config: z<Config>;
 /**

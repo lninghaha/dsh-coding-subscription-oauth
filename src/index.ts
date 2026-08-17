@@ -41,6 +41,8 @@ import { codexAuthFromSession } from "./codex-http.ts";
 import { createCodexModelCapabilities } from "./codex-model-capabilities.ts";
 import { createCodexSearchProvider } from "./codex-search.ts";
 import { createCodexUsageReader } from "./codex-usage.ts";
+import { startCodingOAuthGateway } from "./gateway.ts";
+import { type GatewayConfig, GatewayConfigSchema } from "./gateway-config.ts";
 import {
 	createGrokImagineClient,
 	GROK_IMAGINE_IMAGE_TOOL,
@@ -233,6 +235,8 @@ export interface Config {
 	retryPolicy?: RetryPolicyConfig;
 	/** Secret-free composition/YAML defaults below live user settings. */
 	capabilities?: CapabilitySettingsPatch;
+	/** Opt-in isolated local OpenAI-compatible gateway. Default off. */
+	gateway?: Partial<GatewayConfig>;
 }
 
 export const Config: z<Config> = z.object({
@@ -240,6 +244,7 @@ export const Config: z<Config> = z.object({
 	proxyKimi: z.boolean().default(false),
 	retryPolicy: RetryPolicySchema,
 	capabilities: CapabilitySettingsSchema,
+	gateway: GatewayConfigSchema,
 });
 
 const CODEX_TOOL_NAMES = new Set<string>([CODEX_IMAGE_GENERATE_TOOL, CODEX_IMAGE_EDIT_TOOL]);
@@ -455,6 +460,35 @@ export function apply(ctx: Context, config: Config): void {
 			});
 		});
 	});
+
+	if (config.gateway?.enabled === true) {
+		ctx.effect(() => {
+			let cancelled = false;
+			let started: { close(): Promise<void> } | undefined;
+			void startCodingOAuthGateway({
+				...(config.gateway === undefined ? {} : { config: config.gateway }),
+				grok,
+				subscriptions,
+				onError: (error) => {
+					logger.warn("local API gateway failed to start; LLM routes are unchanged");
+					logger.warn(error);
+				},
+			}).then((value) => {
+				if (cancelled) {
+					void value?.close();
+					return;
+				}
+				started = value;
+				if (value !== undefined) {
+					logger.warn("local API gateway is enabled; exposing a subscription as a local API can violate provider ToS");
+				}
+			});
+			return () => {
+				cancelled = true;
+				void started?.close();
+			};
+		}, "dsh-coding-subscription-oauth: local API gateway");
+	}
 
 	ctx.inject(["webServer"], (webCtx) => {
 		registerCodingOAuthRoutes(webCtx, grok, subscriptions);
