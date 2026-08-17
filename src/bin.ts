@@ -7,6 +7,8 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
 import { grokBuildAuthStatus, importGrokBuildSession, loginGrokBuildSession } from "./auth.ts";
+import { GATEWAY_TOS_WARNING } from "./gateway.ts";
+import { GATEWAY_DEFAULT_BIND, GATEWAY_DEFAULT_PORT } from "./gateway-config.ts";
 import { grokAuthPath } from "./grok-import.ts";
 import { XAI_PI_PROVIDER } from "./ids.ts";
 import { loginGrokBuildPkce } from "./oauth.ts";
@@ -157,6 +159,18 @@ async function subscriptionStatus(provider: Exclude<CliProvider, "all" | "grok">
 	return true;
 }
 
+async function printGatewayWarning(): Promise<void> {
+	try {
+		const response = await fetch(`http://${GATEWAY_DEFAULT_BIND}:${String(GATEWAY_DEFAULT_PORT)}/healthz`, {
+			signal: AbortSignal.timeout(200),
+		});
+		if (!response.ok) return;
+		process.stdout.write(`WARNING: ${GATEWAY_TOS_WARNING}\n`);
+	} catch {
+		// Gateway is off or not on the default loopback port.
+	}
+}
+
 async function grokStatus(): Promise<boolean> {
 	const session = new GrokBuildSession();
 	await session.loadCachedCatalog();
@@ -283,9 +297,11 @@ export async function run(argv: readonly string[]): Promise<number> {
 					subscriptionStatus("kimi"),
 					subscriptionStatus("claude"),
 				]);
+				await printGatewayWarning();
 				return results.some(Boolean) ? 0 : 1;
 			}
 			const signedIn = provider === "grok" ? await grokStatus() : await subscriptionStatus(provider);
+			await printGatewayWarning();
 			return signedIn ? 0 : 1;
 		}
 

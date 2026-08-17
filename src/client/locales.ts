@@ -170,6 +170,22 @@ export const en = {
 	imagineSourceOAuth: "OAuth access (only if Imagine accepted it)",
 	imagineSourceCliKey: "Grok CLI key field",
 	imagineSourceUnknown: "configured (details withheld)",
+	gatewayTitle: "Local API gateway",
+	gatewayIntro:
+		"Optional loopback OpenAI/Anthropic-compatible server for your own tools. It stays off until you enable it. Bind and port come from YAML.",
+	gatewayWarning:
+		"Turning this on exposes your signed-in subscriptions as a local API. That can violate provider terms and consumes your quota. Do not bind it to a public address.",
+	gatewayEnabled: "Enable local gateway",
+	gatewayBind: "Bind",
+	gatewayPort: "Port",
+	gatewayKeyHint: "Bearer key hint",
+	gatewayRunning: "Listening",
+	gatewayStopped: "Not listening",
+	gatewayRotate: "Rotate API key",
+	gatewayRotated: "New key (shown once): {key}",
+	gatewayLoadFailed: "Could not load gateway settings.",
+	gatewaySaveFailed: "Could not update the gateway.",
+	gatewayLoading: "Loading gateway settings…",
 };
 
 export type GrokBuildSettingsKey = keyof typeof en;
@@ -336,4 +352,19 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	imagineSourceOAuth: "OAuth access（仅当 Imagine 接受时）",
 	imagineSourceCliKey: "Grok CLI 的 key 字段",
 	imagineSourceUnknown: "已配置（细节不展示）",
+	gatewayTitle: "本地 API 网关",
+	gatewayIntro:
+		"可选的本机 loopback OpenAI/Anthropic 兼容服务，供你自己的工具使用。默认关闭。绑定地址和端口来自 YAML。",
+	gatewayWarning: "打开后会把已登录订阅暴露成本地 API。这可能违反供应商条款并消耗配额。不要绑定到公网地址。",
+	gatewayEnabled: "启用本地网关",
+	gatewayBind: "绑定地址",
+	gatewayPort: "端口",
+	gatewayKeyHint: "Bearer key 提示",
+	gatewayRunning: "正在监听",
+	gatewayStopped: "未监听",
+	gatewayRotate: "轮换 API key",
+	gatewayRotated: "新 key（只显示一次）：{key}",
+	gatewayLoadFailed: "无法加载网关设置。",
+	gatewaySaveFailed: "无法更新网关。",
+	gatewayLoading: "正在加载网关设置…",
 };

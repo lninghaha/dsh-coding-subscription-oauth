@@ -4,117 +4,121 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import {
-	type GatewayBackend,
-	type GatewayChatMessage,
-	GatewayRequestError,
-	gatewayErrorEnvelope,
-} from "./gateway-backend.ts";
-
-const BODY_LIMIT = 1024 * 1024;
+import { type GatewayBackend, gatewayErrorEnvelope } from "./gateway-backend.ts";
+import { beginGatewaySse, readGatewayJsonBody, writeGatewayJson } from "./gateway-body.ts";
+import { parseOpenAiChatRequest } from "./gateway-parse.ts";
+import type { GatewayStreamPart } from "./gateway-protocol.ts";
 
 export async function handleOpenAiChatCompletions(
 	req: IncomingMessage,
 	res: ServerResponse,
 	backend: GatewayBackend,
 ): Promise<void> {
-	const payload = await readJsonBody(req);
-	const model = typeof payload["model"] === "string" ? payload["model"] : "";
-	if (model.length === 0) throw new GatewayRequestError(400, "invalid_request", "model is required");
-	const messages = parseMessages(payload["messages"]);
+	const payload = await readGatewayJsonBody(req);
+	const request = parseOpenAiChatRequest(payload);
 	const stream = payload["stream"] !== false;
 	const id = `chatcmpl_gateway_${Date.now().toString(36)}`;
 	if (!stream) {
-		const chunks: string[] = [];
-		for await (const delta of backend.streamText(model, messages)) chunks.push(delta);
-		writeJson(res, 200, {
+		const aggregated = await aggregate(backend, request);
+		writeGatewayJson(res, 200, {
 			id,
 			object: "chat.completion",
-			choices: [{ index: 0, message: { role: "assistant", content: chunks.join("") }, finish_reason: "stop" }],
+			model: request.model,
+			choices: [
+				{
+					index: 0,
+					message: aggregated.message,
+					finish_reason: aggregated.finish,
+				},
+			],
 		});
 		return;
 	}
-	res.writeHead(200, {
-		"content-type": "text/event-stream; charset=utf-8",
-		"cache-control": "no-store",
-		connection: "keep-alive",
-	});
+	beginGatewaySse(res);
 	try {
-		for await (const delta of backend.streamText(model, messages)) {
-			res.write(`data: ${JSON.stringify(sseDelta(id, model, delta))}\n\n`);
+		let toolIndex = 0;
+		for await (const part of backend.stream(request)) {
+			const chunk = sseChunk(id, request.model, part, toolIndex);
+			if (chunk === undefined) continue;
+			if (part.type === "tool_call") toolIndex += 1;
+			res.write(`data: ${JSON.stringify(chunk)}\n\n`);
 		}
-		res.write(`data: ${JSON.stringify(sseStop(id, model))}\n\n`);
 		res.write("data: [DONE]\n\n");
 		res.end();
 	} catch (error) {
-		const envelope = gatewayErrorEnvelope(error);
-		res.write(`data: ${JSON.stringify(envelope.body)}\n\n`);
+		res.write(`data: ${JSON.stringify(gatewayErrorEnvelope(error).body)}\n\n`);
 		res.end();
 	}
 }
 
-function parseMessages(value: unknown): GatewayChatMessage[] {
-	if (!Array.isArray(value) || value.length === 0) {
-		throw new GatewayRequestError(400, "invalid_request", "messages must be a non-empty array");
-	}
-	return value.map((item) => {
-		if (typeof item !== "object" || item === null)
-			throw new GatewayRequestError(400, "invalid_request", "message must be an object");
-		const role = (item as { role?: unknown }).role;
-		const content = (item as { content?: unknown }).content;
-		if (typeof role !== "string" || typeof content !== "string") {
-			throw new GatewayRequestError(400, "invalid_request", "message role and content must be strings");
+async function aggregate(backend: GatewayBackend, request: ReturnType<typeof parseOpenAiChatRequest>) {
+	let content = "";
+	let reasoning = "";
+	const toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
+	let finish: "stop" | "tool_calls" | "length" = "stop";
+	for await (const part of backend.stream(request)) {
+		if (part.type === "text") content += part.text;
+		if (part.type === "thinking") reasoning += part.text;
+		if (part.type === "tool_call") {
+			toolCalls.push({ id: part.id, type: "function", function: { name: part.name, arguments: part.arguments } });
 		}
-		return { role, content };
-	});
+		if (part.type === "done") finish = part.finish;
+	}
+	return {
+		finish,
+		message: {
+			role: "assistant",
+			content,
+			...(reasoning.length === 0 ? {} : { reasoning_content: reasoning }),
+			...(toolCalls.length === 0 ? {} : { tool_calls: toolCalls }),
+		},
+	};
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
-	const chunks: Buffer[] = [];
-	let size = 0;
-	for await (const chunk of req) {
-		const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-		size += buffer.byteLength;
-		if (size > BODY_LIMIT) throw new GatewayRequestError(413, "payload_too_large", "request body exceeds 1 MiB");
-		chunks.push(buffer);
+function sseChunk(id: string, model: string, part: GatewayStreamPart, toolIndex: number): unknown {
+	if (part.type === "text") {
+		return {
+			id,
+			object: "chat.completion.chunk",
+			model,
+			choices: [{ index: 0, delta: { content: part.text }, finish_reason: null }],
+		};
 	}
-	if (chunks.length === 0) return {};
-	try {
-		const value = JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-		if (typeof value !== "object" || value === null || Array.isArray(value)) {
-			throw new GatewayRequestError(400, "invalid_request", "body must be a JSON object");
-		}
-		return value as Record<string, unknown>;
-	} catch (error) {
-		if (error instanceof GatewayRequestError) throw error;
-		throw new GatewayRequestError(400, "invalid_request", "body is not valid JSON");
+	if (part.type === "thinking") {
+		return {
+			id,
+			object: "chat.completion.chunk",
+			model,
+			choices: [{ index: 0, delta: { reasoning_content: part.text }, finish_reason: null }],
+		};
 	}
-}
-
-function sseDelta(id: string, model: string, content: string) {
+	if (part.type === "tool_call") {
+		return {
+			id,
+			object: "chat.completion.chunk",
+			model,
+			choices: [
+				{
+					index: 0,
+					delta: {
+						tool_calls: [
+							{
+								index: toolIndex,
+								id: part.id,
+								type: "function",
+								function: { name: part.name, arguments: part.arguments },
+							},
+						],
+					},
+					finish_reason: null,
+				},
+			],
+		};
+	}
 	return {
 		id,
 		object: "chat.completion.chunk",
 		model,
-		choices: [{ index: 0, delta: { content }, finish_reason: null }],
+		choices: [{ index: 0, delta: {}, finish_reason: part.finish }],
 	};
-}
-
-function sseStop(id: string, model: string) {
-	return {
-		id,
-		object: "chat.completion.chunk",
-		model,
-		choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-	};
-}
-
-function writeJson(res: ServerResponse, status: number, value: unknown): void {
-	const body = Buffer.from(`${JSON.stringify(value)}\n`);
-	res.writeHead(status, {
-		"content-type": "application/json; charset=utf-8",
-		"content-length": body.byteLength,
-		"cache-control": "no-store",
-	});
-	res.end(body);
 }

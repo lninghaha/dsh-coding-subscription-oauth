@@ -2,11 +2,12 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { startCodingOAuthGateway } from "../src/gateway.ts";
+import { createCodingOAuthGatewayController, startCodingOAuthGateway } from "../src/gateway.ts";
 import { gatewayKeysEqual, generateGatewayApiKey, loadOrCreateGatewayApiKey } from "../src/gateway-auth.ts";
-import { type GatewayBackend, GatewayRequestError } from "../src/gateway-backend.ts";
+import { assistantReplay, type GatewayBackend, GatewayRequestError } from "../src/gateway-backend.ts";
 import { resolveGatewayConfig } from "../src/gateway-config.ts";
 import { closeGateway, createGatewayHttpServer, listenGateway } from "../src/gateway-http.ts";
+import type { GatewayCompletionRequest, GatewayStreamPart } from "../src/gateway-protocol.ts";
 
 const servers: Array<{ close(): Promise<void> }> = [];
 
@@ -15,24 +16,43 @@ afterEach(async () => {
 });
 
 function mockBackend(): GatewayBackend {
+	const models = [
+		{ id: "grok-4.6", owned_by: "grok-build" },
+		{ id: "gpt-5.3-codex", owned_by: "codex-oauth" },
+		{ id: "kimi-k2.5", owned_by: "kimi-code-oauth" },
+		{ id: "claude-opus-4-6", owned_by: "claude-code-oauth" },
+	];
+	async function* stream(request: GatewayCompletionRequest): AsyncIterable<GatewayStreamPart> {
+		const known = models.some((model) => model.id === request.model);
+		if (!known) throw new GatewayRequestError(404, "model_not_found", "missing");
+		if (request.tools !== undefined && request.tools.length > 0) {
+			yield { type: "tool_call", index: 0, id: "call_1", name: request.tools[0]!.name, arguments: '{"q":"hi"}' };
+			yield { type: "done", finish: "tool_calls" };
+			return;
+		}
+		yield { type: "text", text: "hello" };
+		yield { type: "text", text: " world" };
+		yield { type: "done", finish: "stop" };
+	}
 	return {
 		async listModels() {
-			return [{ id: "grok-4.6", owned_by: "grok-build" }];
+			return models;
 		},
-		async *streamText(modelId) {
-			if (modelId !== "grok-4.6") throw new GatewayRequestError(404, "model_not_found", "missing");
-			yield "hello";
-			yield " world";
+		stream,
+		async *streamText(modelId, messages) {
+			for await (const part of stream({ model: modelId, messages })) {
+				if (part.type === "text") yield part.text;
+			}
 		},
 	};
 }
 
 let nextPort = 19_100;
 
-async function listen(): Promise<number> {
+async function listen(backend: GatewayBackend = mockBackend()): Promise<number> {
 	const port = nextPort++;
 	const config = resolveGatewayConfig({ enabled: true, bind: "127.0.0.1", port, apiKey: "test-key" });
-	const server = createGatewayHttpServer({ config, apiKey: "test-key", backend: mockBackend() });
+	const server = createGatewayHttpServer({ config, apiKey: "test-key", backend });
 	await listenGateway(server, config);
 	servers.push({ close: () => closeGateway(server) });
 	return port;
@@ -75,6 +95,20 @@ describe("gateway API key file", () => {
 	});
 });
 
+describe("assistant replay placeholders", () => {
+	it("adds empty reasoning_content when an assistant message carries tool calls", () => {
+		const replayed = assistantReplay({
+			role: "assistant",
+			content: "",
+			tool_calls: [{ id: "call_1", name: "search", arguments: "{}" }],
+		});
+		expect(replayed.role).toBe("assistant");
+		if (replayed.role !== "assistant") return;
+		expect(replayed.content.some((part) => part.type === "thinking" && part.thinking === "")).toBe(true);
+		expect(replayed.content.some((part) => part.type === "toolCall")).toBe(true);
+	});
+});
+
 describe("gateway HTTP", () => {
 	it("serves healthz without a bearer token", async () => {
 		const port = await listen();
@@ -97,22 +131,70 @@ describe("gateway HTTP", () => {
 		).toBe(401);
 	});
 
-	it("lists models and streams chat completions", async () => {
+	it("lists all signed-in providers and streams chat completions", async () => {
 		const port = await listen();
 		const auth = { authorization: "Bearer test-key" };
 		const models = await request(port, "/v1/models", { headers: auth });
 		expect(models.status).toBe(200);
-		expect(JSON.parse(models.text).data).toEqual([{ id: "grok-4.6", object: "model", owned_by: "grok-build" }]);
+		expect(JSON.parse(models.text).data.map((item: { id: string }) => item.id)).toEqual([
+			"grok-4.6",
+			"gpt-5.3-codex",
+			"kimi-k2.5",
+			"claude-opus-4-6",
+		]);
 		const chat = await request(port, "/v1/chat/completions", {
 			method: "POST",
 			headers: { ...auth, "content-type": "application/json" },
-			body: JSON.stringify({ model: "grok-4.6", messages: [{ role: "user", content: "hi" }] }),
+			body: JSON.stringify({ model: "kimi-k2.5", messages: [{ role: "user", content: "hi" }] }),
 		});
 		expect(chat.status).toBe(200);
 		expect(chat.headers.get("content-type")).toMatch(/text\/event-stream/);
 		expect(chat.text).toContain("hello");
 		expect(chat.text).toContain(" world");
 		expect(chat.text).toContain("data: [DONE]");
+		expect(chat.text).not.toContain('"tool_calls":[]');
+	});
+
+	it("streams tool_calls with an index and never an empty array", async () => {
+		const port = await listen();
+		const chat = await request(port, "/v1/chat/completions", {
+			method: "POST",
+			headers: { authorization: "Bearer test-key", "content-type": "application/json" },
+			body: JSON.stringify({
+				model: "grok-4.6",
+				messages: [{ role: "user", content: "hi" }],
+				tools: [{ type: "function", function: { name: "search", parameters: { type: "object" } } }],
+			}),
+		});
+		expect(chat.status).toBe(200);
+		expect(chat.text).toContain('"index":0');
+		expect(chat.text).toContain("search");
+		expect(chat.text).not.toContain('"tool_calls":[]');
+	});
+
+	it("serves OpenAI Responses and Anthropic Messages", async () => {
+		const port = await listen();
+		const auth = { authorization: "Bearer test-key", "content-type": "application/json" };
+		const responses = await request(port, "/v1/responses", {
+			method: "POST",
+			headers: auth,
+			body: JSON.stringify({ model: "gpt-5.3-codex", input: "hi" }),
+		});
+		expect(responses.status).toBe(200);
+		expect(responses.text).toContain("response.output_text.delta");
+		const messages = await request(port, "/v1/messages", {
+			method: "POST",
+			headers: auth,
+			body: JSON.stringify({
+				model: "claude-opus-4-6",
+				max_tokens: 128,
+				stream: true,
+				messages: [{ role: "user", content: "hi" }],
+			}),
+		});
+		expect(messages.status).toBe(200);
+		expect(messages.text).toContain("content_block_delta");
+		expect(messages.text).toContain("message_stop");
 	});
 });
 
@@ -130,5 +212,24 @@ describe("startCodingOAuthGateway", () => {
 		servers.push(started!);
 		const health = await request(19_160, "/healthz");
 		expect(health.status).toBe(200);
+	});
+
+	it("toggles and rotates through the controller", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-gateway-ctl-"));
+		const controller = createCodingOAuthGatewayController({
+			config: { enabled: false, bind: "127.0.0.1", port: 19_161, apiKey: "first-key-value-aaaa" },
+			backend: mockBackend(),
+			dshHome: dir,
+		});
+		servers.push({ close: () => controller.stop() });
+		expect((await controller.status()).running).toBe(false);
+		const enabled = await controller.setEnabled(true);
+		expect(enabled.running).toBe(true);
+		expect(enabled.keyHint).toContain("aaaa");
+		const rotated = await controller.rotateKey();
+		expect(rotated.apiKey).not.toBe("first-key-value-aaaa");
+		expect(rotated.keyHint.startsWith("****")).toBe(true);
+		await controller.setEnabled(false);
+		expect((await controller.status()).running).toBe(false);
 	});
 });

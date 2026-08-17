@@ -73,8 +73,9 @@ ctx.llm route
 - `grok-imagine.ts`: official `api.x.ai` Imagine client (`grok-imagine-image-2.0` / `grok-imagine-video-1.5`); `XAI_API_KEY` via DSH credentials only; MIME/size/time/redirect/DNS download controls; frozen hosts `imgen.x.ai`, `videogen.x.ai`, `vidgen.x.ai`.
 - `imagine-routes.ts`: same-origin loopback GET routes for generated images and video artifacts.
 - `media-store.ts`: owner-private artifact store (256 MiB per-object and aggregate unique-byte hard caps, seven days).
-- `client/`: four native account cards, CLI Pull, capability switches, and the external Antigravity status card.
+- `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
+- `gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
 
 ## 4. Web API
 
@@ -100,6 +101,9 @@ GET    /plugins/dsh-grok-build/codex/usage
 GET    /plugins/dsh-grok-build/imagine/credential-status
 GET    /plugins/dsh-grok-build/imagine/images/<id>
 GET    /plugins/dsh-grok-build/imagine/media/<id>
+GET    /plugins/dsh-grok-build/gateway
+PATCH  /plugins/dsh-grok-build/gateway
+POST   /plugins/dsh-grok-build/gateway/rotate
 ```
 
 Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.

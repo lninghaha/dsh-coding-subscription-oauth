@@ -6,7 +6,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Added
 
-- Add an opt-in local OpenAI-compatible gateway (`gateway.enabled`, default off) that binds loopback-only and serves `/healthz`, `/v1/models`, and streaming `POST /v1/chat/completions` from signed-in subscription sessions.
+- Add an opt-in local API gateway (`gateway.enabled`, default off) that binds loopback-only and serves `/healthz`, `/v1/models`, streaming `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages` from signed-in subscription sessions, with Settings toggle/key rotation and a CLI ToS warning.
 
 ## v0.4.1 - 2026-08-17
 

@@ -69,8 +69,9 @@ ctx.llm route
 - `grok-imagine.ts`：官方 `api.x.ai` Imagine 客户端（`grok-imagine-image-2.0` / `grok-imagine-video-1.5`）；`XAI_API_KEY` 只通过 DSH 凭据；MIME/大小/超时/重定向/DNS 下载控制；冻结主机 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai`。
 - `imagine-routes.ts`：生成图像与视频产物的同源 loopback GET 路由。
 - `media-store.ts`：属主私有产物库（单件与唯一对象总量均硬限 256 MiB，最长七天）。
-- `client/`：四个原生账号卡片、CLI 拉取、能力开关，以及外部 Antigravity 状态卡片。
+- `client/`：四个原生账号卡片、CLI 拉取、能力开关、网关控制，以及外部 Antigravity 状态卡片。
 - `proxy.ts`：process-wide undici dispatcher，但只代理审核过的域名白名单。
+- `gateway*.ts`：可选的隔离 loopback OpenAI/Anthropic 兼容 HTTP 服务（默认关；独立于 DSH web 端口）。
 
 ## 4. Web API
 
@@ -96,6 +97,9 @@ GET    /plugins/dsh-grok-build/codex/usage
 GET    /plugins/dsh-grok-build/imagine/credential-status
 GET    /plugins/dsh-grok-build/imagine/images/<id>
 GET    /plugins/dsh-grok-build/imagine/media/<id>
+GET    /plugins/dsh-grok-build/gateway
+PATCH  /plugins/dsh-grok-build/gateway
+POST   /plugins/dsh-grok-build/gateway/rotate
 ```
 
 写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。JSON 请求体在解析前限制为 64 KiB。

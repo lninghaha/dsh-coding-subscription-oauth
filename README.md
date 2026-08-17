@@ -40,6 +40,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
 - 📥 **Manual CLI Pull** — Settings discovers allowlisted official Grok/Codex/Kimi/Claude CLI OAuth files read-only; you pull a one-way copy after preview and overwrite confirmation.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on.
+- 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools; never a public relay.
 
 ## Problems this plugin solves
 
@@ -158,6 +159,19 @@ All seven switches start **off** and apply **live** (no restart): `codexSearch`,
 Codex search, usage, and images are **opt-in** private `chatgpt.com/backend-api` endpoints. Image generation uses the fixed model `gpt-image-2`. Image edit accepts only current-session top-level attachment ids that this session already owns.
 
 Grok Imagine calls official `https://api.x.ai` with `grok-imagine-image-2.0` and `grok-imagine-video-1.5`. It uses a **separate** DSH credential reference `XAI_API_KEY` — never Grok OAuth and never a process-env fallback. Generated outputs are fetched under MIME / size / time / redirect / DNS controls from frozen hosts `imgen.x.ai`, `videogen.x.ai`, and `vidgen.x.ai`, stored privately (256 MiB hard caps for one object and aggregate unique bytes, seven days), and served only on same-origin loopback routes.
+
+## Local API gateway
+
+Default **off**. When enabled it starts an isolated `node:http` server (not the DSH web port) on `127.0.0.1:18080` and reuses the same signed-in OAuth sessions:
+
+```yaml
+gateway:
+  enabled: false
+  bind: 127.0.0.1
+  port: 18080
+```
+
+Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). Settings can toggle and rotate the key; bind/port stay YAML-only. Non-loopback bind requires a key. This is not a remote relay.
 
 ## CLI
 

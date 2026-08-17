@@ -13,9 +13,10 @@ import { OAuthSourceError, readHardenedOAuthSourceFile } from "./oauth-sources.t
 export const GATEWAY_KEY_FILENAME = ".coding-oauth-gateway.json";
 const KEY_FORMAT_VERSION = 1;
 
-interface GatewayKeyDocument {
+export interface GatewayKeyDocument {
 	version: typeof KEY_FORMAT_VERSION;
 	apiKey: string;
+	enabled?: boolean;
 }
 
 export function gatewayKeyPath(dshHome?: string): string {
@@ -32,11 +33,12 @@ export function gatewayKeysEqual(left: string, right: string): boolean {
 	return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
 }
 
-export async function loadOrCreateGatewayApiKey(path: string, configured?: string): Promise<string> {
-	if (configured !== undefined) {
-		await persistGatewayApiKey(path, configured);
-		return configured;
-	}
+export function maskGatewayApiKey(apiKey: string): string {
+	if (apiKey.length <= 4) return "****";
+	return `****${apiKey.slice(-4)}`;
+}
+
+export async function loadGatewayKeyDocument(path: string): Promise<GatewayKeyDocument | undefined> {
 	try {
 		const text = (await readHardenedOAuthSourceFile(path)).text;
 		const value = JSON.parse(text) as unknown;
@@ -51,17 +53,43 @@ export async function loadOrCreateGatewayApiKey(path: string, configured?: strin
 		) {
 			throw new Error("gateway key file is invalid");
 		}
-		return document["apiKey"];
+		return {
+			version: KEY_FORMAT_VERSION,
+			apiKey: document["apiKey"],
+			...(typeof document["enabled"] === "boolean" ? { enabled: document["enabled"] } : {}),
+		};
 	} catch (error) {
-		if (!(error instanceof OAuthSourceError) || error.code !== "not_found") throw error;
-		const created = generateGatewayApiKey();
-		await persistGatewayApiKey(path, created);
-		return created;
+		if (error instanceof OAuthSourceError && error.code === "not_found") return undefined;
+		throw error;
 	}
 }
 
+export async function loadOrCreateGatewayApiKey(path: string, configured?: string): Promise<string> {
+	const existing = await loadGatewayKeyDocument(path);
+	if (configured !== undefined) {
+		await persistGatewayKeyDocument(path, {
+			version: KEY_FORMAT_VERSION,
+			apiKey: configured,
+			...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
+		});
+		return configured;
+	}
+	if (existing !== undefined) return existing.apiKey;
+	const created = generateGatewayApiKey();
+	await persistGatewayKeyDocument(path, { version: KEY_FORMAT_VERSION, apiKey: created });
+	return created;
+}
+
 export async function persistGatewayApiKey(path: string, apiKey: string): Promise<void> {
-	const document: GatewayKeyDocument = { version: KEY_FORMAT_VERSION, apiKey };
+	const existing = await loadGatewayKeyDocument(path);
+	await persistGatewayKeyDocument(path, {
+		version: KEY_FORMAT_VERSION,
+		apiKey,
+		...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
+	});
+}
+
+export async function persistGatewayKeyDocument(path: string, document: GatewayKeyDocument): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	await writeFileAtomic(path, `${JSON.stringify(document)}\n`, { mode: 0o600 });
 }

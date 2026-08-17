@@ -4,10 +4,12 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { handleAnthropicMessages } from "./gateway-anthropic-messages.ts";
 import { gatewayKeysEqual } from "./gateway-auth.ts";
 import { type GatewayBackend, gatewayErrorEnvelope } from "./gateway-backend.ts";
 import { type GatewayConfig, isLoopbackBind } from "./gateway-config.ts";
 import { handleOpenAiChatCompletions } from "./gateway-openai-chat.ts";
+import { handleOpenAiResponses } from "./gateway-openai-responses.ts";
 
 export interface GatewayHttpOptions {
 	config: GatewayConfig;
@@ -72,6 +74,14 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 	}
 	if (req.method === "POST" && url.pathname === "/v1/chat/completions") {
 		await handleOpenAiChatCompletions(req, res, options.backend);
+		return;
+	}
+	if (req.method === "POST" && url.pathname === "/v1/responses") {
+		await handleOpenAiResponses(req, res, options.backend);
+		return;
+	}
+	if (req.method === "POST" && url.pathname === "/v1/messages") {
+		await handleAnthropicMessages(req, res, options.backend);
 		return;
 	}
 	writeJson(res, 404, { error: { message: "not found", type: "invalid_request_error", code: "not_found" } });

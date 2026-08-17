@@ -39,6 +39,17 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 安装后重启现有 dsh web 进程；不要另起一个端口相同的服务器。
 
+本地 API 网关默认关闭。需要时在 profile 里打开（只绑 loopback）：
+
+```yaml
+gateway:
+  enabled: true
+  bind: 127.0.0.1
+  port: 18080
+```
+
+或在 Settings → Coding OAuth → Local API gateway 打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
+
 ## Antigravity 安全配置
 
 `dsh-agy@0.1.2` 的 `/agy` standalone dashboard 没有自己的认证，并包含凭据导出接口。Web 服务带 trusted-host 或反向代理时，建议在 profile 最终 `cordis.patch.yml` 禁用该 dashboard：

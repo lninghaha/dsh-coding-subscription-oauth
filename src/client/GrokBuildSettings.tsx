@@ -17,6 +17,8 @@ const SOURCES_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
 const CAPABILITIES_PATH = "/plugins/dsh-grok-build/capabilities";
 const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
 const IMAGINE_CREDENTIAL_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
+const GATEWAY_PATH = "/plugins/dsh-grok-build/gateway";
+const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
 const POLL_INTERVAL_MS = 1_000;
 
 type ProviderSlug = "grok" | "codex" | "kimi" | "claude";
@@ -809,6 +811,30 @@ function usageHasVisibleFields(usage: UsageView): boolean {
 	);
 }
 
+interface GatewayView {
+	enabled: boolean;
+	running: boolean;
+	bind: string;
+	port: number;
+	keyHint: string;
+	warning: string;
+}
+
+function parseGateway(value: unknown): GatewayView | undefined {
+	if (!isRecord(value)) return undefined;
+	const bind = optionalString(value["bind"]);
+	const port = optionalFiniteNumber(value["port"]);
+	if (bind === undefined || port === undefined) return undefined;
+	return {
+		enabled: value["enabled"] === true,
+		running: value["running"] === true,
+		bind,
+		port,
+		keyHint: optionalString(value["keyHint"]) ?? "",
+		warning: optionalString(value["warning"]) ?? "",
+	};
+}
+
 function parseImagineCredential(value: unknown): ImagineCredentialView | undefined {
 	if (!isRecord(value)) return undefined;
 	const configured = optionalBoolean(value["configured"]);
@@ -869,6 +895,10 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [usageLoading, setUsageLoading] = useState(false);
 	const [imagine, setImagine] = useState<ImagineCredentialView | undefined>(undefined);
 	const [imagineError, setImagineError] = useState<string | undefined>(undefined);
+	const [gateway, setGateway] = useState<GatewayView | undefined>(undefined);
+	const [gatewayError, setGatewayError] = useState<string | undefined>(undefined);
+	const [gatewayBusy, setGatewayBusy] = useState(false);
+	const [gatewayOnceKey, setGatewayOnceKey] = useState<string | undefined>(undefined);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -902,6 +932,15 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	}, [t]);
 
+	const refreshGateway = useCallback(async () => {
+		try {
+			setGateway(parseGateway(await jsonRequest<unknown>(GATEWAY_PATH)));
+			setGatewayError(undefined);
+		} catch (error: unknown) {
+			setGatewayError(error instanceof Error ? error.message : t("gatewayLoadFailed"));
+		}
+	}, [t]);
+
 	const refreshImagine = useCallback(async () => {
 		try {
 			setImagine(parseImagineCredential(await jsonRequest<unknown>(IMAGINE_CREDENTIAL_PATH)));
@@ -929,7 +968,8 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		void refreshSources();
 		void refreshCapabilities();
 		void refreshImagine();
-	}, [refresh, refreshSources, refreshCapabilities, refreshImagine]);
+		void refreshGateway();
+	}, [refresh, refreshSources, refreshCapabilities, refreshImagine, refreshGateway]);
 	useEffect(() => {
 		previewRef.current = preview;
 	}, [preview]);
@@ -1745,6 +1785,84 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						</p>
 						<p style={hintStyle}>{t("imagineSource", { source: imagineSourceLabel(imagine.source, t) })}</p>
 						<p style={hintStyle}>{imagine.writable === true ? t("imagineWritable") : t("imagineReadOnly")}</p>
+					</div>
+				)}
+			</section>
+			<section style={cardStyle} aria-labelledby="coding-oauth-gateway-title">
+				<div>
+					<h3 id="coding-oauth-gateway-title" style={{ ...titleStyle, fontSize: 16 }}>
+						{t("gatewayTitle")}
+					</h3>
+					<p style={{ ...bodyStyle, marginTop: 4 }}>{t("gatewayIntro")}</p>
+					<p style={{ ...hintStyle, marginTop: 8 }}>{t("gatewayWarning")}</p>
+				</div>
+				{gatewayError === undefined ? null : (
+					<p style={errorStyle} role="alert">
+						{gatewayError}
+					</p>
+				)}
+				{gateway === undefined && gatewayError === undefined ? (
+					<div style={statusStyle} role="status">
+						<span aria-hidden="true" style={dotStyle("loading")} />
+						{t("gatewayLoading")}
+					</div>
+				) : gateway === undefined ? null : (
+					<div style={nestedStyle}>
+						<p style={statusStyle} role="status">
+							<span aria-hidden="true" style={dotStyle(gateway.running ? "available" : "unavailable")} />
+							<span>{gateway.running ? t("gatewayRunning") : t("gatewayStopped")}</span>
+						</p>
+						<label style={checkRowStyle}>
+							<input
+								type="checkbox"
+								checked={gateway.enabled}
+								disabled={gatewayBusy}
+								onChange={(event) => {
+									const enabled = event.target.checked;
+									setGatewayBusy(true);
+									void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { enabled })
+										.then((value) => {
+											setGateway(parseGateway(value) ?? gateway);
+											setGatewayError(undefined);
+										})
+										.catch((error: unknown) => {
+											setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+										})
+										.finally(() => setGatewayBusy(false));
+								}}
+							/>
+							<span>{t("gatewayEnabled")}</span>
+						</label>
+						<p style={hintStyle}>
+							{t("gatewayBind")}: <span style={monoStyle}>{gateway.bind}</span>
+							{" · "}
+							{t("gatewayPort")}: <span style={monoStyle}>{String(gateway.port)}</span>
+						</p>
+						<p style={hintStyle}>
+							{t("gatewayKeyHint")}: <span style={monoStyle}>{gateway.keyHint || "—"}</span>
+						</p>
+						<button
+							type="button"
+							style={buttonStyle}
+							disabled={gatewayBusy}
+							onClick={() => {
+								setGatewayBusy(true);
+								void jsonRequest<{ apiKey?: string; keyHint?: string }>(GATEWAY_ROTATE_PATH, "POST")
+									.then((value) => {
+										if (typeof value.apiKey === "string") setGatewayOnceKey(value.apiKey);
+										void refreshGateway();
+									})
+									.catch((error: unknown) => {
+										setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+									})
+									.finally(() => setGatewayBusy(false));
+							}}
+						>
+							{t("gatewayRotate")}
+						</button>
+						{gatewayOnceKey === undefined ? null : (
+							<p style={bodyStyle}>{t("gatewayRotated", { key: gatewayOnceKey })}</p>
+						)}
 					</div>
 				)}
 			</section>

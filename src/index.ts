@@ -41,8 +41,9 @@ import { codexAuthFromSession } from "./codex-http.ts";
 import { createCodexModelCapabilities } from "./codex-model-capabilities.ts";
 import { createCodexSearchProvider } from "./codex-search.ts";
 import { createCodexUsageReader } from "./codex-usage.ts";
-import { startCodingOAuthGateway } from "./gateway.ts";
+import { createCodingOAuthGatewayController } from "./gateway.ts";
 import { type GatewayConfig, GatewayConfigSchema } from "./gateway-config.ts";
+import { registerGatewayRoutes } from "./gateway-routes.ts";
 import {
 	createGrokImagineClient,
 	GROK_IMAGINE_IMAGE_TOOL,
@@ -461,36 +462,28 @@ export function apply(ctx: Context, config: Config): void {
 		});
 	});
 
-	if (config.gateway?.enabled === true) {
-		ctx.effect(() => {
-			let cancelled = false;
-			let started: { close(): Promise<void> } | undefined;
-			void startCodingOAuthGateway({
-				...(config.gateway === undefined ? {} : { config: config.gateway }),
-				grok,
-				subscriptions,
-				onError: (error) => {
-					logger.warn("local API gateway failed to start; LLM routes are unchanged");
-					logger.warn(error);
-				},
-			}).then((value) => {
-				if (cancelled) {
-					void value?.close();
-					return;
-				}
-				started = value;
-				if (value !== undefined) {
-					logger.warn("local API gateway is enabled; exposing a subscription as a local API can violate provider ToS");
-				}
-			});
-			return () => {
-				cancelled = true;
-				void started?.close();
-			};
-		}, "dsh-coding-subscription-oauth: local API gateway");
-	}
+	const gateway = createCodingOAuthGatewayController({
+		...(config.gateway === undefined ? {} : { config: config.gateway }),
+		grok,
+		subscriptions,
+		onError: (error) => {
+			logger.warn("local API gateway failed to start; LLM routes are unchanged");
+			logger.warn(error);
+		},
+	});
+	ctx.effect(() => {
+		void gateway.startIfEnabled().then((started) => {
+			if (started !== undefined) {
+				logger.warn("local API gateway is enabled; exposing a subscription as a local API can violate provider ToS");
+			}
+		});
+		return () => {
+			void gateway.stop();
+		};
+	}, "dsh-coding-subscription-oauth: local API gateway");
 
 	ctx.inject(["webServer"], (webCtx) => {
+		registerGatewayRoutes(webCtx, gateway);
 		registerCodingOAuthRoutes(webCtx, grok, subscriptions);
 		registerOAuthImportRoutes(webCtx, oauthImportDestinations(grok, subscriptions), {
 			onImported: (event) => {
