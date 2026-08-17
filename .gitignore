@@ -23,6 +23,7 @@ reference/
 
 *.tgz
 .npm-cache/
+.pnpm-store/
 .npm-logs/
 .cfresearch/
 .research/
