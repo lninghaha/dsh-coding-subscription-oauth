@@ -66,7 +66,7 @@ export function grokBuildBaselineModels(): Model<"openai-responses">[] {
 			reasoning: true,
 			// Official xAI docs + live /models-v2: grok-4.5 is low/medium/high only.
 			thinkingLevelMap: grokBuildReasoningMap(["low", "medium", "high"]),
-			input: ["text"],
+			input: ["text", "image"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			contextWindow: 500_000,
 			maxTokens: 128_000,
@@ -81,7 +81,7 @@ export function grokBuildBaselineModels(): Model<"openai-responses">[] {
 			// grok-4.6 and later advertise xhigh. pi-ai hides xhigh unless this key
 			// is an explicit non-null mapping (absent !== supported).
 			thinkingLevelMap: grokBuildReasoningMap(["low", "medium", "high", "xhigh"]),
-			input: ["text"],
+			input: ["text", "image"],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			contextWindow: 500_000,
 			maxTokens: 128_000,

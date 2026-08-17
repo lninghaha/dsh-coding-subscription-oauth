@@ -57,7 +57,8 @@ export interface CodexSearchProviderOptions {
     readonly auth: CodexAuthSession;
     readonly http?: CodexHttpClient;
     readonly fetchImpl?: CodexFetch;
-    readonly model: string;
+    /** Current visible Codex model, or a live resolver for catalog/login changes. */
+    readonly model: string | (() => string);
     readonly mode?: CodexSearchMode;
     readonly contextSize?: CodexSearchContextSize;
     readonly maxOutputTokens?: number;

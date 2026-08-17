@@ -4,6 +4,33 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Added
+
+- Add accessible live numeric controls for `searchResults`, `imageCount`, and video artifact retention (shown as 1–168 hours), using the same compare-and-swap conflict handling as capability switches. Lowering retention rewrites and cleans existing expiries; raising it affects only new artifacts.
+- Add a fast `check:next` Docker development gate (`lint` + `typecheck` + tests) before the full release build gate.
+
+### Changed
+
+- Resolve the Codex search model at call time so sign-in, sign-out, and live catalog changes do not leave a stale model captured by an existing provider.
+- Clarify browser, device-code, and manual redirect/code sign-in guidance; use the profile-aware Antigravity command `dsh plugin --profile web exec dsh-agy login --headless`.
+
+### Fixed
+
+- Declare image input on the Grok 4.5 and Grok 4.6 baseline descriptors so both fallback and live-derived catalog entries accept image attachments instead of failing locally as unsupported.
+- Resolve subscription requests from the refreshed access token persisted by each OAuth session. This prevents Kimi's header-only `Authorization: Bearer` auth result from being misclassified as “not signed in” merely because it has no `auth.apiKey` field.
+- Preserve composition capability defaults before Settings is injected and after a Settings service is replaced or disposed; contain asynchronous settings-listener failures; keep empty PATCH writes revision-checked but side-effect free.
+- Make generated media download filenames safe for `Content-Disposition` while preserving opaque DSH attachment ids.
+- Dispose in-flight Grok Imagine API/download work before awaiting media cleanup, isolate caller-owned video-poll cancellation, and remove an artifact if cancellation wins during persistence.
+- Finish Settings disposal even when an injected watch disposer throws, while reporting the contained failure.
+- Reject owner-only or group/world-writable npm package entries and require the packed CLI to remain executable.
+- Close preview-proxy WebSocket halves when either side ends so isolated proxy tests and shutdown cannot hang on leftover upgrade pipes.
+
+### Security
+
+- Require Grok discovery to declare the exact configured issuer identity, pin authorization/token endpoints to its approved origin, refuse redirects, bound discovery/token responses and pasted authorization codes, and redact every repeated opaque credential-shaped diagnostic.
+- Reject unknown, secret-shaped, mistyped, fractional, and out-of-range capability writes instead of silently coercing or clamping caller-authored values.
+- Add a 60-second Codex request ceiling that covers response streaming, plus cancellation-aware stream cleanup; strengthen Imagine request-id, prompt, base64, redirect, MIME, size, and cancellation boundaries.
+
 ## v0.4.0 - 2026-08-16
 
 ### Added

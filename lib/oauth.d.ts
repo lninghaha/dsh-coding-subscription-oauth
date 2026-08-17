@@ -37,11 +37,16 @@ export interface GrokBuildOAuthParams {
 /** Resolve OAuth parameters from overrides then GROK_OAUTH2_* env vars. */
 export declare function resolveOAuthParams(overrides?: Partial<GrokBuildOAuthParams>): GrokBuildOAuthParams;
 interface DiscoveryDocument {
+    issuer: string;
     authorization_endpoint: string;
     token_endpoint: string;
 }
+export interface DiscoveryFetchOptions {
+    /** Loopback-only test override: permit `http://127.0.0.1`/`http://[::1]` issuers. */
+    readonly allowInsecureLoopbackIssuer?: boolean;
+}
 /** Fetch (and cache for the process) the issuer's discovery document. */
-export declare function discoverOAuthEndpoints(issuer: string, signal?: AbortSignal): Promise<DiscoveryDocument>;
+export declare function discoverOAuthEndpoints(issuer: string, signal?: AbortSignal, options?: DiscoveryFetchOptions): Promise<DiscoveryDocument>;
 /** Generate an S256 PKCE verifier/challenge pair (Web Crypto compatible). */
 export declare function generatePkce(): {
     verifier: string;
@@ -50,7 +55,7 @@ export declare function generatePkce(): {
 /** Build the authorization URL for one login attempt. */
 export declare function buildAuthorizeUrl(endpoints: DiscoveryDocument, params: GrokBuildOAuthParams, redirectUri: string, challenge: string, state: string, nonce: string): string;
 /** Exchange a refresh token for a fresh credential (rotation-tolerant). */
-export declare function refreshGrokBuildToken(refreshToken: string, overrides?: Partial<GrokBuildOAuthParams>, signal?: AbortSignal): Promise<OAuthCredential>;
+export declare function refreshGrokBuildToken(refreshToken: string, overrides?: Partial<GrokBuildOAuthParams>, signal?: AbortSignal, discoveryOptions?: DiscoveryFetchOptions): Promise<OAuthCredential>;
 export interface PkceLoginCallbacks {
     /** Invoked with the authorization URL to display/open for the user. */
     onAuthorizeUrl(url: string): void;
@@ -69,6 +74,6 @@ export declare function extractCode(input: string): string;
  * listener or the manual-paste channel, whichever wins. The caller persists
  * the returned credential (store.modify under the file lock).
  */
-export declare function loginGrokBuildPkce(callbacks: PkceLoginCallbacks, overrides?: Partial<GrokBuildOAuthParams>): Promise<OAuthCredential>;
+export declare function loginGrokBuildPkce(callbacks: PkceLoginCallbacks, overrides?: Partial<GrokBuildOAuthParams & DiscoveryFetchOptions>): Promise<OAuthCredential>;
 export {};
 //# sourceMappingURL=oauth.d.ts.map

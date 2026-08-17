@@ -101,9 +101,10 @@ export function createGrokBuildAdapter(
 				],
 			]),
 		resolveApiKey: async () =>
-			resolveOAuthToken("Grok Build", () =>
-				session.models.getAuth(XAI_PI_PROVIDER, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS }),
-			),
+			resolveOAuthToken("Grok Build", async () => {
+				const auth = await session.models.getAuth(XAI_PI_PROVIDER, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS });
+				return auth?.auth.apiKey;
+			}),
 		resolveAttachments,
 	});
 }
@@ -240,16 +241,15 @@ export function createCodingOAuthAdapter(
 		},
 		resolveApiKey: async (provider) => {
 			if (provider === GROK_BUILD_ROUTE) {
-				return resolveOAuthToken("Grok Build", () =>
-					grok.models.getAuth(XAI_PI_PROVIDER, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS }),
-				);
+				return resolveOAuthToken("Grok Build", async () => {
+					const auth = await grok.models.getAuth(XAI_PI_PROVIDER, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS });
+					return auth?.auth.apiKey;
+				});
 			}
 			const session =
 				provider === CODEX_OAUTH_FAST_ROUTE ? byNativeId.get(CODEX_PI_PROVIDER) : byNativeId.get(provider);
 			if (session === undefined) throw new LlmError(`Unknown OAuth provider "${provider}"`, "NO_ADAPTER");
-			return resolveOAuthToken(session.definition.displayName, () =>
-				session.models.getAuth(session.definition.nativeProviderId, { minOAuthValidityMs: MIN_OAUTH_VALIDITY_MS }),
-			);
+			return resolveOAuthToken(session.definition.displayName, () => session.resolveAccessToken());
 		},
 		resolveAttachments,
 	});
@@ -265,11 +265,11 @@ export function createCodingOAuthAdapter(
  */
 async function resolveOAuthToken(
 	displayName: string,
-	getAuth: () => Promise<{ auth: { apiKey?: string } } | undefined>,
+	getAccessToken: () => Promise<string | undefined>,
 ): Promise<string> {
-	let auth: { auth: { apiKey?: string } } | undefined;
+	let accessToken: string | undefined;
 	try {
-		auth = await getAuth();
+		accessToken = await getAccessToken();
 	} catch (error) {
 		throw new LlmError(
 			`${displayName} could not refresh its sign-in (${safeMessage(error)}).` +
@@ -277,7 +277,6 @@ async function resolveOAuthToken(
 			"MISSING_CREDENTIAL",
 		);
 	}
-	const apiKey = auth?.auth.apiKey;
-	if (apiKey === undefined || apiKey.length === 0) return missingCredential(displayName);
-	return apiKey;
+	if (accessToken === undefined || accessToken.length === 0) return missingCredential(displayName);
+	return accessToken;
 }

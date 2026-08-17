@@ -158,9 +158,11 @@ export interface CapabilitySettingsService {
 export interface CapabilitySettingsControllerOptions {
     readonly settings?: CapabilitySettingsService | undefined;
     readonly base?: CapabilitySettingsPatch | undefined;
+    /** Contain both synchronous and asynchronous observer failures. */
+    readonly onListenerError?: ((error: unknown) => void) | undefined;
 }
 /** Listener invoked after a committed snapshot change. */
-export type CapabilitySettingsListener = (snapshot: CapabilitySettingsSnapshot) => void;
+export type CapabilitySettingsListener = (snapshot: CapabilitySettingsSnapshot) => void | Promise<void>;
 /**
  * A write refused because the namespace moved since the caller read it.
  * `code` matches the Host settings seam so a later wire layer can map it.
@@ -197,6 +199,12 @@ export declare function normalizeCapabilitySettings(input?: unknown): Capability
  * layer (YAML base / schema default) remains authoritative for that key.
  */
 export declare function normalizeCapabilitySettingsPatch(input?: unknown): CapabilitySettingsPatch;
+/**
+ * Strictly admit a caller-authored sparse section before normalizing it. Reads
+ * remain compatibility-tolerant, but writes must never silently drop unknown
+ * fields, coerce types, truncate decimals, or clamp out-of-range limits.
+ */
+export declare function assertCapabilitySettingsPatch(input: unknown, label?: string): asserts input is CapabilitySettingsPatch;
 /** Reject a resolved section the owner could not act on. Schema-valid by construction after normalize. */
 export declare function assertServiceableCapabilitySettings(value: CapabilitySettings): void;
 /**
@@ -207,6 +215,7 @@ export declare class CapabilitySettingsController {
     readonly ns = "coding-subscription-oauth";
     private readonly settings;
     private readonly base;
+    private readonly onListenerError;
     private readonly listeners;
     private scope;
     private scopeDisposer;

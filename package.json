@@ -49,6 +49,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check",
+    "check:next": "pnpm run lint && pnpm run typecheck && pnpm run test",
     "check": "pnpm run lint && pnpm run release:build && pnpm run test",
     "release:promote": "node build/promote-release.mjs",
     "release:verify": "node build/verify-release.mjs",
@@ -116,27 +117,21 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1-rc.1",
-    "@deepseek-ai/dsh-atomic-write": "*",
+    "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
     "@deepseek-ai/dsh-attachment": "*",
     "@deepseek-ai/dsh-credentials": "*",
-    "@deepseek-ai/dsh-home-paths": "*",
+    "@deepseek-ai/dsh-home-paths": "0.1.0-rc.6",
     "@deepseek-ai/dsh-host-webserver": "*",
     "@deepseek-ai/dsh-invariants": "*",
-    "@deepseek-ai/dsh-llm": "*",
-    "@deepseek-ai/dsh-llm-pi-ai": "*",
+    "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "*",
-    "@deepseek-ai/schemastery": "^3.18.1-rc.1",
-    "@earendil-works/pi-ai": "^0.84.2",
+    "@deepseek-ai/schemastery": "3.18.1",
+    "@earendil-works/pi-ai": "0.84.2",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-ai": {
-      "optional": true
-    },
     "@deepseek-ai/cordis": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-atomic-write": {
       "optional": true
     },
     "@deepseek-ai/dsh-attachment": {
@@ -145,25 +140,13 @@
     "@deepseek-ai/dsh-credentials": {
       "optional": true
     },
-    "@deepseek-ai/dsh-home-paths": {
-      "optional": true
-    },
     "@deepseek-ai/dsh-host-webserver": {
       "optional": true
     },
     "@deepseek-ai/dsh-invariants": {
       "optional": true
     },
-    "@deepseek-ai/dsh-llm": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-llm-pi-ai": {
-      "optional": true
-    },
     "@deepseek-ai/dsh-tools": {
-      "optional": true
-    },
-    "@deepseek-ai/schemastery": {
       "optional": true
     },
     "react": {

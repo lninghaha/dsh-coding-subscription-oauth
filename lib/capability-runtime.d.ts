@@ -9,7 +9,7 @@ import type { ToolDefinition } from "@deepseek-ai/dsh-tools";
 import { type CapabilitySettings } from "./capability-settings.js";
 import type { CodexModelCapabilities } from "./codex-model-capabilities.js";
 import type { CodexSearchProvider } from "./codex-search.js";
-export type CapabilityRuntimeListener = (settings: CapabilitySettings) => void;
+export type CapabilityRuntimeListener = (settings: CapabilitySettings) => void | Promise<void>;
 /** Process-local live projection shared by optional service fibers. */
 export declare class CapabilityRuntimeState {
     private value;

@@ -100,9 +100,14 @@ export declare class MediaStore {
     private readonly now;
     private readonly randomId;
     private tail;
+    private retentionReconciled;
     constructor(root: string, options?: MediaStoreOptions);
-    /** Apply a live retention setting to future artifacts, clamped to the hard ceiling. */
-    setRetentionMs(retentionMs: number): number;
+    /**
+     * Apply a live retention ceiling under the store lock. Lowering it rewrites
+     * existing index expiries and deletes newly expired objects before resolving;
+     * raising it affects only artifacts saved after this call.
+     */
+    applyRetentionMs(retentionMs: number): Promise<MediaCleanupReport>;
     save(input: SaveMediaInput): Promise<MediaArtifactMeta>;
     lookup(artifactId: string): Promise<MediaArtifactMeta | undefined>;
     read(artifactId: string): Promise<StoredMedia>;
@@ -110,6 +115,8 @@ export declare class MediaStore {
     cleanup(): Promise<MediaCleanupReport>;
     /** Trusted same-origin download primitive. Never returns an upstream URL. */
     openDownload(artifactId: string, authz: TrustedImagineAuthz): Promise<MediaDownloadView>;
+    private effectiveExpiresAt;
+    private effectiveMeta;
     private runExclusive;
     private saveUnlocked;
     private deleteUnlocked;

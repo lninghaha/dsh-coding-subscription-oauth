@@ -24,6 +24,15 @@ export declare const IMAGINE_VIDEO_ASPECT_RATIOS: readonly ["1:1", "16:9", "9:16
 export declare const IMAGINE_VIDEO_MIN_DURATION_SECONDS = 1;
 export declare const IMAGINE_VIDEO_MAX_DURATION_SECONDS = 15;
 export declare const IMAGINE_IMAGE_MAX_N = 10;
+/**
+ * Hard ceilings enforced both at the tool boundary (consumer guard) and inside
+ * the Imagine client (defence-in-depth). The prompt ceiling uses UTF-16 code
+ * units because that is what the JSON wire format bounds; the image-id arrays
+ * are bounded so a runaway caller cannot exhaust the bounded body reader.
+ */
+export declare const IMAGINE_PROMPT_MAX_LENGTH = 4000;
+export declare const IMAGINE_IMAGE_IDS_MIN = 1;
+export declare const IMAGINE_IMAGE_IDS_MAX = 5;
 export declare const DEFAULT_IMAGE_DOWNLOAD_MAX_BYTES: number;
 export declare const DEFAULT_API_TIMEOUT_MS = 30000;
 export declare const DEFAULT_IMAGE_DOWNLOAD_TIMEOUT_MS = 15000;
@@ -44,6 +53,7 @@ export interface ImagineMediaHopRequest {
     timeoutMs: number;
     maxBytes: number;
     accept: string;
+    signal?: AbortSignal;
 }
 export interface ImagineMediaHop {
     status: number;
@@ -60,6 +70,7 @@ export interface ImagineDownloadRequest {
     timeoutMs: number;
     maxBytes: number;
     accept: string;
+    signal?: AbortSignal;
 }
 export interface ImagineDownloadResult {
     data: Uint8Array;
@@ -192,6 +203,7 @@ export declare function downloadRemoteImagineMedia(initialUrl: string, transport
     maxBytes: number;
     accept: string;
     maxRedirects: number;
+    signal?: AbortSignal;
 }): Promise<ImagineDownloadResult>;
 export declare function createPinnedImagineDownloader(options?: {
     lookup?: ImagineDnsLookup;
@@ -206,6 +218,15 @@ export declare function createImagineDownloaderFromFetch(fetchImpl: ImagineFetch
     lookup?: ImagineDnsLookup;
     maxRedirects?: number;
 }): ImagineDownloader;
+/**
+ * Validate a tool-supplied Imagine video `requestId`. Returns the id unchanged
+ * on success or throws an `INVALID_INPUT` error. Exposed so capability tools
+ * fail closed at the boundary instead of dispatching a malformed id to the
+ * internal client.
+ */
+export declare function parseVideoRequestId(value: unknown): string;
+/** Enforce min/max bounds on a candidate image-id array. */
+export declare function clampImagineImageIds(ids: readonly unknown[]): readonly string[];
 export declare class GrokImagineClient {
     private readonly resolveApiKey;
     private readonly attachments;
@@ -220,11 +241,23 @@ export declare class GrokImagineClient {
     private readonly apiJsonMaxBytes;
     private readonly videoResults;
     private readonly videoInflight;
+    private readonly disposeController;
+    private disposed;
     constructor(options: GrokImagineClientOptions);
-    generateImage(input: GenerateImagineImageInput): Promise<ImagineImageResult>;
-    startVideo(input: StartImagineVideoInput): Promise<ImagineVideoStartResult>;
+    /**
+     * Permanently retire this client. In-flight API calls, downloads, and
+     * media persistence operations are aborted; subsequent operations fail
+     * closed with an `INVALID_INPUT` error until callers construct a new client.
+     */
+    dispose(): void;
+    /** @returns true once {@link dispose} has been called. */
+    get isDisposed(): boolean;
+    private assertWritable;
+    generateImage(input: GenerateImagineImageInput, signal?: AbortSignal): Promise<ImagineImageResult>;
+    startVideo(input: StartImagineVideoInput, signal?: AbortSignal): Promise<ImagineVideoStartResult>;
     videoStatus(requestId: string, options?: {
         name?: string;
+        signal?: AbortSignal;
     }): Promise<ImagineVideoStatusResult>;
     private pollVideo;
     private rememberVideo;

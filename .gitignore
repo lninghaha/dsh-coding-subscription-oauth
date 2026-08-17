@@ -27,3 +27,6 @@ reference/
 .cfresearch/
 .research/
 ccr/
+
+# local-only fault-investigation probe (never commit)
+scripts/probe-proxy-interception.mjs

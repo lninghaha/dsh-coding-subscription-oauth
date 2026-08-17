@@ -12,6 +12,7 @@
 export declare const CODEX_CHATGPT_ORIGIN = "https://chatgpt.com";
 /** Path prefix that every Codex backend URL must stay under. */
 export declare const CODEX_BACKEND_API_PREFIX = "/backend-api/";
+export declare const DEFAULT_CODEX_REQUEST_TIMEOUT_MS = 60000;
 export type CodexHttpMethod = "GET" | "POST";
 /** One resolved Codex access token plus the full ChatGPT account id. */
 export interface CodexAccess {
@@ -50,6 +51,8 @@ export interface CodexHttpClientOptions {
     readonly now?: () => number;
     readonly sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
     readonly maxServerRetries?: number;
+    /** Per-attempt wall-clock ceiling, including response-body streaming. */
+    readonly requestTimeoutMs?: number;
 }
 export interface CodexHttpClient {
     requestJson(request: CodexHttpRequest): Promise<unknown>;

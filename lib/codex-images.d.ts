@@ -16,6 +16,7 @@ export declare const CODEX_IMAGE_MODEL = "gpt-image-2";
 export declare const CODEX_IMAGE_AUTO = "auto";
 export declare const CODEX_IMAGE_RESPONSE_FORMAT = "b64_json";
 export declare const CODEX_IMAGE_MAX_REFERENCES = 5;
+export declare const CODEX_IMAGE_PROMPT_MAX_LENGTH = 4000;
 export declare const CODEX_IMAGE_CAPABLE_PROVIDERS: readonly ["codex-oauth", "openai-codex", "codex-oauth-fast"];
 export type CodexImageCapableProvider = (typeof CODEX_IMAGE_CAPABLE_PROVIDERS)[number];
 export declare const CODEX_IMAGE_SIZES: readonly ["auto", "1024x1024", "1536x1024", "1024x1536"];
