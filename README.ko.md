@@ -139,6 +139,10 @@ pnpm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 
 선택기는 인증을 완료한 라우트만 나열하며, 인증되지 않은 프로바이더는 빈 목록을 반환합니다. 프로바이더 이름에는 `(OAuth)`가 붙고, 로그인/아웃 후 `llm/adapters-updated`를 통해 카탈로그가 갱신됩니다.
 
+## 선택적 기능
+
+7개 스위치 `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage`, `grokImagineVideo`는 모두 기본적으로 꺼져 있으며 재시작 없이 즉시 적용됩니다. 숫자 설정은 `searchResults`(1–20, 기본 5), `imageCount`(1–4, 기본 1), `videoArtifactTtlMs`(1시간–7일, 기본 7일, UI에서는 1–168시간)입니다. 보존 시간을 낮추면 기존 아티팩트도 즉시 단축·정리되며, 높인 값은 이후 생성된 아티팩트에만 적용됩니다.
+
 ## CLI
 
 ```bash
@@ -151,7 +155,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity (먼저 web 프로필에 설치)
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > `dsh-agy` CLI는 DSH 프로세스 밖에서 계정 풀을 수정하므로 프로세스 내 카탈로그 이벤트를 내보낼 수 없습니다 — 로그인/아웃 후 모델 선택기를 닫았다 다시 여세요.

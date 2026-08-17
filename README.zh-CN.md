@@ -141,13 +141,15 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 | Claude | 浏览器 PKCE（远程浏览器可粘贴完整 localhost redirect URL） |
 | Antigravity | `dsh-agy` 安装状态 + profile-local CLI 命令 |
 
+DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供应商页面；如果 localhost 回调无法到达这台 DSH 主机，可把返回的授权 code 或完整 redirect URL 粘贴到等待中的设置卡片。
+
 设置页还会**只读发现**白名单内的官方 Grok / Codex / Kimi / Claude CLI OAuth 文件。同步是显式的单向**拉取**，不是自动导入：发现 → 预览 → 冲突/指纹核对 → 确认覆盖。官方 CLI 文件从不被写入。读取会拒绝符号链接、非普通文件、非属主文件、组/其他人可读，以及超大文档（`O_NOFOLLOW`）。预览票据一次性、五分钟过期、最多 32 张。
 
 选择器只列出已认证的路由；未登录供应商返回空列表。供应商名称统一带 `(OAuth)`，登录或登出后通过 `llm/adapters-updated` 刷新目录。
 
 ## 可选能力
 
-每项可选能力默认**关闭**，打开后**立即生效**（无需重启）：Codex 搜索、Codex 用量/配额、Codex 图像生成与编辑、Codex Fast、Grok Imagine 图像、Grok Imagine 视频。限制：搜索结果 1–20、图像数量 1–4、产物 TTL 1 小时–7 天。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；用户设置会覆盖这层 base，省略时所有开关仍保持关闭。
+七项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
 
 `codex-oauth-fast` 仅在**最新一次 live catalog** 标明至少有一个 `priority` 可用模型后才会出现。请求会发送 `service_tier: priority` 和路由提示。界面写的是 **已请求 Fast**，不保证延迟，也不保证上游会兑现。
 
@@ -167,7 +169,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity（先安装到 web profile）
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > `dsh-agy` CLI 在 DSH 进程外修改账号池，无法发送进程内 catalog event——登录或登出后关闭并重新打开模型选择器即可。

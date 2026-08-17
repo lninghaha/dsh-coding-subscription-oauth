@@ -139,6 +139,10 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 
 セレクターは認証を完了したルートのみを一覧表示します。未認証プロバイダーは空リストを返します。プロバイダー名は `(OAuth)` を伴い、サインイン/アウト後に `llm/adapters-updated` でカタログが更新されます。
 
+## オプション機能
+
+7 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
+
 ## CLI
 
 ```bash
@@ -151,7 +155,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity（事前に web プロファイルへインストール）
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > `dsh-agy` CLI は DSH プロセスの外でアカウントプールを変更するため、プロセス内カタログイベントを発行できません——サインイン/アウト後はモデルセレクターを閉じて開き直してください。

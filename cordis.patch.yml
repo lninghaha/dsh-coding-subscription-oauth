@@ -8,5 +8,6 @@
     model: grok-4.6
 
 - insert:
+    # `id` is the stable Cordis plugin identifier; `name` is the bundle/package display name.
     - id: llm-grok-build-oauth
       name: dsh-coding-subscription-oauth

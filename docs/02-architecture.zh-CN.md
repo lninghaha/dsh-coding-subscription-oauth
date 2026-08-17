@@ -100,13 +100,13 @@ GET    /plugins/dsh-grok-build/imagine/media/<id>
 
 写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。JSON 请求体在解析前限制为 64 KiB。
 
-`/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入是无密钥的 compare-and-swap 快照，立即生效。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
+`/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入位于 `coding-subscription-oauth` 设置区，是无密钥的 compare-and-swap 快照并立即生效。七项开关默认关闭；`searchResults` 为 1–20（默认 5），`imageCount` 为 1–4（默认 1），`videoArtifactTtlMs` 为 1 小时–7 天（默认 7 天；界面显示 1–168 小时）；降低时立即改写/清理已有 expiry，提高只影响新产物。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
 
 旧 `/plugins/dsh-grok-build/auth/*` 继续注册并复用同一个 Grok 控制器。
 
 ## 5. Antigravity
 
-本项目不复制 Google Antigravity 私有协议。profile 单独安装 `dsh-agy@0.1.2`，提供 `agy` route。由于该版本的 `/agy` dashboard 含无自身认证的 export API，当前部署默认禁用 `dsh-agy-web`，只保留 host adapter 和 CLI。profile 使用带 lockfile hash 的 pnpm patch：无 Google session 时 `listModels()` 返回空，认证后 provider group 名为 `Google Antigravity (OAuth)`。
+本项目不复制 Google Antigravity 私有协议。profile 单独安装 `dsh-agy@0.1.2`，提供 `agy` route。由于该版本的 `/agy` dashboard 含无自身认证的 export API，trusted-host 部署应在 profile 最终 `cordis.patch.yml` 中禁用 `dsh-agy-web`（见 `INSTALL.md`），只保留 host adapter 和 CLI。profile 使用带 lockfile hash 的 pnpm patch：无 Google session 时 `listModels()` 返回空，认证后 provider group 名为 `Google Antigravity (OAuth)`。
 
 ## 6. 兼容性
 

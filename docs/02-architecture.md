@@ -104,13 +104,13 @@ GET    /plugins/dsh-grok-build/imagine/media/<id>
 
 Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.
 
-`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots that apply live. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
+`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Seven flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
 
 ## 5. Antigravity
 
-This project does not replicate the private Google Antigravity protocol. The profile separately installs `dsh-agy@0.1.2`, which provides the `agy` route. Because the `/agy` dashboard in that version includes an export API with no authentication of its own, current deployments disable `dsh-agy-web` by default and keep only the host adapter and CLI. The profile uses a pnpm patch with a lockfile hash: with no Google session, `listModels()` returns empty; after authentication the provider group name is `Google Antigravity (OAuth)`.
+This project does not replicate the private Google Antigravity protocol. The profile separately installs `dsh-agy@0.1.2`, which provides the `agy` route. Because the `/agy` dashboard in that version includes an export API with no authentication of its own, trusted-host deployments should disable `dsh-agy-web` in the profile's final `cordis.patch.yml` (see `INSTALL.md`) and keep only the host adapter and CLI. The profile uses a pnpm patch with a lockfile hash: with no Google session, `listModels()` returns empty; after authentication the provider group name is `Google Antigravity (OAuth)`.
 
 ## 6. Compatibility
 

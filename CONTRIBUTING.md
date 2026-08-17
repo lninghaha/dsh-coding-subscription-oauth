@@ -9,7 +9,7 @@ Welcome! `dsh-coding-subscription-oauth` is an open-source coding-subscription O
 
 ## Getting started
 
-Development verification for this plugin runs only in an isolated Docker build sandbox; do not run installs, builds, tests, typechecks, linters or package checks directly on a shared developer host. The tracked `Dockerfile` copies the filtered source into the image (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use host networking, privileged mode, ports, or bind mounts.
+Development verification for this plugin runs only in an isolated Docker build sandbox; do not run installs, builds, tests, typechecks, linters or package checks directly on a shared developer host. The tracked `Dockerfile` copies the filtered source into the image (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use privileged mode, credential or host-directory bind mounts, or the Docker socket. Tests use no published ports. The narrowly controlled interactive Web preview below is the only port-publishing exception; host networking remains prohibited unless its documented fallback conditions are all met.
 
 ```bash
 docker build --target check --build-arg NODE_VERSION=22.19.0 \
@@ -22,6 +22,30 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 ```
 
 The `artifacts`, `package`, `inspect`, and `isolated-install` targets cover generated `lib/`, the candidate tarball, release inspection, and a script-disabled consumer install.
+
+### Isolated Web preview
+
+`docker/run-preview.sh` is the only supported interactive preview launcher. It builds `web-preview` offline from two auditable inputs: this checkout's committed `lib/` and a BuildKit named context containing an installed `@deepseek-ai/dsh@0.1.0-rc.6` **program package**. Point `DSH_INSTALL_DIR` at that package directory, never at a DSH home/profile or any credential directory:
+
+```bash
+export DSH_INSTALL_DIR=/path/to/node_modules/@deepseek-ai/dsh
+export DSH_PREVIEW_AUTHORITIES=review-host.example:17800
+./docker/run-preview.sh
+```
+
+The launcher defaults to Docker bridge networking and `0.0.0.0:17800`, checks the allowed high-port ranges, and enforces a non-root user, read-only root filesystem, dropped capabilities, no-new-privileges, CPU/memory/PID limits, isolated named volumes, and tmpfs runtime state. The DSH backend remains on a separate loopback-only high port. It does not mount, modify, restart, or validate against an existing host DSH. If provider endpoints require an outbound proxy, set `DSH_PREVIEW_PROXY` explicitly.
+
+The launcher prints a command for reading the runtime-generated bootstrap token from the container. Append it to the printed local or allowlisted remote URL as `?preview_token=<token>` using a private channel. The proxy exchanges it once for an HttpOnly, SameSite=Strict cookie and redirects to a token-free URL. Treat both the bootstrap URL and the isolated preview volumes as credentials; never paste either into logs, issues, commits, or chat.
+
+Host networking is **not** a normal preview mode. It may be selected only after a minimal container proves ordinary Docker port publishing unavailable and the maintainer explicitly approves that one run. The explicit guard is:
+
+```bash
+DSH_PREVIEW_NETWORK=host \
+DSH_PREVIEW_HOST_NETWORK_CONFIRMED=yes \
+./docker/run-preview.sh
+```
+
+Even then, the launcher permits only the isolated high-port ranges and refuses occupied preview/backend ports. Stop the preview with the exact `docker rm -f <container>` command printed by the launcher. Remove its named volumes only after confirming they contain no OAuth credentials that need to be retained.
 
 This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-build`), an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
 

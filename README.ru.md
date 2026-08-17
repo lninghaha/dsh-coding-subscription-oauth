@@ -139,6 +139,10 @@ pnpm run smoke:deployed             # реальные вызовы Codex/Kimi +
 
 Селектор показывает только маршруты, завершившие аутентификацию; неавторизованные провайдеры возвращают пустой список. Имена провайдеров получают `(OAuth)`, а каталог обновляется через `llm/adapters-updated` после входа/выхода.
 
+## Дополнительные возможности
+
+Все семь переключателей `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` и `grokImagineVideo` по умолчанию выключены и применяются без перезапуска. Ограничения: `searchResults` (1–20, по умолчанию 5), `imageCount` (1–4, по умолчанию 1) и `videoArtifactTtlMs` (1 час–7 дней, по умолчанию 7 дней; в интерфейсе 1–168 часов). Уменьшение срока сразу сокращает и очищает существующие артефакты; увеличение действует только на новые.
+
 ## CLI
 
 ```bash
@@ -151,7 +155,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity (сначала установите в web-профиль)
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > CLI `dsh-agy` изменяет пул аккаунтов вне процесса DSH, поэтому не может отправить событие каталога внутри процесса — после входа/выхода закройте и снова откройте селектор моделей.

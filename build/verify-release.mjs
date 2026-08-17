@@ -66,6 +66,27 @@ assert.ok(
 	!topLevelImports.some((statement) => statement.includes('"@deepseek-ai/dsh-tools"')),
 	"optional tools peer must not be imported while evaluating the root entrypoint",
 );
+const requiredRuntimePeers = [
+	"@deepseek-ai/dsh-atomic-write",
+	"@deepseek-ai/dsh-home-paths",
+	"@deepseek-ai/dsh-llm",
+	"@deepseek-ai/dsh-llm-pi-ai",
+	"@deepseek-ai/schemastery",
+	"@earendil-works/pi-ai",
+];
+for (const name of requiredRuntimePeers) {
+	assert.equal(typeof manifest.peerDependencies?.[name], "string", `missing runtime peer: ${name}`);
+	assert.notEqual(
+		manifest.peerDependenciesMeta?.[name]?.optional,
+		true,
+		`runtime peer must be required (pnpm auto-installs it in the profile): ${name}`,
+	);
+	assert.equal(
+		manifest.peerDependencies?.[name] === "*" || /^[~^]/.test(manifest.peerDependencies?.[name] ?? ""),
+		false,
+		`runtime peer must pin an exact resolvable version (not "*" or a range): ${name}`,
+	);
+}
 for (const marker of [
 	"/plugins/dsh-grok-build/oauth/sources",
 	"/plugins/dsh-grok-build/capabilities",
@@ -90,6 +111,23 @@ assert.match(
 	/window\.__ModuleLoader__\.load\(\{id:["']dsh-coding-subscription-oauth["'],factory:/,
 );
 assert.equal((clientSource.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1);
+for (const marker of [
+	"/plugins/dsh-grok-build/capabilities",
+	"/plugins/dsh-grok-build/imagine/credential-status",
+	"codexSearch",
+	"codexImages",
+	"codexImageEdits",
+	"codexUsage",
+	"codexFast",
+	"grokImagineImage",
+	"grokImagineVideo",
+	"searchResults",
+	"imageCount",
+	"videoArtifactTtlMs",
+	"capVideoTtlHoursHint",
+]) {
+	assert.ok(clientSource.includes(marker), `client bundle is missing v0.4 settings marker ${marker}`);
+}
 const clientRequires = [
 	...new Set([...clientSource.matchAll(/\brequire\((["'])([^"']+)\1\)/g)].map((match) => match[2])),
 ].sort();

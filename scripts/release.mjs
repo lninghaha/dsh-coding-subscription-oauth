@@ -88,6 +88,19 @@ const report = Array.isArray(packReport) ? packReport[0] : undefined;
 if (report === undefined || !Array.isArray(report.files)) fail("npm pack did not return a file manifest");
 const packedFiles = report.files.map((entry) => entry.path).sort();
 const packed = new Set(packedFiles);
+const missingModes = report.files.filter((entry) => typeof entry.mode !== "number").map((entry) => entry.path);
+if (missingModes.length > 0) fail(`npm pack omitted file modes:\n${missingModes.sort().join("\n")}`);
+const privateModes = report.files
+	.filter((entry) => typeof entry.mode === "number" && (entry.mode & 0o044) !== 0o044)
+	.map((entry) => `${entry.path} (${entry.mode.toString(8)})`)
+	.sort();
+if (privateModes.length > 0)
+	fail(`packed release contains files unreadable outside their owner:\n${privateModes.join("\n")}`);
+const writableModes = report.files
+	.filter((entry) => typeof entry.mode === "number" && (entry.mode & 0o022) !== 0)
+	.map((entry) => `${entry.path} (${entry.mode.toString(8)})`)
+	.sort();
+if (writableModes.length > 0) fail(`packed release contains group/world-writable files:\n${writableModes.join("\n")}`);
 for (const required of [
 	"package.json",
 	"README.md",
@@ -100,6 +113,10 @@ for (const required of [
 	"lib/invariant.js",
 ]) {
 	if (!packed.has(required)) fail(`packed release is missing ${required}`);
+}
+const packedBin = report.files.find((entry) => entry.path === "lib/bin.js");
+if (typeof packedBin?.mode === "number" && (packedBin.mode & 0o111) === 0) {
+	fail(`packed CLI is not executable: lib/bin.js (${packedBin.mode.toString(8)})`);
 }
 const forbiddenFragments = [
 	"docs/local",

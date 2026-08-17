@@ -17,11 +17,16 @@
 
 早期迁移交接稿里的过时说法不要再沿用：它写的是 63 个测试、客户端 wrapper id `dsh-grok-build`、以及「旧仓库还有未提交业务需要再吸收」。规范仓的业务已落在 Git 历史中，脚手架以当前 checkout 为准。
 
+v0.4 的能力设置是兼容性新增：`coding-subscription-oauth` 设置区默认全部关闭，未配置时不改变已有 OAuth 路由；Cordis id、`/plugins/dsh-grok-build/*`、凭据文件、LLM route 与 CLI 别名均未改，因此无需迁移现有用户数据。
+
 ## 验收命令（Docker sandbox 内）
 
 共享开发主机只负责启动隔离构建；不要直接在宿主机运行安装、检查或构建命令，也不要 bind mount 源码、凭据、Docker socket 或其他项目目录。使用仓库跟踪的多阶段 Dockerfile：
 
 ```bash
+docker build --target check-next --build-arg NODE_VERSION=22.19.0 \
+  --resource memory=3g --resource cpu-quota=200000 \
+  --tag test-dsh-coding-oauth:check-next .
 docker build --target check --build-arg NODE_VERSION=22.19.0 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:check .

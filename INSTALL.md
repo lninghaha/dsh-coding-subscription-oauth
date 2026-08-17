@@ -48,10 +48,10 @@ Google OAuth 后续可用：
 ```bash
 NODE_USE_ENV_PROXY=1 \
 HTTPS_PROXY=http://127.0.0.1:7890 \
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
-不要把 Google credential export 粘贴到聊天或日志。
+仅在当前网络确实需要代理时设置 `NODE_USE_ENV_PROXY` / `HTTPS_PROXY`；其他环境直接执行最后一行即可。不要把 Google credential export 粘贴到聊天或日志。
 
 ## 代理配置
 
@@ -108,12 +108,9 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
 
 ### 可选能力
 
-设置页的订阅能力开关默认全部关闭，打开后立即生效（无需重启）：
+设置页的七项订阅能力开关默认全部关闭，打开后立即生效（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。
 
-- Codex 搜索、用量/配额、图像生成/编辑、Fast
-- Grok Imagine 图像 / 视频
-
-限制：搜索结果 1–20、图像数量 1–4、产物 TTL 1 小时–7 天。管理员可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；设置页用户值会覆盖该 base，省略时所有开关仍默认关闭。
+数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖该 base，省略时所有开关仍默认关闭。
 
 `codex-oauth-fast` 仅在最新一次 live catalog 标明至少有一个 `priority` 可用模型后才会出现。请求发送 `service_tier: priority` 和路由提示；界面写 **已请求 Fast**，不保证延迟或上游兑现。Codex 搜索/用量/图像是需打开的私有 `chatgpt.com/backend-api` 端点；图像固定 `gpt-image-2`；编辑只接受当前会话顶层、本会话持有的附件。
 
@@ -160,7 +157,7 @@ $DSH_HOME/.kimi-code-oauth-auth.json
 $DSH_HOME/.claude-code-oauth-auth.json
 ```
 
-均为 `0600`、原子写、文件锁保护。模型缓存为对应的 `*-models.json`，不含 token。Grok Imagine 使用 DSH 凭据引用 `XAI_API_KEY`，与上述 OAuth 文件分离。
+均为 `0600`、原子写、文件锁保护。模型缓存为对应的 `*-models.json`，不含 token。Grok Imagine 使用 DSH 凭据引用 `XAI_API_KEY`，与上述 OAuth 文件分离；视频产物存入 `$DSH_HOME/.dsh-coding-subscription-oauth-media/`（目录 `0700`、文件 `0600`），按保留设置自动清理。
 
 ## 卸载
 

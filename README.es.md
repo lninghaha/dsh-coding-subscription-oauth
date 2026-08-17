@@ -139,6 +139,10 @@ Abre **Settings → Coding OAuth**:
 
 El selector solo lista rutas que completaron la autenticación; los proveedores no autenticados devuelven lista vacía. Los nombres de proveedor llevan `(OAuth)` y el catálogo se actualiza vía `llm/adapters-updated` tras iniciar/cerrar sesión.
 
+## Capacidades opcionales
+
+Los siete controles `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` y `grokImagineVideo` empiezan desactivados y se aplican en vivo, sin reinicio. Los límites son `searchResults` (1–20, predeterminado 5), `imageCount` (1–4, predeterminado 1) y `videoArtifactTtlMs` (1 hora–7 días, predeterminado 7 días; la interfaz muestra 1–168 horas). Reducir la retención acorta y limpia los artefactos existentes de inmediato; aumentarla solo afecta a los nuevos.
+
 ## CLI
 
 ```bash
@@ -151,7 +155,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity (instala en el perfil web primero)
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > La CLI de `dsh-agy` modifica el grupo de cuentas fuera del proceso DSH, por lo que no puede emitir un evento de catálogo en el proceso — cierra y vuelve a abrir el selector de modelos tras iniciar/cerrar sesión.

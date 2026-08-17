@@ -139,6 +139,10 @@ pnpm run smoke:deployed             # echte Codex/Kimi-Tool-Calls + Replay des z
 
 Der Wähler listet nur Routen, die die Authentifizierung abgeschlossen haben; nicht authentifizierte Anbieter liefern eine leere Liste. Anbieternamen tragen `(OAuth)`, und der Katalog wird nach An-/Abmeldung über `llm/adapters-updated` aktualisiert.
 
+## Optionale Funktionen
+
+Die sieben Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
+
 ## CLI
 
 ```bash
@@ -151,7 +155,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity (zuerst ins Web-Profil installieren)
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > Die `dsh-agy`-CLI ändert den Kontopool außerhalb des DSH-Prozesses und kann daher kein Katalogereignis im Prozess auslösen — nach An-/Abmeldung den Modellwähler schließen und wieder öffnen.

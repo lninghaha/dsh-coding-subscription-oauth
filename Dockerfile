@@ -19,6 +19,9 @@ RUN pnpm install --frozen-lockfile
 FROM dependencies AS source
 COPY --chown=node:node . .
 
+FROM source AS check-next
+RUN --network=none pnpm run check:next
+
 FROM source AS check
 RUN --network=none cp -a lib /tmp/committed-lib \
     && rm -rf lib \
@@ -69,5 +72,24 @@ RUN --network=none cp -a lib /tmp/committed-lib \
     && rm -rf lib \
     && cp -a /tmp/committed-lib lib \
     && pnpm run check \
+    && node --test docker/preview-proxy.test.mjs \
     && diff -ru /tmp/committed-lib lib \
     && pnpm run release:dry
+
+FROM node:${NODE_VERSION}-bookworm-slim AS web-preview
+ENV DSH_HOME=/opt/dsh-seed
+COPY --from=dsh-installed / /opt/dsh/
+COPY package.json cordis.patch.yml LICENSE NOTICE /opt/dsh-plugin/
+COPY lib/ /opt/dsh-plugin/lib/
+COPY docker/preview-proxy.mjs docker/preview-entrypoint.mjs docker/prepare-preview-seed.mjs /opt/dsh-preview/
+RUN mkdir -p /opt/dsh-seed /opt/dsh-plugin/node_modules /data/dsh /workspace /run/dsh-preview \
+    && node /opt/dsh-preview/prepare-preview-seed.mjs \
+    && chmod 0555 /opt/dsh-preview/*.mjs \
+    && chown -R node:node /opt/dsh-seed /data/dsh /workspace /run/dsh-preview
+USER node
+ENV DSH_HOME=/data/dsh
+WORKDIR /workspace
+EXPOSE 17800
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD node -e 'const port=process.env.DSH_PREVIEW_BACKEND_PORT ?? "17802"; fetch(`http://127.0.0.1:${port}/`).then((response) => { if (!response.ok) process.exit(1); }, () => process.exit(1))'
+ENTRYPOINT ["node", "/opt/dsh-preview/preview-entrypoint.mjs"]

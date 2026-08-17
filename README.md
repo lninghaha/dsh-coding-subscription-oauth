@@ -143,13 +143,15 @@ Open **Settings → Coding OAuth**:
 | Claude | browser PKCE (remote browser can paste the full localhost redirect URL) |
 | Antigravity | `dsh-agy` install status + profile-local CLI commands |
 
+Use device code when the DSH host is remote. Browser/PKCE sign-in opens the provider URL; if the localhost callback cannot reach this DSH host, paste either the returned authorization code or the complete redirect URL into the waiting Settings card.
+
 Settings also **discovers** allowlisted official Grok / Codex / Kimi / Claude CLI OAuth files (read-only). Synchronization is an explicit one-way **Pull** — not auto-import: discover → preview → conflict/fingerprint check → confirm overwrite. Official CLI files are never written. Reads refuse symlinks, non-regular files, non-owner files, group/other access, and oversized documents (`O_NOFOLLOW`). Preview tickets are one-use, expire in five minutes, and are capped at 32.
 
 The selector only lists routes that completed authentication; unauthenticated providers return an empty list. Provider names carry `(OAuth)`, and the catalog refreshes via `llm/adapters-updated` after sign-in/out.
 
 ## Optional capabilities
 
-Every optional capability starts **off** and applies **live** (no restart): Codex search, Codex usage/quota, Codex image generation and edit, Codex Fast, Grok Imagine image, and Grok Imagine video. Limits: search results 1–20, image count 1–4, artifact TTL 1 hour–7 days. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings override that base, and omitting it keeps every flag off.
+All seven switches start **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage`, and `grokImagineVideo`. Numeric controls are `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), and `videoArtifactTtlMs` (1 hour–7 days, default 7 days; the UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` settings section override that base, and omitting it keeps every switch off.
 
 `codex-oauth-fast` is advertised only after a **fresh live catalog** lists at least one `priority`-eligible model. Those requests send `service_tier: priority` plus a routing hint. The UI says **Fast requested** and never guarantees latency or that upstream will honor the request.
 
@@ -169,7 +171,7 @@ dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 
 # Antigravity (install into web profile first)
-pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
+dsh plugin --profile web exec dsh-agy login --headless
 ```
 
 > `dsh-agy` CLI edits the account pool outside the DSH process, so it can't emit an in-process catalog event — close and reopen the model selector after signing in/out.
