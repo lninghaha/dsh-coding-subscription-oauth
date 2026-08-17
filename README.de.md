@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.1 · früher `dsh-grok-build`
+**v0.5.2 · früher `dsh-grok-build`
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -24,7 +24,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
-| npm | Noch nicht veröffentlicht; von GitHub installieren | Es gab kein altes npm-Paket |
+| npm | `dsh-coding-subscription-oauth@0.5.2` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
 | Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
@@ -70,8 +70,8 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 ## 🚀 Schnellstart
 
 ```bash
-# 1. Plugin in das Web-Profil installieren
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# 1. Plugin in das Web-Profil installieren (aktuelle npm-Version)
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
 # 2. optional — Google Antigravity (gepinnte, geprüfte Version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -106,10 +106,13 @@ Danach **Settings → Coding OAuth** öffnen und bei einem beliebigen Anbieter a
 Erfordert DeepSeek Harness `0.1.0-rc.6+` und Node.js 22.19+. Vollständige Details in den [Installationshinweisen](INSTALL.md).
 
 ```bash
-# von GitHub
+# aktuelle npm-Version (empfohlen)
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+
+# Entwicklung/Alternativ: von GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
-# oder ein lokales Entwicklungs-Checkout
+# Entwicklung/Alternativ: ein lokales Entwicklungs-Checkout
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 

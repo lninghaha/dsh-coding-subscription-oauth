@@ -10,7 +10,7 @@ const execute = promisify(execFile);
 const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
-assert.equal(manifest.version, "0.5.1", "release artifacts must use the v0.5.1 manifest");
+assert.equal(manifest.version, "0.5.2", "release artifacts must use the v0.5.2 manifest");
 assert.deepEqual(manifest.bin, {
 	"dsh-coding-oauth": "lib/bin.js",
 	"dsh-grok-build": "lib/bin.js",

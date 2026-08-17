@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.1 · 이전 이름 `dsh-grok-build`
+**v0.5.2 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -24,7 +24,7 @@
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
-| npm | 아직 게시되지 않음. GitHub에서 설치 | 레거시 npm 패키지는 게시된 적 없음 |
+| npm | `dsh-coding-subscription-oauth@0.5.2`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
 | 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
@@ -70,8 +70,8 @@
 ## 🚀 빠른 시작
 
 ```bash
-# 1. web 프로필에 플러그인 설치
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# 1. web 프로필에 플러그인 설치 (현재 npm 릴리스)
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -106,10 +106,13 @@ systemctl --user restart dsh-web.service
 DeepSeek Harness `0.1.0-rc.6+` 및 Node.js 22.19+가 필요합니다. 자세한 내용은 [설치 노트](INSTALL.md)를 참조하세요.
 
 ```bash
-# GitHub에서
+# 현재 npm 릴리스 (권장)
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+
+# 개발/대안: GitHub에서
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
-# 또는 로컬 개발 디렉터리에서
+# 개발/대안: 로컬 개발 디렉터리에서
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 

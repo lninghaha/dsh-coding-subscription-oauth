@@ -1,17 +1,17 @@
 # 安装与使用 · dsh-coding-subscription-oauth
 
-本仓库原名 **`dsh-grok-build`**。新安装请用：
+本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
 
 ```bash
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 ```
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.1`**：
+第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.2`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
@@ -27,11 +27,14 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 ## 安装
 
 ```bash
-# 从 GitHub
+# 普通用户：当前 npm 发布版
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+
+# 开发 / 备用：从 GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
-# 或本地开发目录
-dsh plugin --profile web add ./dsh-coding-subscription-oauth
+# 本地开发目录（备用）
+# dsh plugin --profile web add ./dsh-coding-subscription-oauth
 
 # Google Antigravity 可选依赖，固定版本
 dsh plugin --profile web add dsh-agy@0.1.2

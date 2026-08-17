@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.1 · 旧名 `dsh-grok-build`
+**v0.5.2 · 旧名 `dsh-grok-build`
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
@@ -24,7 +24,7 @@
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
-| npm | 未公開。GitHub からインストール | 旧 npm パッケージは公開されていない |
+| npm | `dsh-coding-subscription-oauth@0.5.2`（現在のリリース） | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
 | 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
@@ -70,8 +70,8 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 ## 🚀 クイックスタート
 
 ```bash
-# 1. web プロファイルにプラグインをインストール
-dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+# 1. web プロファイルにプラグインをインストール（現在の npm リリース）
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
 # 2. 任意 — Google Antigravity（レビュー済みの固定バージョン）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -106,10 +106,13 @@ systemctl --user restart dsh-web.service
 DeepSeek Harness `0.1.0-rc.6+` と Node.js 22.19+ が前提です。詳細は[インストールノート](INSTALL.md)をご覧ください。
 
 ```bash
-# GitHub から
+# 現在の npm リリース（推奨）
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+
+# 開発／代替：GitHub から
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
-# またはローカルの開発ディレクトリから
+# 開発／代替：ローカルの開発ディレクトリから
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 

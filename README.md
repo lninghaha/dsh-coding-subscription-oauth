@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.1** · formerly `dsh-grok-build`
+**v0.5.2** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -23,8 +23,8 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
-| npm | Current release is `0.5.1`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1` then `dsh plugin --profile web update dsh-coding-subscription-oauth`. GitHub install still works. | No legacy npm package was published |
+| npm (recommended) | Current release is `0.5.2`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2` | No legacy npm package was published |
+| GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (same `main`) |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
 | Settings HTTP API | `/plugins/dsh-grok-build/*` | unchanged |
@@ -77,7 +77,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -114,10 +114,12 @@ Requires DeepSeek Harness `0.1.0-rc.6+` and Node.js 22.19+. Full details in the 
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
-# or from GitHub / a local dev checkout
+# development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+
+# local development checkout (alternative)
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 

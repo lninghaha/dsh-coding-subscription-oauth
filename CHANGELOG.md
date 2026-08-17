@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.2 - 2026-08-18
+
+### Documentation
+
+- Make the published npm package the first installation path for normal users; keep GitHub and local-directory installs explicitly as development or fallback options.
+
 ## v0.5.1 - 2026-08-18
 
 ### Documentation
