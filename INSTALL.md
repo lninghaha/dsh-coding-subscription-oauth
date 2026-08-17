@@ -8,10 +8,10 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-第一次公开发布是 **`0.4.1`**。推荐：
+第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.0`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.4.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.0
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 

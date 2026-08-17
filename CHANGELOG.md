@@ -4,9 +4,17 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.0 - 2026-08-17
+
 ### Added
 
-- Add an opt-in local API gateway (`gateway.enabled`, default off) that binds loopback-only and serves `/healthz`, `/v1/models`, streaming `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages` from signed-in subscription sessions, with Settings toggle/key rotation and a CLI ToS warning.
+- Add an opt-in local API gateway (`gateway.enabled`, default off) that binds loopback-only and serves `/healthz`, `/v1/models`, streaming `POST /v1/chat/completions`, `POST /v1/responses`, and `POST /v1/messages` from signed-in subscription sessions.
+- Let Settings copy the OpenAI/Anthropic base URLs and the current Bearer key. Loopback `POST /gateway/reveal` returns the current key without rotating it; rotate stays a confirmed destructive action.
+- Let Settings change the gateway listen port with Apply or Random (18100–18999). The chosen port is stored in the owner-only gateway document and the listener rebinds when it is already running.
+
+### Changed
+
+- Rebuild Settings as four top tabs (Accounts, Gateway, Capabilities, About). Signed-in account cards stay collapsed until expanded, CLI pull preview is full-width, and Imagine status sits on Capabilities.
 
 ## v0.4.1 - 2026-08-17
 
