@@ -13,7 +13,7 @@ import { loginGrokBuildPkce } from "./oauth.ts";
 import { oauthProviderDefinition, type SubscriptionLoginMethod } from "./oauth-providers.ts";
 import { OAuthProviderSession } from "./oauth-session.ts";
 import { codingOAuthProxyInEffect, ensureCodingOAuthProxy } from "./proxy.ts";
-import { safeMessage } from "./redact.ts";
+import { redactProxyUrl, safeMessage } from "./redact.ts";
 import { GrokBuildSession } from "./session.ts";
 import { grokBuildAuthPath } from "./store.ts";
 
@@ -318,7 +318,7 @@ export async function run(argv: readonly string[]): Promise<number> {
 		}
 
 		const proxy = codingOAuthProxyInEffect();
-		if (proxy !== undefined) process.stdout.write(`Using scoped coding OAuth proxy ${proxy}\n`);
+		if (proxy !== undefined) process.stdout.write(`Using scoped coding OAuth proxy ${redactProxyUrl(proxy)}\n`);
 		if (provider === "all") throw new Error("login does not accept provider all");
 		if (provider === "grok") await loginGrok(flags);
 		else await loginSubscription(provider, flags);

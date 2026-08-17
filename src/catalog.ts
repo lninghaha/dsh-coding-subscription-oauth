@@ -8,6 +8,7 @@
 import type { Api, Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { DEFAULT_GROK_BUILD_MODEL, GROK_BUILD_ROUTE } from "./ids.ts";
 import { GROK_BUILD_MODELS_URL, grokBuildBaselineModels, grokBuildFingerprintHeaders } from "./provider.ts";
+import { codingOAuthProxyUnreachableHint } from "./proxy.ts";
 
 const BODY_LIMIT_BYTES = 4 * 1024 * 1024;
 const BODY_LIMIT_ERROR = "Grok Build model listing exceeded the 4 MiB read ceiling";
@@ -230,7 +231,9 @@ export async function fetchLiveModels(accessToken: string, signal?: AbortSignal)
 		});
 	} catch {
 		if (signal?.aborted) throw new Error("Live model listing was cancelled");
-		throw new Error("Grok Build model listing is unreachable (proxy required on some networks)");
+		throw new Error(
+			`Grok Build model listing is unreachable (proxy required on some networks)${codingOAuthProxyUnreachableHint()}`,
+		);
 	}
 	let raw: Buffer;
 	try {

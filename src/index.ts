@@ -182,11 +182,12 @@ export {
 export type { CodingOAuthProxyOptions } from "./proxy.ts";
 export {
 	codingOAuthProxyInEffect,
+	codingOAuthProxyUnreachableHint,
 	ensureCodingOAuthProxy,
 	ensureGrokBuildProxy,
 	grokBuildProxyInEffect,
 } from "./proxy.ts";
-export { safeMessage } from "./redact.ts";
+export { redactProxyUrl, safeMessage } from "./redact.ts";
 export { GrokBuildSession } from "./session.ts";
 export {
 	GrokBuildCredentialStore,

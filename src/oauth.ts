@@ -12,6 +12,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Server } from "node:http";
 import { createServer } from "node:http";
 import type { OAuthCredential } from "@earendil-works/pi-ai";
+import { codingOAuthProxyUnreachableHint } from "./proxy.ts";
 import { safeMessage } from "./redact.ts";
 
 /** OIDC issuer for both Grok CLI and Grok Build. */
@@ -188,7 +189,10 @@ export async function discoverOAuthEndpoints(
 			...(signal !== undefined ? { signal } : {}),
 		});
 	} catch {
-		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} is unreachable`);
+		throw new GrokBuildOAuthError(
+			"discovery",
+			`issuer ${approvedIssuer.href} is unreachable${codingOAuthProxyUnreachableHint()}`,
+		);
 	}
 	if (!response.ok) {
 		throw new GrokBuildOAuthError(
@@ -467,7 +471,10 @@ async function postTokenForm(
 		});
 	} catch (error) {
 		if (signal?.aborted) throw new GrokBuildOAuthError("cancelled", "request was cancelled");
-		throw new GrokBuildOAuthError("token_exchange", `token endpoint is unreachable: ${safeMessage(error)}`);
+		throw new GrokBuildOAuthError(
+			"token_exchange",
+			`token endpoint is unreachable: ${safeMessage(error)}${codingOAuthProxyUnreachableHint()}`,
+		);
 	}
 	let body: TokenResponse & { error?: unknown; error_description?: unknown };
 	try {

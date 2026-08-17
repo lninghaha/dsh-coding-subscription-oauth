@@ -10,6 +10,8 @@ export declare function ensureCodingOAuthProxy(explicit?: string, options?: Codi
 /** Backward-compatible name retained for existing callers. */
 export declare function ensureGrokBuildProxy(explicit?: string): string | undefined;
 export declare function codingOAuthProxyInEffect(): string | undefined;
+/** Appended to Grok discovery/token/catalog transport errors when a scoped proxy is installed. */
+export declare function codingOAuthProxyUnreachableHint(): string;
 /** Backward-compatible status accessor. */
 export declare function grokBuildProxyInEffect(): string | undefined;
 //# sourceMappingURL=proxy.d.ts.map

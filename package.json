@@ -113,7 +113,7 @@
     }
   },
   "dependencies": {
-    "undici": "^7.16.0"
+    "undici": "^7.24.8"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1-rc.1",
@@ -176,7 +176,7 @@
     "esbuild": "^0.28.2",
     "react": "^18.2.0",
     "typescript": "^6.0.3",
-    "undici": "^7.16.0",
+    "undici": "^7.24.8",
     "vitest": "^4.1.8"
   },
   "overrides": {

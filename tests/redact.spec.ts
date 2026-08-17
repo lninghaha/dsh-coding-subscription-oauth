@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeMessage } from "../src/redact.ts";
+import { redactProxyUrl, safeMessage } from "../src/redact.ts";
 
 describe("safeMessage", () => {
 	it("redacts jwt-shaped tokens and oauth query values", () => {
@@ -51,6 +51,12 @@ describe("safeMessage", () => {
 		// Short structured values are still redacted by the legacy rules, but only
 		// in the existing JSON/URL shapes — a code-style word like `code: a` is left.
 		expect(safeMessage("status: code: a value")).toBe("status: code: a value");
+	});
+
+	it("strips userinfo from proxy URLs without changing the host", () => {
+		expect(redactProxyUrl("http://user:secret@127.0.0.1:7890")).toBe("http://127.0.0.1:7890");
+		expect(redactProxyUrl("http://127.0.0.1:7890")).toBe("http://127.0.0.1:7890");
+		expect(redactProxyUrl("not a url")).toBe("not a url");
 	});
 
 	it("redacts the sk- and xai- opaque token prefixes", () => {

@@ -28,8 +28,8 @@ export type { OAuthProviderStatus } from "./oauth-session.js";
 export { OAuthProviderSession, oauthModelsCachePath } from "./oauth-session.js";
 export { GROK_BUILD_BASE_URL, GROK_BUILD_MODELS_URL, GROK_CLIENT_VERSION, grokBuildBaselineModels, grokBuildFingerprintHeaders, grokBuildProvider, grokBuildReasoningMap, } from "./provider.js";
 export type { CodingOAuthProxyOptions } from "./proxy.js";
-export { codingOAuthProxyInEffect, ensureCodingOAuthProxy, ensureGrokBuildProxy, grokBuildProxyInEffect, } from "./proxy.js";
-export { safeMessage } from "./redact.js";
+export { codingOAuthProxyInEffect, codingOAuthProxyUnreachableHint, ensureCodingOAuthProxy, ensureGrokBuildProxy, grokBuildProxyInEffect, } from "./proxy.js";
+export { redactProxyUrl, safeMessage } from "./redact.js";
 export { GrokBuildSession } from "./session.js";
 export { GrokBuildCredentialStore, grokBuildAuthPath, OAuthCredentialFileStore, oauthCredentialPath, } from "./store.js";
 /** Stable Cordis plugin name. */

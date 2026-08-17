@@ -88,6 +88,11 @@ export function codingOAuthProxyInEffect(): string | undefined {
 	return installedProxy;
 }
 
+/** Appended to Grok discovery/token/catalog transport errors when a scoped proxy is installed. */
+export function codingOAuthProxyUnreachableHint(): string {
+	return installedProxy === undefined ? "" : "; check that CODING_OAUTH_PROXY is reachable";
+}
+
 /** Backward-compatible status accessor. */
 export function grokBuildProxyInEffect(): string | undefined {
 	return codingOAuthProxyInEffect();
