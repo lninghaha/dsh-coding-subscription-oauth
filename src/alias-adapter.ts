@@ -12,6 +12,7 @@ import type {
 	StreamChunk,
 } from "@deepseek-ai/dsh-llm";
 import { LlmAdapter, LlmError } from "@deepseek-ai/dsh-llm";
+import { remapAuthFailureIfContextOverflow } from "./kimi-errors.ts";
 
 export interface AliasLlmRoutePolicy {
 	/** User-facing provider name shown above models in the model selector. */
@@ -113,7 +114,17 @@ export class AliasLlmAdapter extends LlmAdapter {
 		const native = this.nativeProvider(route);
 		const messages = options.messages.map((message) => normalizeReplayForRoute(message, route));
 		let authFailureNotified = false;
-		for await (const chunk of this.inner.stream({ ...options, provider: native, messages })) {
+		for await (const raw of this.inner.stream({ ...options, provider: native, messages })) {
+			const chunk =
+				raw.type === "finish" && raw.reason.kind === "error"
+					? {
+							...raw,
+							reason: {
+								...raw.reason,
+								failure: remapAuthFailureIfContextOverflow(raw.reason.failure),
+							},
+						}
+					: raw;
 			if (
 				!authFailureNotified &&
 				chunk.type === "finish" &&

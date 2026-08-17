@@ -277,6 +277,52 @@ describe("AliasLlmAdapter", () => {
 		]);
 	});
 
+	it("remaps Kimi 401 context-capacity errors and does not invalidate the token", async () => {
+		const inner = new FakeAdapter([
+			{
+				type: "finish",
+				reason: {
+					kind: "error",
+					failure: {
+						message:
+							'401 {"error":{"type":"authentication_error","message":"k3-256k supports only 256K context."},"type":"error"}',
+						code: "AUTH",
+					},
+				},
+			},
+		]);
+		let calls = 0;
+		const adapter = new AliasLlmAdapter(
+			inner,
+			new Map([["kimi-code-oauth", "kimi-coding"]]),
+			new Map([
+				[
+					"kimi-code-oauth",
+					{
+						onAuthFailure: async () => {
+							calls += 1;
+						},
+					},
+				],
+			]),
+		);
+		const seen: StreamChunk[] = [];
+		for await (const chunk of adapter.stream({
+			provider: "kimi-code-oauth",
+			model: "k3-256k",
+			messages: [],
+		} as unknown as GenerateOptions)) {
+			seen.push(chunk);
+		}
+		expect(calls).toBe(0);
+		expect(seen).toMatchObject([
+			{
+				type: "finish",
+				reason: { kind: "error", failure: { code: "CONTEXT_WINDOW_EXCEEDED" } },
+			},
+		]);
+	});
+
 	it("does not invoke onAuthFailure for non-AUTH finishes or other routes", async () => {
 		const inner = new FakeAdapter([
 			{ type: "finish", reason: { kind: "error", failure: { message: "429 slow down", code: "RATE_LIMIT" } } },

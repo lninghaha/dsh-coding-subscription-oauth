@@ -18,6 +18,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 - Declare image input on the Grok 4.5 and Grok 4.6 baseline descriptors so both fallback and live-derived catalog entries accept image attachments instead of failing locally as unsupported.
 - Resolve subscription requests from the refreshed access token persisted by each OAuth session. This prevents Kimi's header-only `Authorization: Bearer` auth result from being misclassified as “not signed in” merely because it has no `auth.apiKey` field.
+- Treat Kimi Code's HTTP 401 `authentication_error` that says a model `supports only 256K context` as `CONTEXT_WINDOW_EXCEEDED`. The previous AUTH classification invalidated a still-valid token and retried a request that cannot succeed.
 - Preserve composition capability defaults before Settings is injected and after a Settings service is replaced or disposed; contain asynchronous settings-listener failures; keep empty PATCH writes revision-checked but side-effect free.
 - Make generated media download filenames safe for `Content-Disposition` while preserving opaque DSH attachment ids.
 - Dispose in-flight Grok Imagine API/download work before awaiting media cleanup, isolate caller-owned video-poll cancellation, and remove an artifact if cancellation wins during persistence.
