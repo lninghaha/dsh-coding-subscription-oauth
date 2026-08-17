@@ -19,7 +19,7 @@ import type { CodexSearchProvider, CodexSearchRequest, CodexSearchResult } from 
 import { GROK_IMAGINE_IMAGE_TOOL, GROK_IMAGINE_VIDEO_STATUS_TOOL, GROK_IMAGINE_VIDEO_TOOL } from "./grok-imagine.ts";
 import { CODEX_OAUTH_FAST_ROUTE, CODING_OAUTH_ROUTES } from "./ids.ts";
 
-export type CapabilityRuntimeListener = (settings: CapabilitySettings) => void;
+export type CapabilityRuntimeListener = (settings: CapabilitySettings) => void | Promise<void>;
 
 /** Process-local live projection shared by optional service fibers. */
 export class CapabilityRuntimeState {
@@ -51,7 +51,8 @@ export class CapabilityRuntimeState {
 	refresh(): void {
 		for (const listener of [...this.listeners]) {
 			try {
-				listener(this.value);
+				const result = listener(this.value);
+				if (result !== undefined) void Promise.resolve(result).catch(this.onListenerError);
 			} catch (error: unknown) {
 				this.onListenerError(error);
 			}
@@ -66,7 +67,13 @@ export class CapabilityRuntimeState {
 		this.listeners.add(listener);
 		if (emitCurrent) {
 			try {
-				listener(this.value);
+				const result = listener(this.value);
+				if (result !== undefined) {
+					void Promise.resolve(result).catch((error: unknown) => {
+						this.listeners.delete(listener);
+						this.onListenerError(error);
+					});
+				}
 			} catch (error: unknown) {
 				this.listeners.delete(listener);
 				throw error;

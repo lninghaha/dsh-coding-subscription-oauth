@@ -21,6 +21,7 @@ export const CODEX_BACKEND_API_PREFIX = "/backend-api/";
 const OPENAI_AUTH_CLAIM = "https://api.openai.com/auth";
 const DEFAULT_MAX_SERVER_RETRIES = 2;
 const DEFAULT_JSON_MAX_BYTES = 1_048_576;
+export const DEFAULT_CODEX_REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_ORIGINATOR = "dsh-coding-subscription-oauth";
 const DEFAULT_USER_AGENT = "dsh-coding-subscription-oauth";
 const FORBIDDEN_CALLER_HEADERS = new Set(["authorization", "chatgpt-account-id", "accept"]);
@@ -65,6 +66,8 @@ export interface CodexHttpClientOptions {
 	readonly now?: () => number;
 	readonly sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	readonly maxServerRetries?: number;
+	/** Per-attempt wall-clock ceiling, including response-body streaming. */
+	readonly requestTimeoutMs?: number;
 }
 
 export interface CodexHttpClient {
@@ -262,10 +265,16 @@ async function readLimitedResponseBody(
 	const reader = response.body.getReader();
 	const chunks: Uint8Array[] = [];
 	let size = 0;
+	const onAbort = (): void => {
+		void reader.cancel(signal?.reason).catch(() => undefined);
+	};
+	if (signal?.aborted === true) onAbort();
+	else signal?.addEventListener("abort", onAbort, { once: true });
 	try {
 		for (;;) {
 			throwIfAborted(signal);
 			const { done, value } = await reader.read();
+			throwIfAborted(signal);
 			if (done) break;
 			if (value === undefined) continue;
 			size += value.byteLength;
@@ -284,6 +293,8 @@ async function readLimitedResponseBody(
 		throw new LlmError(`Codex backend response could not be read (${safeMessage(error)})`, "TRANSPORT", {
 			cause: error,
 		});
+	} finally {
+		signal?.removeEventListener("abort", onAbort);
 	}
 	const out = new Uint8Array(size);
 	let offset = 0;
@@ -346,6 +357,10 @@ export function createCodexHttpClient(options: CodexHttpClientOptions): CodexHtt
 	const now = options.now ?? Date.now;
 	const sleep = options.sleep ?? defaultSleep;
 	const maxServerRetries = options.maxServerRetries ?? DEFAULT_MAX_SERVER_RETRIES;
+	const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_CODEX_REQUEST_TIMEOUT_MS;
+	if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs <= 0) {
+		throw new TypeError("Codex requestTimeoutMs must be a positive safe integer");
+	}
 
 	const requestOnce = async (
 		request: CodexHttpRequest,
@@ -361,11 +376,13 @@ export function createCodexHttpClient(options: CodexHttpClientOptions): CodexHtt
 			originator,
 			"user-agent": userAgent,
 		};
+		const timeoutSignal = AbortSignal.timeout(requestTimeoutMs);
+		const signal = request.signal === undefined ? timeoutSignal : AbortSignal.any([request.signal, timeoutSignal]);
 		const init: RequestInit = {
 			method: request.method ?? (request.body === undefined ? "GET" : "POST"),
 			redirect: "error",
 			headers,
-			...(request.signal === undefined ? {} : { signal: request.signal }),
+			signal,
 		};
 		if (request.body !== undefined) {
 			headers["content-type"] = headers["content-type"] ?? "application/json";
@@ -376,10 +393,13 @@ export function createCodexHttpClient(options: CodexHttpClientOptions): CodexHtt
 			response = await fetchImpl(url.toString(), init);
 		} catch (error) {
 			throwIfAborted(request.signal);
-			if (isAbortError(error)) throw abortError(request.signal);
+			const name = error instanceof Error ? error.name : "";
+			if (timeoutSignal.aborted || isAbortError(error) || name === "TimeoutError") {
+				throw abortError(signal);
+			}
 			throw new LlmError(`Codex backend request failed (${safeMessage(error)})`, "TRANSPORT", { cause: error });
 		}
-		const payload = await readJsonBody(response, request.maxBytes ?? DEFAULT_JSON_MAX_BYTES, request.signal);
+		const payload = await readJsonBody(response, request.maxBytes ?? DEFAULT_JSON_MAX_BYTES, signal);
 		return { response, payload };
 	};
 

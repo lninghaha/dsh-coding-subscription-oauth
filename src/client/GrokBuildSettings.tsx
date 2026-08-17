@@ -42,6 +42,8 @@ type CapabilityFlagKey =
 	| "codexFast"
 	| "grokImagineImage"
 	| "grokImagineVideo";
+type CapabilityLimitKey = "searchResults" | "imageCount" | "videoArtifactTtlMs";
+type CapabilitySettingKey = CapabilityFlagKey | CapabilityLimitKey;
 
 type GrokStatus =
 	| { status: "signed-out"; grokImportAvailable: boolean }
@@ -130,8 +132,14 @@ interface CapabilityFlags {
 	grokImagineVideo: boolean;
 }
 
+interface CapabilitySettingsView extends CapabilityFlags {
+	searchResults: number;
+	imageCount: number;
+	videoArtifactTtlMs: number;
+}
+
 interface CapabilitySnapshot {
-	value: CapabilityFlags;
+	value: CapabilitySettingsView;
 	revision: number;
 	writable: boolean;
 }
@@ -238,6 +246,26 @@ const CAPABILITY_TOGGLES: readonly {
 	{ key: "codexFast", label: "capCodexFast", hint: "capCodexFastHint" },
 	{ key: "grokImagineImage", label: "capGrokImagineImage", hint: "capGrokImagineImageHint" },
 	{ key: "grokImagineVideo", label: "capGrokImagineVideo", hint: "capGrokImagineVideoHint" },
+];
+const HOUR_MS = 60 * 60 * 1000;
+const CAPABILITY_LIMITS: readonly {
+	key: CapabilityLimitKey;
+	label: GrokBuildSettingsKey;
+	hint: GrokBuildSettingsKey;
+	min: number;
+	max: number;
+	scale: number;
+}[] = [
+	{ key: "searchResults", label: "capSearchResults", hint: "capSearchResultsHint", min: 1, max: 20, scale: 1 },
+	{ key: "imageCount", label: "capImageCount", hint: "capImageCountHint", min: 1, max: 4, scale: 1 },
+	{
+		key: "videoArtifactTtlMs",
+		label: "capVideoTtlHours",
+		hint: "capVideoTtlHoursHint",
+		min: 1,
+		max: 168,
+		scale: HOUR_MS,
+	},
 ];
 const IMAGINE_SOURCE_KEY: { readonly [source: string]: GrokBuildSettingsKey } = {
 	none: "imagineSourceNone",
@@ -617,7 +645,12 @@ function parseCommitAction(value: unknown): SourceCommitAction | undefined {
 	return action !== undefined && isSourceCommitAction(action) ? action : undefined;
 }
 
-function emptyFlags(): CapabilityFlags {
+function boundedInteger(value: unknown, min: number, max: number, fallback: number): number {
+	const numeric = optionalFiniteNumber(value);
+	return numeric !== undefined && Number.isInteger(numeric) && numeric >= min && numeric <= max ? numeric : fallback;
+}
+
+function emptyCapabilitySettings(): CapabilitySettingsView {
 	return {
 		codexSearch: false,
 		codexImages: false,
@@ -626,10 +659,13 @@ function emptyFlags(): CapabilityFlags {
 		codexFast: false,
 		grokImagineImage: false,
 		grokImagineVideo: false,
+		searchResults: 5,
+		imageCount: 1,
+		videoArtifactTtlMs: 7 * 24 * HOUR_MS,
 	};
 }
 
-function parseFlags(value: unknown): CapabilityFlags {
+function parseCapabilitySettings(value: unknown): CapabilitySettingsView {
 	const source = isRecord(value) ? value : {};
 	return {
 		codexSearch: source["codexSearch"] === true,
@@ -639,6 +675,9 @@ function parseFlags(value: unknown): CapabilityFlags {
 		codexFast: source["codexFast"] === true,
 		grokImagineImage: source["grokImagineImage"] === true,
 		grokImagineVideo: source["grokImagineVideo"] === true,
+		searchResults: boundedInteger(source["searchResults"], 1, 20, 5),
+		imageCount: boundedInteger(source["imageCount"], 1, 4, 1),
+		videoArtifactTtlMs: boundedInteger(source["videoArtifactTtlMs"], HOUR_MS, 7 * 24 * HOUR_MS, 7 * 24 * HOUR_MS),
 	};
 }
 
@@ -648,7 +687,7 @@ function parseCapabilities(value: unknown): CapabilitySnapshot | undefined {
 	const revision = optionalFiniteNumber(value["revision"]);
 	if (revision === undefined && !isRecord(value["value"]) && value["writable"] === undefined) return undefined;
 	return {
-		value: parseFlags(nested),
+		value: parseCapabilitySettings(nested),
 		revision: revision ?? 0,
 		writable: value["writable"] === true,
 	};
@@ -853,11 +892,11 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const refreshCapabilities = useCallback(async () => {
 		try {
 			const parsed = parseCapabilities(await jsonRequest<unknown>(CAPABILITIES_PATH));
-			setCapabilities(parsed ?? { value: emptyFlags(), revision: 0, writable: false });
+			setCapabilities(parsed ?? { value: emptyCapabilitySettings(), revision: 0, writable: false });
 			setCapabilitiesError(undefined);
 			return parsed;
 		} catch (error: unknown) {
-			setCapabilities({ value: emptyFlags(), revision: 0, writable: false });
+			setCapabilities({ value: emptyCapabilitySettings(), revision: 0, writable: false });
 			setCapabilitiesError(error instanceof Error ? error.message : t("capabilitiesLoadFailed"));
 			return undefined;
 		}
@@ -1074,13 +1113,13 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
-	const patchCapability = async (key: CapabilityFlagKey, enabled: boolean): Promise<void> => {
-		if (capabilities === undefined || !capabilities.writable) return;
-		if (key === "codexImageEdits" && enabled && !capabilities.value.codexImages) return;
-		const patch: Partial<CapabilityFlags> =
-			key === "codexImages" && !enabled && capabilities.value.codexImageEdits
+	const patchCapability = async (key: CapabilitySettingKey, value: boolean | number): Promise<boolean> => {
+		if (capabilities === undefined || !capabilities.writable) return false;
+		if (key === "codexImageEdits" && value === true && !capabilities.value.codexImages) return false;
+		const patch: Partial<CapabilitySettingsView> =
+			key === "codexImages" && value === false && capabilities.value.codexImageEdits
 				? { codexImages: false, codexImageEdits: false }
-				: { [key]: enabled };
+				: ({ [key]: value } as Partial<CapabilitySettingsView>);
 		setCapabilitiesBusy(true);
 		try {
 			const updated = parseCapabilities(
@@ -1092,6 +1131,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			if (updated !== undefined) setCapabilities(updated);
 			else await refreshCapabilities();
 			setCapabilitiesError(undefined);
+			return true;
 		} catch (error: unknown) {
 			await refreshCapabilities();
 			setCapabilitiesError(
@@ -1101,6 +1141,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						? error.message
 						: t("capabilitiesSaveFailed"),
 			);
+			return false;
 		} finally {
 			setCapabilitiesBusy(false);
 		}
@@ -1396,7 +1437,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 							) : null}
 							{providerStatus.status === "signing-in" && activeMethod !== "device" ? (
 								<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-									<p style={bodyStyle}>{t("pasteCodeHint")}</p>
+									<p style={bodyStyle}>{t(activeMethod === "browser" ? "pasteBrowserCodeHint" : "pasteCodeHint")}</p>
 									<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 										<input
 											style={{ ...inputStyle, flex: "1 1 360px" }}
@@ -1537,6 +1578,64 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 								);
 							})}
 						</ul>
+						<div style={nestedStyle}>
+							<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("capabilityLimitsTitle")}</h4>
+							<p style={hintStyle}>{t("capabilityLimitsHint")}</p>
+							<ul style={listStyle}>
+								{CAPABILITY_LIMITS.map((item) => {
+									const displayValue = capabilities.value[item.key] / item.scale;
+									const inputId = `cap-limit-${item.key}`;
+									return (
+										<li key={item.key} style={rowStyle}>
+											<label htmlFor={inputId} style={{ ...bodyStyle, flex: "1 1 360px" }}>
+												<span style={{ display: "block", color: "var(--dsw-alias-label-primary)" }}>
+													{t(item.label)}
+												</span>
+												<span id={`${inputId}-hint`} style={{ display: "block", ...hintStyle }}>
+													{t(item.hint)}
+												</span>
+											</label>
+											<input
+												key={`${item.key}-${String(capabilities.revision)}-${String(displayValue)}`}
+												id={inputId}
+												type="number"
+												inputMode="numeric"
+												min={item.min}
+												max={item.max}
+												step={1}
+												defaultValue={displayValue}
+												disabled={capabilitiesBusy || !capabilities.writable}
+												aria-describedby={`${inputId}-hint`}
+												style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
+												onInput={(event) => event.currentTarget.setCustomValidity("")}
+												onKeyDown={(event) => {
+													if (event.key === "Enter") event.currentTarget.blur();
+													if (event.key === "Escape") {
+														event.currentTarget.value = String(displayValue);
+														event.currentTarget.setCustomValidity("");
+													}
+												}}
+												onBlur={(event) => {
+													const target = event.currentTarget;
+													const next = Number(target.value);
+													if (!Number.isInteger(next) || next < item.min || next > item.max) {
+														target.setCustomValidity(t("capabilityLimitInvalid", { min: item.min, max: item.max }));
+														target.reportValidity();
+														return;
+													}
+													target.setCustomValidity("");
+													const apiValue = next * item.scale;
+													if (apiValue === capabilities.value[item.key]) return;
+													void patchCapability(item.key, apiValue).then((saved) => {
+														if (!saved && target.isConnected) target.value = String(displayValue);
+													});
+												}}
+											/>
+										</li>
+									);
+								})}
+							</ul>
+						</div>
 					</fieldset>
 				)}
 			</section>
@@ -1665,9 +1764,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						</div>
 					</div>
 					<p style={bodyStyle}>{t("antigravityCliHint")}</p>
-					<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>
-						pnpm --dir ~/.dsh/profiles/web exec dsh-agy login --headless
-					</code>
+					<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>
 				</div>
 			)}
 		</section>

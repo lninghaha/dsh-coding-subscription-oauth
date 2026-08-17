@@ -131,6 +131,26 @@ describe("createCodexSearchProvider", () => {
 		expect(new Headers(init.headers).get("chatgpt-account-id")).toBe("acct-search");
 	});
 
+	it("resolves the visible model at call time after catalog or login changes", async () => {
+		const fetchImpl = mockFetch(async () => jsonResponse(200, { output: "ok", results: [] }));
+		let model = "";
+		const provider = createCodexSearchProvider({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-live-model") }),
+				invalidate: async () => {},
+			},
+			fetchImpl,
+			model: () => model,
+			resolveRequestId: () => "req-live",
+		});
+		expect(provider.available()).toBe(false);
+		model = "gpt-5.4-live";
+		expect(provider.available()).toBe(true);
+		await provider.search({ query: "dsh" });
+		const [, init = {}] = fetchImpl.mock.calls[0] ?? [];
+		expect(JSON.parse(String(init.body))).toMatchObject({ model: "gpt-5.4-live" });
+	});
+
 	it("rejects an empty query without calling the network", async () => {
 		const fetchImpl = mockFetch();
 		const provider = createCodexSearchProvider({

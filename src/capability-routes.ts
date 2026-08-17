@@ -7,7 +7,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
-	CAPABILITY_SETTINGS_KEYS,
+	assertCapabilitySettingsPatch,
 	type CapabilitySettings,
 	type CapabilitySettingsPatch,
 	type CapabilitySettingsSnapshot,
@@ -23,10 +23,6 @@ import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 export const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
 export const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
 export const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
-
-const SECRET_KEY = /secret|token|password|passphrase|apikey|api_key|authorization|credential|cookie|private[_-]?key/iu;
-const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-const KNOWN_KEYS = new Set<string>(CAPABILITY_SETTINGS_KEYS);
 
 /** Structural `ctx.webServer` + `ctx.effect` surface used by the registrar. */
 export interface CapabilityRouteContext {
@@ -200,18 +196,12 @@ function readWriteEnvelope(
 	return { expectedRevision, payload };
 }
 
-/**
- * Admit a wire section: reject unknown and secret-shaped keys first, then run
- * {@link normalizeCapabilitySettingsPatch} so only secret-free known fields remain.
- */
+/** Admit a wire section without silently coercing, truncating, or clamping it. */
 function admitCapabilitySection(input: Record<string, unknown>, label: string): CapabilitySettingsPatch {
-	for (const key of Object.keys(input)) {
-		if (RESERVED_KEYS.has(key) || SECRET_KEY.test(key)) {
-			throw new CapabilityRouteRequestError(400, `${label} must be secret-free (rejected key ${key})`);
-		}
-		if (!KNOWN_KEYS.has(key)) {
-			throw new CapabilityRouteRequestError(400, `${label} contains unknown key ${key}`);
-		}
+	try {
+		assertCapabilitySettingsPatch(input, label);
+	} catch (error) {
+		throw new CapabilityRouteRequestError(400, safeMessage(error));
 	}
 	return normalizeCapabilitySettingsPatch(input);
 }

@@ -143,15 +143,41 @@ describe("MediaStore", () => {
 		});
 	});
 
-	it("applies live retention changes only to future artifacts and keeps hard clamps", async () => {
+	it("shortens existing retention live without resurrecting it, while raises affect only new artifacts", async () => {
 		const store = await tempStore({ retentionMs: 100 });
 		const first = await store.save({ data: sampleVideo("first"), mediaType: "video/mp4" });
-		expect(store.setRetentionMs(20)).toBe(20);
+		clock += 10;
+		await expect(store.applyRetentionMs(20)).resolves.toEqual({ expiredArtifacts: 0, removedObjects: 0 });
+		expect(await store.lookup(first.artifactId)).toMatchObject({ expiresAt: first.createdAt + 20 });
+
+		await store.applyRetentionMs(200);
+		expect(await store.lookup(first.artifactId)).toMatchObject({ expiresAt: first.createdAt + 20 });
 		const second = await store.save({ data: sampleVideo("second"), mediaType: "video/mp4" });
-		expect(first.expiresAt - first.createdAt).toBe(100);
-		expect(second.expiresAt - second.createdAt).toBe(20);
-		expect(store.setRetentionMs(MEDIA_STORE_RETENTION_MS * 2)).toBe(MEDIA_STORE_RETENTION_MS);
-		expect(() => store.setRetentionMs(0)).toThrow(/positive finite/iu);
+		expect(second.expiresAt - second.createdAt).toBe(200);
+
+		clock += 11;
+		expect(await store.lookup(first.artifactId)).toBeUndefined();
+		expect(await store.lookup(second.artifactId)).toMatchObject({ artifactId: second.artifactId });
+		await store.applyRetentionMs(MEDIA_STORE_RETENTION_MS * 2);
+		expect(store.retentionMs).toBe(MEDIA_STORE_RETENTION_MS);
+		await expect(store.applyRetentionMs(0)).rejects.toThrow(/positive finite/iu);
+	});
+
+	it("immediately deletes artifacts made stale by a lower live retention ceiling", async () => {
+		const store = await tempStore({ retentionMs: 100 });
+		const meta = await store.save({ data: sampleVideo("retention-expired"), mediaType: "video/webm" });
+		clock += 50;
+		await expect(store.applyRetentionMs(20)).resolves.toEqual({ expiredArtifacts: 1, removedObjects: 1 });
+		expect(await store.lookup(meta.artifactId)).toBeUndefined();
+	});
+
+	it("reconciles persisted expiries on the first equal retention update after startup", async () => {
+		const original = await tempStore({ retentionMs: 100 });
+		const meta = await original.save({ data: sampleVideo("retention-restart"), mediaType: "video/mp4" });
+		clock += 50;
+		const restarted = new MediaStore(original.root, { now: () => clock, retentionMs: 20 });
+		await expect(restarted.applyRetentionMs(20)).resolves.toEqual({ expiredArtifacts: 1, removedObjects: 1 });
+		expect(await restarted.lookup(meta.artifactId)).toBeUndefined();
 	});
 
 	it("treats expired and unknown ids as missing and refuses path-shaped lookups", async () => {
@@ -313,5 +339,43 @@ describe("MediaStore", () => {
 		expect(await store.lookup(meta.artifactId)).toBeUndefined();
 		await expect(store.read(meta.artifactId)).rejects.toMatchObject({ code: "NOT_FOUND" });
 		expect(await readFile(outside, "utf8")).toBe('{"version":1}');
+	});
+});
+
+describe("Content-Disposition filename sanitization", () => {
+	it("emits a plain ASCII filename parameter for safe artifact ids", async () => {
+		const store = await tempStore();
+		const meta = await store.save({ data: sampleVideo("fname"), mediaType: "video/mp4" });
+		const { mediaDownloadHeaders } = await import("../src/media-store.ts");
+		const headers = mediaDownloadHeaders(meta);
+		expect(headers["Content-Disposition"]).toBe(`attachment; filename="imagine-${meta.artifactId}.mp4"`);
+		expect(headers["Content-Type"]).toBe("video/mp4");
+		expect(headers["Cache-Control"]).toContain("no-store");
+		expect(headers["X-Content-Type-Options"]).toBe("nosniff");
+	});
+
+	it("uses an ASCII fallback plus RFC 5987 for a requested Unicode or header-shaped name", async () => {
+		const store = await tempStore();
+		const meta = await store.save({
+			data: sampleVideo("unsafe-name"),
+			mediaType: "video/webm",
+			name: '录屏";evil.webm',
+		});
+		const { mediaDownloadHeaders } = await import("../src/media-store.ts");
+		const header = mediaDownloadHeaders(meta)["Content-Disposition"];
+		expect(header).toMatch(/^attachment; filename="evil\.webm"; filename\*=UTF-8''/u);
+		expect(header).toContain("%22%3B");
+		expect(header).not.toContain("录屏");
+		expect(header).not.toContain("\r");
+		expect(header).not.toContain("\n");
+
+		const unicodeOnly = await store.save({
+			data: sampleVideo("unicode-name"),
+			mediaType: "video/mp4",
+			name: "视频",
+		});
+		const unicodeHeader = mediaDownloadHeaders(unicodeOnly)["Content-Disposition"];
+		expect(unicodeHeader).toContain(`filename="imagine-${unicodeOnly.artifactId}.mp4"`);
+		expect(unicodeHeader).toContain("filename*=UTF-8''");
 	});
 });

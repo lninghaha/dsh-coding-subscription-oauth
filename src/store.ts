@@ -73,6 +73,15 @@ function cloneCredential(credential: OAuthCredential): OAuthCredential {
 
 /** Resolve one private OAuth document path beneath DSH_HOME. */
 export function oauthCredentialPath(basename: string, dshHome?: string): string {
+	if (
+		basename.length === 0 ||
+		basename.length > 128 ||
+		basename === "." ||
+		basename === ".." ||
+		!/^\.?[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(basename)
+	) {
+		throw new TypeError("OAuth credential basename must be a safe local filename");
+	}
 	return resolve(join(resolveDshHome(dshHome), basename));
 }
 

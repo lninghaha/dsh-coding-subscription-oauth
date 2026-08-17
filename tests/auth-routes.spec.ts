@@ -16,8 +16,10 @@ import {
 	registerCodingOAuthRoutes,
 	registerGrokBuildAuthRoutes,
 } from "../src/auth-routes.ts";
+import { OAUTH_PROVIDER_DEFINITIONS } from "../src/oauth-providers.ts";
+import { OAuthProviderSession } from "../src/oauth-session.ts";
 import { GrokBuildSession } from "../src/session.ts";
-import { GrokBuildCredentialStore } from "../src/store.ts";
+import { GrokBuildCredentialStore, OAuthCredentialFileStore } from "../src/store.ts";
 
 interface RegisteredRoute {
 	path: string;
@@ -39,10 +41,10 @@ class TestResponse {
 	}
 }
 
-function request(body: string, headers: IncomingMessage["headers"] = {}): IncomingMessage {
+function request(body: string, headers: IncomingMessage["headers"] = {}, method = "POST"): IncomingMessage {
 	const stream = Readable.from([body]) as unknown as IncomingMessage;
 	Object.defineProperties(stream, {
-		method: { value: "POST", configurable: true },
+		method: { value: method, configurable: true },
 		headers: { value: { host: "127.0.0.1:3080", ...headers }, configurable: true },
 		socket: { value: { remoteAddress: "127.0.0.1" }, configurable: true },
 	});
@@ -83,6 +85,47 @@ async function loginHandler(): Promise<RegisteredRoute["handler"]> {
 	return handler;
 }
 
+async function codingStatusHandler(
+	listProviders: () => readonly { id: string }[],
+): Promise<RegisteredRoute["handler"]> {
+	const directory = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-status-"));
+	temporaryDirectories.push(directory);
+	const routes = new Map<string, RegisteredRoute["handler"]>();
+	const context = {
+		webServer: {
+			register(route: RegisteredRoute) {
+				routes.set(route.path, route.handler);
+				return () => routes.delete(route.path);
+			},
+		},
+		llm: { listProviders },
+		effect(setup: () => void | (() => void | Promise<void>)) {
+			setup();
+		},
+	} as unknown as Context;
+	const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+		(definition) =>
+			new OAuthProviderSession(
+				definition,
+				undefined,
+				new OAuthCredentialFileStore(
+					definition.nativeProviderId,
+					join(directory, definition.authFilename),
+					definition.route,
+				),
+				join(directory, definition.modelsCacheFilename),
+			),
+	);
+	registerCodingOAuthRoutes(
+		context,
+		new GrokBuildSession(new GrokBuildCredentialStore(join(directory, "grok-auth.json"))),
+		subscriptions,
+	);
+	const handler = routes.get(CODING_OAUTH_STATUS_PATH);
+	if (handler === undefined) throw new Error("status route was not registered");
+	return handler;
+}
+
 describe("Coding OAuth HTTP body guards", () => {
 	it("returns 400 for malformed JSON instead of a generic route failure", async () => {
 		const handler = await loginHandler();
@@ -105,6 +148,39 @@ describe("Coding OAuth HTTP body guards", () => {
 		const response = new TestResponse();
 		await handler(request("{}", { "sec-fetch-site": "cross-site" }), response as unknown as ServerResponse);
 		expect(response.status).toBe(403);
+	});
+});
+
+describe("Coding OAuth Antigravity status", () => {
+	for (const [label, providers, installed] of [
+		["installed", [{ id: "agy" }], true],
+		["absent", [{ id: "codex-oauth" }], false],
+	] as const) {
+		it(`reports Antigravity as ${label}`, async () => {
+			const handler = await codingStatusHandler(() => providers);
+			const response = new TestResponse();
+			await handler(request("", {}, "GET"), response as unknown as ServerResponse);
+			expect(response.status).toBe(200);
+			expect(JSON.parse(response.body).antigravity).toEqual({
+				installed,
+				route: "agy",
+				management: "cli",
+			});
+		});
+	}
+
+	it("contains adapter-list failures and keeps the account cards usable", async () => {
+		const handler = await codingStatusHandler(() => {
+			throw new Error("unrelated adapter registry failure");
+		});
+		const response = new TestResponse();
+		await handler(request("", {}, "GET"), response as unknown as ServerResponse);
+		expect(response.status).toBe(200);
+		expect(JSON.parse(response.body).antigravity).toEqual({
+			installed: false,
+			route: "agy",
+			management: "cli",
+		});
 	});
 });
 

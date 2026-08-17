@@ -32,6 +32,38 @@ const PREVIEW_ID_BYTES = 18;
 const HMAC_KEY_BYTES = 32;
 const OPENAI_AUTH_CLAIM = "https://api.openai.com/auth";
 
+/** Approved Grok OIDC issuer host. Only documents scoped to this exact host are accepted. */
+const APPROVED_GROK_ISSUER_HOST = "auth.x.ai";
+const APPROVED_GROK_ISSUER_ORIGIN = `https://${APPROVED_GROK_ISSUER_HOST}`;
+
+/** True when `value` is a host or origin that exactly names the approved Grok issuer. */
+function isApprovedGrokIssuerValue(value: string): boolean {
+	if (value === APPROVED_GROK_ISSUER_HOST || value === APPROVED_GROK_ISSUER_ORIGIN) return true;
+	// Scope-map keys follow the `<origin>::<clientId>` convention. Accept the
+	// prefix so `https://auth.x.ai::b1a00492-…` matches even though it is not a
+	// parseable URL.
+	if (value.startsWith(`${APPROVED_GROK_ISSUER_ORIGIN}::`)) {
+		const clientId = value.slice(APPROVED_GROK_ISSUER_ORIGIN.length + 2);
+		return /^[A-Za-z0-9._-]{1,128}$/u.test(clientId);
+	}
+	try {
+		const parsed = new URL(value);
+		if (parsed.origin !== APPROVED_GROK_ISSUER_ORIGIN) return false;
+		if (
+			parsed.username !== "" ||
+			parsed.password !== "" ||
+			parsed.pathname !== "/" ||
+			parsed.search !== "" ||
+			parsed.hash !== ""
+		) {
+			return false;
+		}
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export type OAuthSourceKind = CodingOAuthProviderSlug;
 
 export const OAUTH_SOURCE_KINDS = ["grok", "codex", "kimi", "claude"] as const satisfies readonly OAuthSourceKind[];
@@ -802,8 +834,10 @@ function grokOidcEntry(record: Record<string, unknown>, mapKey?: string): OAuthS
 	const refresh = nonEmptyString(record["refresh_token"]);
 	if (access === undefined || refresh === undefined) return undefined;
 	const issuer = nonEmptyString(record["oidc_issuer"]) ?? "";
-	const matchesIssuer = issuer.includes("auth.x.ai");
-	const matchesKey = mapKey?.includes("auth.x.ai") ?? false;
+	// Exact normalized origin/host match. Substring checks accept
+	// `auth.x.ai.evil.example` and similar spoofs and were replaced.
+	const matchesIssuer = issuer !== "" && isApprovedGrokIssuerValue(issuer);
+	const matchesKey = mapKey !== undefined && isApprovedGrokIssuerValue(mapKey);
 	if (!matchesIssuer && !matchesKey) return undefined;
 	const expiresAt = nonEmptyString(record["expires_at"]);
 	if (expiresAt === undefined) return undefined;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	assertCapabilitySettingsPatch,
 	CAPABILITY_SETTINGS_BOUNDS,
 	CAPABILITY_SETTINGS_NAMESPACE,
 	CAPABILITY_SETTINGS_SCHEMA_JSON,
@@ -196,6 +197,15 @@ describe("capability settings schema", () => {
 		expect(CapabilitySettingsSchema.toJSON()).toEqual(CAPABILITY_SETTINGS_SCHEMA_JSON);
 	});
 
+	it("strictly rejects caller-authored invalid patches instead of silently normalizing them", () => {
+		expect(() => assertCapabilitySettingsPatch({ codexSearch: "yes" }, "patch")).toThrow(/must be a boolean/);
+		expect(() => assertCapabilitySettingsPatch({ searchResults: 2.5 }, "patch")).toThrow(/must be an integer/);
+		expect(() => assertCapabilitySettingsPatch({ searchResults: 21 }, "patch")).toThrow(/must be in/);
+		expect(() => assertCapabilitySettingsPatch({ unexpected: true }, "patch")).toThrow(/unknown key/);
+		expect(() => assertCapabilitySettingsPatch({ apiKey: "not-admitted" }, "patch")).toThrow(/secret-free/);
+		expect(() => assertCapabilitySettingsPatch({ searchResults: 20, imageCount: 4 }, "patch")).not.toThrow();
+	});
+
 	it("layers YAML/default base under the user section", () => {
 		expect(
 			resolveCapabilitySettings({ searchResults: 3, codexSearch: true }, { searchResults: 7, grokImagineImage: true }),
@@ -280,6 +290,37 @@ describe("CapabilitySettingsController with a fake provider", () => {
 		expect(next.secrets).toEqual([]);
 	});
 
+	it("rejects invalid writes before they can reach the settings provider", async () => {
+		const settings = new FakeSettingsService();
+		const controller = createCapabilitySettingsController({ settings });
+		const revision = controller.snapshot().revision;
+
+		await expect(
+			controller.patch({ codexSearch: "yes" } as unknown as CapabilitySettingsPatch, revision),
+		).rejects.toThrow(/must be a boolean/);
+		await expect(controller.patch({ searchResults: 2.5 }, revision)).rejects.toThrow(/must be an integer/);
+		await expect(controller.patch({ imageCount: 5 }, revision)).rejects.toThrow(/must be in/);
+		await expect(
+			controller.replace({ unexpected: true } as unknown as CapabilitySettingsPatch, revision),
+		).rejects.toThrow(/unknown key/);
+		expect(controller.snapshot()).toMatchObject({ revision, value: DEFAULT_CAPABILITY_SETTINGS });
+	});
+
+	it("treats an empty PATCH as a revision-checked no-op", async () => {
+		const settings = new FakeSettingsService();
+		const controller = createCapabilitySettingsController({ settings });
+		const initial = controller.snapshot();
+		const unchanged = await controller.patch({}, initial.revision);
+		expect(unchanged).toEqual(initial);
+		expect(controller.snapshot().revision).toBe(initial.revision);
+		await controller.patch({ codexFast: true }, initial.revision);
+		await expect(controller.patch({}, initial.revision)).rejects.toMatchObject({
+			code: "SETTINGS_CONFLICT",
+			expected: initial.revision,
+			actual: initial.revision + 1,
+		});
+	});
+
 	it("refuses a stale PATCH and wraps a provider SETTINGS_CONFLICT", async () => {
 		const settings = new FakeSettingsService();
 		const controller = createCapabilitySettingsController({ settings });
@@ -337,6 +378,23 @@ describe("CapabilitySettingsController with a fake provider", () => {
 		expect(seen).toEqual([afterWrite.revision, reconciled.revision]);
 	});
 
+	it("contains asynchronous listener failures and reports them", async () => {
+		const settings = new FakeSettingsService();
+		const failures: unknown[] = [];
+		const controller = createCapabilitySettingsController({
+			settings,
+			onListenerError: (error) => failures.push(error),
+		});
+		const failure = new Error("async observer failed");
+		controller.subscribe(async () => {
+			throw failure;
+		});
+		const next = await controller.patch({ codexSearch: true }, 0);
+		expect(next.value.codexSearch).toBe(true);
+		await Promise.resolve();
+		expect(failures).toEqual([failure]);
+	});
+
 	it("stays read-only when the injected provider is not writable", async () => {
 		const settings = new FakeSettingsService(false, { grokImagineImage: true });
 		const controller = createCapabilitySettingsController({
@@ -353,6 +411,33 @@ describe("CapabilitySettingsController with a fake provider", () => {
 			reason: "read-only",
 		});
 		expect(isCapabilitySettingsReadOnlyError(new CapabilitySettingsReadOnlyError("read-only"))).toBe(true);
+	});
+
+	it("contains a throwing scope disposer and still finishes disposal idempotently", async () => {
+		const failure = new Error("watch disposer failed");
+		const failures: unknown[] = [];
+		const scope: CapabilitySettingsScope = {
+			get: () => ({}),
+			watch: () => () => {
+				throw failure;
+			},
+			update: async () => undefined,
+			replace: async () => undefined,
+		};
+		const settings: CapabilitySettingsService = {
+			writable: true,
+			register: () => scope,
+		};
+		const controller = createCapabilitySettingsController({
+			settings,
+			onListenerError: (error) => failures.push(error),
+		});
+		expect(() => controller.dispose()).not.toThrow();
+		expect(() => controller.dispose()).not.toThrow();
+		expect(failures).toEqual([failure]);
+		await expect(controller.patch({ codexSearch: true }, 0)).rejects.toMatchObject({
+			code: "SETTINGS_DISPOSED",
+		});
 	});
 
 	it("fails writes after dispose and never leaks provider secret slots", async () => {

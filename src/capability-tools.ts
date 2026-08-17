@@ -13,6 +13,7 @@ import type { CodexAuthSession } from "./codex-http.ts";
 import {
 	CODEX_IMAGE_BACKGROUNDS,
 	CODEX_IMAGE_MODEL,
+	CODEX_IMAGE_PROMPT_MAX_LENGTH,
 	CODEX_IMAGE_QUALITIES,
 	CODEX_IMAGE_SIZES,
 	type CodexImageAttachmentStore,
@@ -35,6 +36,7 @@ import {
 	type GrokImagineClient,
 	IMAGINE_IMAGE_ASPECT_RATIOS,
 	IMAGINE_IMAGE_RESOLUTIONS,
+	IMAGINE_PROMPT_MAX_LENGTH,
 	IMAGINE_VIDEO_ASPECT_RATIOS,
 	IMAGINE_VIDEO_MAX_DURATION_SECONDS,
 	IMAGINE_VIDEO_MIN_DURATION_SECONDS,
@@ -47,6 +49,7 @@ import {
 	type ImagineVideoStartResult,
 	type ImagineVideoStatusResult,
 	imagineImagePath,
+	parseVideoRequestId,
 	type StartImagineVideoInput,
 } from "./grok-imagine.ts";
 import { imagineMediaPath, type MediaArtifactMeta } from "./media-store.ts";
@@ -134,6 +137,22 @@ const attachmentRefSchema = {
 		height: { type: "integer" as const, required: true as const },
 		name: { type: "string" as const },
 	},
+};
+
+/**
+ * Shared schema fragment for the Imagine video `requestId`. The host value
+ * schema DSL cannot express string patterns, so execute-time validation keeps
+ * the authoritative `^[A-Za-z0-9_-]{1,256}$` boundary.
+ */
+const videoRequestIdSchema = {
+	type: "string" as const,
+	required: true as const,
+};
+
+/** Shared prompt fragment; execute-time clients reject empty/oversized input. */
+const promptParameter = {
+	type: "string" as const,
+	required: true as const,
 };
 
 const warningSchema = {
@@ -383,7 +402,10 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 		description:
 			"Generate images with the signed-in Codex subscription. Uses the fixed gpt-image-2 model. Does not accept a model id or image URL.",
 		parameters: {
-			prompt: { type: "string", required: true, description: "Image generation prompt." },
+			prompt: {
+				...promptParameter,
+				description: `Image generation prompt (1-${String(CODEX_IMAGE_PROMPT_MAX_LENGTH)} characters).`,
+			},
 			n: {
 				type: "integer",
 				enum: [...IMAGE_COUNT_VALUES],
@@ -435,12 +457,15 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 		description:
 			"Edit current-session Codex images. imageIds must be canonical attachment ids visible in this session. Does not accept HTTP(S) URLs or a model id.",
 		parameters: {
-			prompt: { type: "string", required: true, description: "Edit instructions." },
+			prompt: {
+				...promptParameter,
+				description: `Edit instructions (1-${String(CODEX_IMAGE_PROMPT_MAX_LENGTH)} characters).`,
+			},
 			imageIds: {
 				type: "array",
 				required: true,
 				items: { type: "string" },
-				description: "Current-session image attachment ids (optionally image:<id>). URLs are rejected.",
+				description: "One to five current-session image attachment ids (optionally image:<id>). URLs are rejected.",
 			},
 			n: {
 				type: "integer",
@@ -494,7 +519,10 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 		description:
 			"Generate images with official xAI Imagine. Uses the fixed grok-imagine-image-2.0 model. Does not accept a model id or source URL.",
 		parameters: {
-			prompt: { type: "string", required: true, description: "Image generation prompt." },
+			prompt: {
+				...promptParameter,
+				description: `Image generation prompt (1-${String(IMAGINE_PROMPT_MAX_LENGTH)} characters).`,
+			},
 			n: {
 				type: "integer",
 				enum: [...IMAGE_COUNT_VALUES],
@@ -528,7 +556,7 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 					value.images.map((image) => image.attachment),
 				),
 		},
-		async execute(args) {
+		async execute(args, exec) {
 			const settings = options.current();
 			if (!settings.grokImagineImage) disabled(GROK_IMAGINE_IMAGE_TOOL);
 			const input: GenerateImagineImageInput = {
@@ -537,7 +565,7 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 				...(args.aspectRatio === undefined ? {} : { aspectRatio: args.aspectRatio as ImagineImageAspectRatio }),
 				...(args.resolution === undefined ? {} : { resolution: args.resolution as ImagineImageResolution }),
 			};
-			return publicImagineImageResult(await options.imagine.generateImage(input));
+			return publicImagineImageResult(await options.imagine.generateImage(input, exec.signal));
 		},
 	});
 
@@ -546,7 +574,10 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 		description:
 			"Start an official xAI Imagine video job. Uses the fixed grok-imagine-video-1.5 model. Poll status with grok_imagine_video_status and the returned requestId.",
 		parameters: {
-			prompt: { type: "string", required: true, description: "Video generation prompt." },
+			prompt: {
+				...promptParameter,
+				description: `Video generation prompt (1-${String(IMAGINE_PROMPT_MAX_LENGTH)} characters).`,
+			},
 			duration: {
 				type: "integer",
 				enum: [...VIDEO_DURATION_VALUES],
@@ -569,13 +600,13 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 				additionalProperties: false,
 				properties: {
 					model: { type: "string", required: true },
-					requestId: { type: "string", required: true },
+					requestId: { ...videoRequestIdSchema },
 					status: { type: "string", required: true, enum: ["pending"] },
 				},
 			},
 			render: (_args, value) => [{ type: "text", text: `Imagine video job ${value.requestId} is ${value.status}.` }],
 		},
-		async execute(args) {
+		async execute(args, exec) {
 			const settings = options.current();
 			if (!settings.grokImagineVideo) disabled(GROK_IMAGINE_VIDEO_TOOL);
 			const input: StartImagineVideoInput = {
@@ -584,7 +615,7 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 				...(args.aspectRatio === undefined ? {} : { aspectRatio: args.aspectRatio as ImagineVideoAspectRatio }),
 				...(args.resolution === undefined ? {} : { resolution: args.resolution as ImagineVideoResolution }),
 			};
-			return publicVideoStart(await options.imagine.startVideo(input));
+			return publicVideoStart(await options.imagine.startVideo(input, exec.signal));
 		},
 	});
 
@@ -593,14 +624,14 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 		description:
 			"Poll a previously started Imagine video job by requestId. Completed results expose only an opaque artifact id and same-origin path.",
 		parameters: {
-			requestId: { type: "string", required: true, description: "Opaque request id returned by grok_imagine_video." },
+			requestId: { ...videoRequestIdSchema, description: "Opaque request id returned by grok_imagine_video." },
 		},
 		output: {
 			schema: {
 				type: "object",
 				additionalProperties: false,
 				properties: {
-					requestId: { type: "string", required: true },
+					requestId: { ...videoRequestIdSchema },
 					status: { type: "string", required: true, enum: ["pending", "completed", "failed"] },
 					artifact: artifactSchema,
 					path: { type: "string" },
@@ -615,10 +646,11 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 				return [{ type: "text", text: detail }];
 			},
 		},
-		async execute(args) {
+		async execute(args, exec) {
 			const settings = options.current();
 			if (!settings.grokImagineVideo) disabled(GROK_IMAGINE_VIDEO_STATUS_TOOL);
-			return publicVideoStatus(await options.imagine.videoStatus(args.requestId));
+			const requestId = parseVideoRequestId(args.requestId);
+			return publicVideoStatus(await options.imagine.videoStatus(requestId, { signal: exec.signal }));
 		},
 	});
 

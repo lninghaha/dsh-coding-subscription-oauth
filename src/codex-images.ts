@@ -30,6 +30,7 @@ export const CODEX_IMAGE_MODEL = "gpt-image-2";
 export const CODEX_IMAGE_AUTO = "auto";
 export const CODEX_IMAGE_RESPONSE_FORMAT = "b64_json";
 export const CODEX_IMAGE_MAX_REFERENCES = 5;
+export const CODEX_IMAGE_PROMPT_MAX_LENGTH = 4000;
 
 export const CODEX_IMAGE_CAPABLE_PROVIDERS = ["codex-oauth", "openai-codex", "codex-oauth-fast"] as const;
 export type CodexImageCapableProvider = (typeof CODEX_IMAGE_CAPABLE_PROVIDERS)[number];
@@ -304,6 +305,12 @@ async function prepareRequest(
 	const prompt = input.prompt.trim();
 	if (prompt.length === 0) {
 		throw new LlmError("Codex image generation requires a non-empty prompt", "INVALID_ARGS");
+	}
+	if (prompt.length > CODEX_IMAGE_PROMPT_MAX_LENGTH) {
+		throw new LlmError(
+			`Codex image prompt must be ${String(CODEX_IMAGE_PROMPT_MAX_LENGTH)} characters or fewer`,
+			"INVALID_ARGS",
+		);
 	}
 	const n = input.n === undefined ? 1 : input.n;
 	if (!Number.isSafeInteger(n) || n < 1 || n > MAX_GENERATED) {

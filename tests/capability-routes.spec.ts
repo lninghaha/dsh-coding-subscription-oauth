@@ -340,6 +340,22 @@ describe("capability route validation", () => {
 		expect(JSON.stringify(secret.body)).not.toContain("sk-secret");
 	});
 
+	it("rejects invalid types, fractional limits, and out-of-range limits", async () => {
+		const { controller, routes } = createHarness();
+		const handler = routes.get(CAPABILITY_SETTINGS_PATH);
+		for (const patch of [
+			{ codexSearch: "true" },
+			{ searchResults: 1.5 },
+			{ searchResults: 21 },
+			{ imageCount: 0 },
+			{ videoArtifactTtlMs: 60_000 },
+		]) {
+			const response = await invoke(handler, request("PATCH", JSON.stringify({ expectedRevision: 0, patch })));
+			expect(response.status).toBe(400);
+		}
+		expect(controller.writes).toEqual([]);
+	});
+
 	it("rejects invalid envelopes and oversized JSON bodies", async () => {
 		const { routes } = createHarness();
 		const handler = routes.get(CAPABILITY_SETTINGS_PATH);

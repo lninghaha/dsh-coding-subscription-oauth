@@ -291,6 +291,62 @@ describe("createCodexHttpClient", () => {
 		).rejects.toMatchObject({ code: "SERVER" });
 	});
 
+	it("cancels a streaming reader when the caller aborts mid-body", async () => {
+		const cancel = vi.fn();
+		const stream = new ReadableStream<Uint8Array>({
+			start() {
+				// Leave the first read pending until the AbortSignal cancels it.
+			},
+			cancel(reason) {
+				cancel(reason);
+			},
+		});
+		const fetchImpl = mockFetch(
+			async () => new Response(stream, { status: 200, headers: { "content-type": "application/json" } }),
+		);
+		const client = createCodexHttpClient({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct") }),
+				invalidate: async () => {},
+			},
+			fetchImpl,
+		});
+		const controller = new AbortController();
+		const pending = client.requestJson({
+			url: "https://chatgpt.com/backend-api/wham/usage",
+			signal: controller.signal,
+		});
+		await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledOnce());
+		controller.abort(new Error("stop"));
+		await expect(pending).rejects.toMatchObject({ code: "TIMEOUT" });
+		expect(cancel).toHaveBeenCalledOnce();
+	});
+
+	it("enforces a per-attempt wall-clock timeout at the fetch boundary", async () => {
+		const fetchImpl = mockFetch(
+			async (_input, init) =>
+				new Promise<Response>((_resolve, reject) => {
+					const signal = init?.signal;
+					if (!(signal instanceof AbortSignal)) throw new Error("missing timeout signal");
+					const onAbort = (): void => reject(new DOMException("timed out", "AbortError"));
+					if (signal.aborted) onAbort();
+					else signal.addEventListener("abort", onAbort, { once: true });
+				}),
+		);
+		const client = createCodexHttpClient({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct") }),
+				invalidate: async () => {},
+			},
+			fetchImpl,
+			requestTimeoutMs: 5,
+		});
+		await expect(client.requestJson({ url: "https://chatgpt.com/backend-api/wham/usage" })).rejects.toMatchObject({
+			code: "TIMEOUT",
+		});
+		expect(fetchImpl).toHaveBeenCalledOnce();
+	});
+
 	it("maps 403 to QUOTA without retrying", async () => {
 		const fetchImpl = mockFetch(async () => jsonResponse(403, { error: "not entitled" }));
 		const invalidate = vi.fn(async () => {});

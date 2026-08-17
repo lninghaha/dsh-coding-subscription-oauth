@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CODEX_PI_PROVIDER, XAI_PI_PROVIDER } from "../src/ids.ts";
 import { OAUTH_SOURCE_MAX_BYTES } from "../src/oauth-sources.ts";
-import { GrokBuildCredentialStore, OAuthCredentialFileStore } from "../src/store.ts";
+import { GrokBuildCredentialStore, OAuthCredentialFileStore, oauthCredentialPath } from "../src/store.ts";
 
 const files: string[] = [];
 
@@ -18,6 +18,17 @@ async function tempStore(): Promise<GrokBuildCredentialStore> {
 	files.push(filename);
 	return new GrokBuildCredentialStore(filename);
 }
+
+describe("oauthCredentialPath", () => {
+	it("accepts only a local basename and cannot escape DSH_HOME", () => {
+		expect(oauthCredentialPath("codex-oauth.json", "/tmp/example-dsh-home")).toBe(
+			"/tmp/example-dsh-home/codex-oauth.json",
+		);
+		for (const basename of ["../outside.json", "nested/auth.json", "nested\\auth.json", ".", "..", ""]) {
+			expect(() => oauthCredentialPath(basename, "/tmp/example-dsh-home")).toThrow(/safe local filename/);
+		}
+	});
+});
 
 describe("GrokBuildCredentialStore", () => {
 	it("round-trips an oauth credential", async () => {

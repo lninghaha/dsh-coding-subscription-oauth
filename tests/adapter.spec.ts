@@ -50,8 +50,10 @@ describe("grokBuildBaselineModels", () => {
 		const grok45 = models.find((model) => model.id === "grok-4.5");
 		const grok46 = models.find((model) => model.id === "grok-4.6");
 		expect(grok45?.reasoning).toBe(true);
+		expect(grok45?.input).toEqual(["text", "image"]);
 		expect(grok45?.thinkingLevelMap?.off).toBeNull();
 		expect(grok45?.thinkingLevelMap?.xhigh).toBeNull();
+		expect(grok46?.input).toEqual(["text", "image"]);
 		expect(grok46?.thinkingLevelMap?.xhigh).toBe("xhigh");
 	});
 });
@@ -359,6 +361,64 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		await expect(fast?.options?.onPayload?.({ model: eligibleId }, { id: eligibleId })).resolves.toMatchObject({
 			service_tier: "priority",
 		});
+	});
+
+	it("uses the refreshed stored token when Kimi OAuth resolves header-only auth", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-kimi-header-auth-"));
+		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
+		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+			(definition) =>
+				new OAuthProviderSession(
+					definition,
+					undefined,
+					new OAuthCredentialFileStore(
+						definition.nativeProviderId,
+						join(dir, `${definition.slug}.json`),
+						definition.route,
+					),
+					join(dir, `${definition.slug}-models.json`),
+				),
+		);
+		const kimi = subscriptions.find((session) => session.definition.route === KIMI_CODE_OAUTH_ROUTE)!;
+		await kimi.store.modify(kimi.definition.nativeProviderId, async () => ({
+			type: "oauth",
+			access: "kimi-access",
+			refresh: "kimi-refresh",
+			expires: Date.now() + 3_600_000,
+		}));
+		vi.spyOn(kimi.models, "getAuth").mockResolvedValue({
+			auth: { headers: { Authorization: "Bearer kimi-access" } },
+			source: "OAuth",
+		});
+		const template = kimi.availableModels()[0]!;
+		const seen: Array<{ model: unknown; options?: { apiKey?: string } }> = [];
+		const real = kimi.provider();
+		vi.spyOn(kimi, "provider").mockImplementation(
+			() =>
+				({
+					...real,
+					getModels: () => [template],
+					stream: (model: unknown, _context: unknown, options?: { apiKey?: string }) => {
+						seen.push({ model, ...(options === undefined ? {} : { options }) });
+						throw new Error("fixture-stop");
+					},
+					streamSimple: (model: unknown, _context: unknown, options?: { apiKey?: string }) => {
+						seen.push({ model, ...(options === undefined ? {} : { options }) });
+						throw new Error("fixture-stop");
+					},
+				}) as unknown as typeof real,
+		);
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined);
+		for await (const _chunk of adapter.stream({
+			provider: KIMI_CODE_OAUTH_ROUTE,
+			model: template.id,
+			messages: [],
+		} as never)) {
+			// Drain the fixture error event emitted after auth resolution.
+		}
+		expect(kimi.models.getAuth).toHaveBeenCalledWith(kimi.definition.nativeProviderId);
+		expect(seen).toHaveLength(1);
+		expect(seen[0]?.options?.apiKey).toBe("kimi-access");
 	});
 
 	it("maps a failed token refresh to MISSING_CREDENTIAL instead of a bare 401", async () => {

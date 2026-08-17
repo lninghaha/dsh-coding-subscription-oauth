@@ -24,6 +24,9 @@ import {
 	GROK_IMAGINE_VIDEO_MODEL,
 	GROK_IMAGINE_VIDEO_STATUS_TOOL,
 	GROK_IMAGINE_VIDEO_TOOL,
+	IMAGINE_IMAGE_IDS_MAX,
+	IMAGINE_IMAGE_IDS_MIN,
+	IMAGINE_PROMPT_MAX_LENGTH,
 	type ImagineImageAttachmentRef,
 	type ImagineImageResult,
 	type ImagineVideoStartResult,
@@ -692,5 +695,65 @@ describe("Codex image route resolution", () => {
 			inputModalities: ["image"],
 		});
 		expect(edit).toHaveBeenCalledWith(expect.objectContaining({ imageIds: ["owned"] }), expect.any(AbortSignal));
+	});
+});
+
+describe("Imagine tool signal threading", () => {
+	it("forwards exec.signal into every Imagine client method", async () => {
+		const captured: Array<AbortSignal | undefined> = [];
+		const fakeImagineClient: CapabilityImagineClient = {
+			generateImage: vi.fn(async (_input, signal) => {
+				captured.push(signal);
+				return leakyImagineImage();
+			}),
+			startVideo: vi.fn(async (_input, signal) => {
+				captured.push(signal);
+				return leakyVideoStart();
+			}),
+			videoStatus: vi.fn(async (_requestId, options) => {
+				captured.push(options?.signal);
+				return leakyVideoStatus();
+			}),
+		};
+		const tools = await createCapabilityTools({
+			current: () => enabledSettings(),
+			auth: fakeAuth(),
+			attachments: fakeAttachments(),
+			imagine: fakeImagineClient,
+		});
+		const controller = new AbortController();
+		const exec = {
+			...fakeExec({ signal: controller.signal }),
+		};
+		await toolByName(tools, "grok_imagine_image").execute({ prompt: "x" }, exec);
+		await toolByName(tools, "grok_imagine_video").execute({ prompt: "x" }, exec);
+		await toolByName(tools, "grok_imagine_video_status").execute({ requestId: "req_video_1" }, exec);
+		expect(captured).toHaveLength(3);
+		expect(captured.every((s) => s === controller.signal)).toBe(true);
+	});
+
+	it("rejects video status before the client sees a non-conforming requestId", async () => {
+		const imagineVideoStatus = vi.fn(async () => leakyVideoStatus());
+		const tools = await createCapabilityTools({
+			current: () => enabledSettings(),
+			auth: fakeAuth(),
+			attachments: fakeAttachments(),
+			imagine: fakeImagine({ videoStatus: imagineVideoStatus }),
+		});
+		await expect(
+			toolByName(tools, "grok_imagine_video_status").execute({ requestId: "../escape" }, fakeExec()),
+		).rejects.toMatchObject({ message: expect.stringMatching(/safe ASCII identifier/) });
+		expect(imagineVideoStatus).not.toHaveBeenCalled();
+	});
+});
+
+describe("runtime capability bounds", () => {
+	it("pins the prompt-length and imageIds limits enforced before upstream calls", () => {
+		// The host value-schema DSL does not support length constraints, so the
+		// client/runtime validators are authoritative and these constants keep
+		// their documented limits from drifting accidentally.
+		expect(IMAGINE_PROMPT_MAX_LENGTH).toBe(4000);
+		expect(IMAGINE_IMAGE_IDS_MIN).toBe(1);
+		expect(IMAGINE_IMAGE_IDS_MAX).toBe(5);
 	});
 });

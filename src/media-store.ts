@@ -9,6 +9,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { chmod, link, lstat, mkdir, open, readdir, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
 
 /** Hard ceiling for one artifact and for aggregate stored object bytes. */
 export const MEDIA_STORE_MAX_BYTES = 256 * 1024 * 1024;
@@ -167,6 +168,56 @@ function sanitizeDisplayName(value: string | undefined): string | undefined {
 		.trim()
 		.slice(0, 255);
 	return clean === "" ? undefined : clean;
+}
+
+/**
+ * Characters disallowed inside an HTTP `filename=` token. Quoting, semicolons,
+ * directory separators, and CR/LF could break out of the header parameter or
+ * inject an additional parameter. The legacy header stays ASCII; any
+ * disallowed or non-ASCII characters are moved into the optional
+ * `filename*=UTF-8''…` parameter per RFC 5987.
+ */
+const ASCII_BANNED_CODE_POINTS = new Set<number>([
+	0x22, // "
+	0x3b, // ;
+	0x5c, // backslash
+	0x2f, // forward slash
+]);
+
+function sanitizeFilenameToken(value: string): string {
+	const safe: string[] = [];
+	for (const character of value) {
+		const codePoint = character.codePointAt(0) ?? 0;
+		if (codePoint < 0x20 || codePoint > 0x7e) continue;
+		if (ASCII_BANNED_CODE_POINTS.has(codePoint)) continue;
+		safe.push(character);
+	}
+	return safe.join("").trim().slice(0, 120);
+}
+
+/**
+ * RFC 5987 percent-encoding for the UTF-8 `filename*` parameter.
+ * `encodeURIComponent` covers the bulk; we additionally re-encode the
+ * punctuation marks RFC 5987 mandates inside an encoded-word.
+ */
+function encodeRfc5987(value: string): string {
+	return encodeURIComponent(value).replace(
+		/[!'()*]/gu,
+		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`,
+	);
+}
+
+/**
+ * Returns either a `filename=` parameter (when the value is already safe ASCII)
+ * or both `filename=` and `filename*=UTF-8''…` (when the original had to be
+ * downgraded for the legacy parameter). The caller wraps the result with
+ * `attachment; `.
+ */
+function contentDispositionFilename(value: string, fallback: string): string {
+	const safe = sanitizeFilenameToken(value) || fallback;
+	if (safe === value) return `filename="${value}"`;
+	const encoded = encodeRfc5987(value);
+	return `filename="${safe}"; filename*=UTF-8''${encoded}`;
 }
 
 function extensionFor(mediaType: MediaStoreVideoType): "mp4" | "webm" {
@@ -417,13 +468,13 @@ function parseIndexDocument(text: string): IndexDocument {
 	return parsed;
 }
 
-function toMeta(document: IndexDocument): MediaArtifactMeta {
+function toMeta(document: IndexDocument, expiresAt = document.expiresAt): MediaArtifactMeta {
 	const meta: MediaArtifactMeta = {
 		artifactId: document.artifactId,
 		mediaType: document.mediaType,
 		bytes: document.bytes,
 		createdAt: document.createdAt,
-		expiresAt: document.expiresAt,
+		expiresAt,
 	};
 	if (document.name !== undefined) meta.name = document.name;
 	return meta;
@@ -515,11 +566,12 @@ export function parseImagineMediaPath(pathname: string): string | undefined {
 }
 
 export function mediaDownloadHeaders(meta: MediaArtifactMeta): MediaDownloadHeaders {
-	const filename = `imagine-${meta.artifactId}.${extensionFor(meta.mediaType)}`;
+	const fallback = `imagine-${meta.artifactId}.${extensionFor(meta.mediaType)}`;
+	const filename = meta.name ?? fallback;
 	return {
 		"Content-Type": meta.mediaType,
 		"Content-Length": String(meta.bytes),
-		"Content-Disposition": `attachment; filename="${filename}"`,
+		"Content-Disposition": `attachment; ${contentDispositionFilename(filename, fallback)}`,
 		"Cache-Control": "private, max-age=0, no-store",
 		"X-Content-Type-Options": "nosniff",
 	};
@@ -556,6 +608,7 @@ export class MediaStore {
 	private readonly now: () => number;
 	private readonly randomId: () => string;
 	private tail: Promise<void> = Promise.resolve();
+	private retentionReconciled = false;
 
 	constructor(root: string, options: MediaStoreOptions = {}) {
 		if (typeof root !== "string" || root.trim() === "") {
@@ -569,10 +622,33 @@ export class MediaStore {
 		this.randomId = options.randomId ?? generateArtifactId;
 	}
 
-	/** Apply a live retention setting to future artifacts, clamped to the hard ceiling. */
-	setRetentionMs(retentionMs: number): number {
-		this.retentionMs = clampPositive(retentionMs, MEDIA_STORE_RETENTION_MS, "retentionMs");
-		return this.retentionMs;
+	/**
+	 * Apply a live retention ceiling under the store lock. Lowering it rewrites
+	 * existing index expiries and deletes newly expired objects before resolving;
+	 * raising it affects only artifacts saved after this call.
+	 */
+	async applyRetentionMs(retentionMs: number): Promise<MediaCleanupReport> {
+		const next = clampPositive(retentionMs, MEDIA_STORE_RETENTION_MS, "retentionMs");
+		return this.runExclusive(async () => {
+			const previous = this.retentionMs;
+			if (next > previous && !this.retentionReconciled) {
+				const report = await this.cleanupUnlocked();
+				this.retentionReconciled = true;
+				this.retentionMs = next;
+				return report;
+			}
+			const lowered = next < previous;
+			this.retentionMs = next;
+			if (!lowered && this.retentionReconciled) return { expiredArtifacts: 0, removedObjects: 0 };
+			try {
+				const report = await this.cleanupUnlocked();
+				this.retentionReconciled = true;
+				return report;
+			} catch (error) {
+				this.retentionReconciled = false;
+				throw error;
+			}
+		});
 	}
 
 	async save(input: SaveMediaInput): Promise<MediaArtifactMeta> {
@@ -583,8 +659,8 @@ export class MediaStore {
 		if (parseMediaArtifactId(artifactId) === undefined) return undefined;
 		const document = await this.readIndex(artifactId);
 		if (document === undefined) return undefined;
-		if (document.expiresAt <= this.now()) return undefined;
-		return toMeta(document);
+		if (this.effectiveExpiresAt(document) <= this.now()) return undefined;
+		return this.effectiveMeta(document);
 	}
 
 	async read(artifactId: string): Promise<StoredMedia> {
@@ -592,7 +668,9 @@ export class MediaStore {
 		if (id === undefined) throw new MediaStoreError("INVALID_ID", "artifact id is not a safe opaque identifier");
 		const document = await this.readIndex(id);
 		if (document === undefined) throw new MediaStoreError("NOT_FOUND", "media artifact was not found");
-		if (document.expiresAt <= this.now()) throw new MediaStoreError("EXPIRED", "media artifact has expired");
+		if (this.effectiveExpiresAt(document) <= this.now()) {
+			throw new MediaStoreError("EXPIRED", "media artifact has expired");
+		}
 		if (document.bytes > this.maxBytes) {
 			throw new MediaStoreError("CORRUPT", "media index exceeds the store byte ceiling");
 		}
@@ -607,7 +685,7 @@ export class MediaStore {
 		if (sha256Hex(data) !== document.sha256 || data.byteLength !== document.bytes) {
 			throw new MediaStoreError("CORRUPT", "stored media failed integrity verification");
 		}
-		return { meta: toMeta(document), data };
+		return { meta: this.effectiveMeta(document), data };
 	}
 
 	async delete(artifactId: string): Promise<boolean> {
@@ -615,7 +693,16 @@ export class MediaStore {
 	}
 
 	async cleanup(): Promise<MediaCleanupReport> {
-		return this.runExclusive(() => this.cleanupUnlocked());
+		return this.runExclusive(async () => {
+			try {
+				const report = await this.cleanupUnlocked();
+				this.retentionReconciled = true;
+				return report;
+			} catch (error) {
+				this.retentionReconciled = false;
+				throw error;
+			}
+		});
 	}
 
 	/** Trusted same-origin download primitive. Never returns an upstream URL. */
@@ -627,6 +714,14 @@ export class MediaStore {
 			body: stored.data,
 			headers: mediaDownloadHeaders(stored.meta),
 		};
+	}
+
+	private effectiveExpiresAt(document: IndexDocument): number {
+		return Math.min(document.expiresAt, document.createdAt + this.retentionMs);
+	}
+
+	private effectiveMeta(document: IndexDocument): MediaArtifactMeta {
+		return toMeta(document, this.effectiveExpiresAt(document));
 	}
 
 	private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
@@ -752,10 +847,18 @@ export class MediaStore {
 				expiredArtifacts += 1;
 				continue;
 			}
-			if (document.expiresAt <= now) {
+			const effectiveExpiresAt = this.effectiveExpiresAt(document);
+			if (effectiveExpiresAt <= now) {
 				await unlink(file).catch(() => undefined);
 				expiredArtifacts += 1;
 				continue;
+			}
+			if (effectiveExpiresAt < document.expiresAt) {
+				document.expiresAt = effectiveExpiresAt;
+				await writeFileAtomic(assertInsideRoot(this.root, file), `${JSON.stringify(document)}\n`, {
+					mode: MEDIA_STORE_FILE_MODE,
+					dirMode: MEDIA_STORE_DIR_MODE,
+				});
 			}
 			liveDigests.add(document.sha256);
 		}
@@ -798,7 +901,7 @@ export class MediaStore {
 				const document = parseIndexDocument(
 					new TextDecoder().decode(await readBoundedFile(file, MEDIA_STORE_INDEX_MAX_BYTES)),
 				);
-				if (document.sha256 === sha256 && document.expiresAt > this.now()) return;
+				if (document.sha256 === sha256 && this.effectiveExpiresAt(document) > this.now()) return;
 			} catch {
 				// A corrupt sibling does not keep the object alive.
 			}

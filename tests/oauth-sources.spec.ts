@@ -405,6 +405,109 @@ describe("exact Grok parser", () => {
 			assertNoSecrets(error instanceof Error ? error.message : error);
 		}
 	});
+
+	it("rejects a substring-spoofed issuer like auth.x.ai.evil.example", () => {
+		expect(() =>
+			parseGrokCliAuthDocument(
+				JSON.stringify({
+					key: GROK_ACCESS,
+					refresh_token: GROK_REFRESH,
+					expires_at: "2026-08-14T12:00:00.000000Z",
+					oidc_issuer: "https://auth.x.ai.evil.example",
+					user_id: "user-1",
+				}),
+			),
+		).toThrow(OAuthSourceError);
+	});
+
+	it("rejects a substring-spoofed issuer containing auth.x.ai in the path or query", () => {
+		expect(() =>
+			parseGrokCliAuthDocument(
+				JSON.stringify({
+					key: GROK_ACCESS,
+					refresh_token: GROK_REFRESH,
+					expires_at: "2026-08-14T12:00:00.000000Z",
+					oidc_issuer: "https://notauth.x.ai-mirror.example/?x=auth.x.ai",
+					user_id: "user-1",
+				}),
+			),
+		).toThrow(OAuthSourceError);
+	});
+
+	it("rejects an http (non-https) auth.x.ai issuer string", () => {
+		expect(() =>
+			parseGrokCliAuthDocument(
+				JSON.stringify({
+					key: GROK_ACCESS,
+					refresh_token: GROK_REFRESH,
+					expires_at: "2026-08-14T12:00:00.000000Z",
+					oidc_issuer: "http://auth.x.ai",
+					user_id: "user-1",
+				}),
+			),
+		).toThrow(OAuthSourceError);
+	});
+
+	it("rejects a substring-spoofed map-key like auth.x.ai.evil.example", () => {
+		const document = {
+			"https://auth.x.ai.evil.example::client": {
+				key: GROK_ACCESS,
+				refresh_token: GROK_REFRESH,
+				expires_at: "2026-08-14T12:00:00.000000Z",
+				user_id: "user-1",
+			},
+		};
+		expect(() => parseGrokCliAuthDocument(JSON.stringify(document))).toThrow(OAuthSourceError);
+	});
+
+	it("rejects a substring-spoofed map-key containing auth.x.ai in path/query", () => {
+		const document = {
+			"https://notauth.x.ai-mirror.example/?x=auth.x.ai::client": {
+				key: GROK_ACCESS,
+				refresh_token: GROK_REFRESH,
+				expires_at: "2026-08-14T12:00:00.000000Z",
+				user_id: "user-1",
+			},
+		};
+		expect(() => parseGrokCliAuthDocument(JSON.stringify(document))).toThrow(OAuthSourceError);
+	});
+
+	it("rejects malformed or oversized client ids in approved scope-map keys", () => {
+		for (const clientId of ["/etc/passwd", "client id", "x".repeat(129)]) {
+			const document = {
+				[`https://auth.x.ai::${clientId}`]: {
+					key: GROK_ACCESS,
+					refresh_token: GROK_REFRESH,
+					expires_at: "2026-08-14T12:00:00.000000Z",
+					user_id: "user-1",
+				},
+			};
+			expect(() => parseGrokCliAuthDocument(JSON.stringify(document))).toThrow(OAuthSourceError);
+		}
+	});
+
+	it("accepts the approved exact issuer host and exact issuer origin", () => {
+		const fromHost = parseGrokCliAuthDocument(
+			JSON.stringify({
+				key: GROK_ACCESS,
+				refresh_token: GROK_REFRESH,
+				expires_at: "2026-08-14T12:00:00.000000Z",
+				oidc_issuer: "auth.x.ai",
+				user_id: "user-1",
+			}),
+		);
+		expect(fromHost.access).toBe(GROK_ACCESS);
+		const fromOrigin = parseGrokCliAuthDocument(
+			JSON.stringify({
+				key: GROK_ACCESS,
+				refresh_token: GROK_REFRESH,
+				expires_at: "2026-08-14T12:00:00.000000Z",
+				oidc_issuer: "https://auth.x.ai",
+				user_id: "user-1",
+			}),
+		);
+		expect(fromOrigin.access).toBe(GROK_ACCESS);
+	});
 });
 
 describe("exact Codex, Kimi, and Claude parsers", () => {

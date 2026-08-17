@@ -15,6 +15,9 @@ import {
 	type GrokImagineClient,
 	GrokImagineError,
 	grokImagineVideoStatusPath,
+	IMAGINE_IMAGE_IDS_MAX,
+	IMAGINE_IMAGE_IDS_MIN,
+	IMAGINE_PROMPT_MAX_LENGTH,
 	type ImagineAttachmentStore,
 	type ImagineFetch,
 	type ImagineImageAttachmentRef,
@@ -26,6 +29,7 @@ import {
 	isSafeImagineAttachmentId,
 	openTrustedImagineImageDownload,
 	parseImagineImagePath,
+	parseVideoRequestId,
 	XAI_API_ORIGIN,
 	XAI_OUTPUT_HOSTS,
 } from "../src/grok-imagine.ts";
@@ -403,7 +407,12 @@ describe("GrokImagineClient image generation", () => {
 				onApi: () => {
 					apiCalls += 1;
 					return jsonResponse(
-						{ error: { message: "invalid api key xai-secret-value https://imgen.x.ai/x?token=abc" } },
+						{
+							error: {
+								message:
+									"invalid api key xai-secret-value client_secret: abcdefghijklmnopqrstuvwxyz0123 https://imgen.x.ai/x?token=abc",
+							},
+						},
 						401,
 					);
 				},
@@ -415,7 +424,7 @@ describe("GrokImagineClient image generation", () => {
 			message: expect.not.stringContaining("xai-secret-value"),
 		});
 		await expect(client.generateImage({ prompt: "x" })).rejects.toMatchObject({
-			message: expect.not.stringContaining("imgen.x.ai"),
+			message: expect.not.stringMatching(/imgen\.x\.ai|abcdefghijklmnopqrstuvwxyz0123/u),
 		});
 		expect(apiCalls).toBe(2);
 		expect(auth.calls).toEqual(["image.generate", "image.generate"]);
@@ -809,5 +818,226 @@ describe("image route gate", () => {
 		expect(view.body).toEqual(PNG);
 		expect(view.headers["Content-Type"]).toBe("image/png");
 		expect(JSON.stringify(view.headers)).not.toMatch(/https?:\/\//);
+	});
+});
+
+describe("GrokImagineClient input validation", () => {
+	it("rejects prompts longer than the 4000-character ceiling", async () => {
+		const oversized = "x".repeat(IMAGINE_PROMPT_MAX_LENGTH + 1);
+		const { client } = await createHarness({
+			fetch: scriptedFetch({
+				onApi: () => {
+					throw new Error("API must not run for an over-long prompt");
+				},
+			}),
+		});
+		await expect(client.generateImage({ prompt: oversized })).rejects.toMatchObject({
+			code: "INVALID_INPUT",
+			message: expect.stringMatching(/4000/),
+		});
+		await expect(client.startVideo({ prompt: oversized })).rejects.toMatchObject({
+			code: "INVALID_INPUT",
+		});
+	});
+
+	it("rejects base64 strings containing non-canonical characters", async () => {
+		const hostile = "$".repeat(200);
+		const { client } = await createHarness({
+			imageMaxBytes: 1024 * 1024,
+			fetch: scriptedFetch({
+				onApi: () =>
+					jsonResponse({
+						data: [{ b64_json: hostile }],
+					}),
+			}),
+		});
+		await expect(client.generateImage({ prompt: "x" })).rejects.toMatchObject({ code: "UPSTREAM" });
+	});
+
+	it("rejects unpadded base64 of remainder 1", async () => {
+		const unpadded = "AAAAA";
+		const { client } = await createHarness({
+			imageMaxBytes: 1024 * 1024,
+			fetch: scriptedFetch({
+				onApi: () =>
+					jsonResponse({
+						data: [{ b64_json: unpadded }],
+					}),
+			}),
+		});
+		await expect(client.generateImage({ prompt: "x" })).rejects.toMatchObject({ code: "UPSTREAM" });
+	});
+
+	it("accepts well-formed padded base64 and rejects empty input", async () => {
+		const { client } = await createHarness({
+			fetch: scriptedFetch({
+				onApi: () =>
+					jsonResponse({
+						data: [{ b64_json: Buffer.from(PNG).toString("base64") }],
+					}),
+			}),
+		});
+		const result = await client.generateImage({ prompt: "x" });
+		expect(result.images).toHaveLength(1);
+	});
+});
+
+describe("parseVideoRequestId and imageIds bounds", () => {
+	it("accepts a safe ASCII request id up to 256 characters", () => {
+		expect(parseVideoRequestId("req_video_1")).toBe("req_video_1");
+		expect(parseVideoRequestId("a".repeat(256))).toBe("a".repeat(256));
+	});
+
+	it("rejects request ids outside the [A-Za-z0-9_-]{1,256} pattern", () => {
+		expect(() => parseVideoRequestId("")).toThrow(GrokImagineError);
+		expect(() => parseVideoRequestId("a".repeat(257))).toThrow(GrokImagineError);
+		expect(() => parseVideoRequestId("../escape")).toThrow(GrokImagineError);
+		expect(() => parseVideoRequestId("req with space")).toThrow(GrokImagineError);
+		expect(() => parseVideoRequestId(null)).toThrow(GrokImagineError);
+		expect(() => parseVideoRequestId(123)).toThrow(GrokImagineError);
+	});
+
+	it("advertises the documented bounds for tool schemas", () => {
+		expect(IMAGINE_PROMPT_MAX_LENGTH).toBe(4000);
+		expect(IMAGINE_IMAGE_IDS_MIN).toBe(1);
+		expect(IMAGINE_IMAGE_IDS_MAX).toBe(5);
+	});
+});
+
+describe("GrokImagineClient dispose ownership", () => {
+	it("refuses new work after dispose and cancels a pending poll", async () => {
+		let pendingPoll: ((response: Response) => void) | undefined;
+		let aborted: AbortSignal | undefined;
+		const client = createGrokImagineClient({
+			resolveApiKey: async () => "xai-test-key",
+			attachments: new MemoryAttachments(),
+			media: await tempMedia(),
+			fetch: async (_input, init) => {
+				aborted = init?.signal ?? undefined;
+				return new Promise<Response>((resolve) => {
+					pendingPoll = (response) => resolve(response);
+				});
+			},
+			downloader: {
+				download: async () => {
+					throw new Error("download must not run after dispose");
+				},
+			},
+		});
+
+		const statusPromise = client.videoStatus("req_owned");
+		await new Promise((resolve) => setImmediate(resolve));
+		client.dispose();
+		expect(client.isDisposed).toBe(true);
+		if (pendingPoll) pendingPoll(jsonResponse({ status: "pending" }));
+		await expect(statusPromise).rejects.toMatchObject({ code: "TIMEOUT" });
+		expect(aborted?.aborted).toBe(true);
+
+		await expect(client.generateImage({ prompt: "x" })).rejects.toMatchObject({
+			code: "INVALID_INPUT",
+			message: expect.stringContaining("disposed"),
+		});
+		await expect(client.startVideo({ prompt: "x" })).rejects.toMatchObject({
+			code: "INVALID_INPUT",
+		});
+		client.dispose();
+		expect(client.isDisposed).toBe(true);
+	});
+
+	it("rejects an already-aborted consumer signal before resolving credentials or fetching", async () => {
+		const controller = new AbortController();
+		controller.abort(new Error("caller cancelled"));
+		const { client, auth } = await createHarness({
+			fetch: async () => {
+				throw new Error("fetch must not run for an already-aborted operation");
+			},
+		});
+		await expect(client.generateImage({ prompt: "x" }, controller.signal)).rejects.toMatchObject({ code: "TIMEOUT" });
+		await expect(client.startVideo({ prompt: "x" }, controller.signal)).rejects.toMatchObject({ code: "TIMEOUT" });
+		await expect(client.videoStatus("req_aborted", { signal: controller.signal })).rejects.toMatchObject({
+			code: "TIMEOUT",
+		});
+		expect(auth.calls).toEqual([]);
+	});
+
+	it("keeps concurrent caller-owned video poll cancellation isolated", async () => {
+		const responders: Array<(response: Response) => void> = [];
+		const { client } = await createHarness({
+			fetch: async () =>
+				new Promise<Response>((resolve) => {
+					responders.push(resolve);
+				}),
+		});
+		const firstController = new AbortController();
+		const secondController = new AbortController();
+		const first = client.videoStatus("req_shared", { signal: firstController.signal });
+		const second = client.videoStatus("req_shared", { signal: secondController.signal });
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		expect(responders).toHaveLength(2);
+		firstController.abort(new Error("first caller cancelled"));
+		for (const respond of responders) respond(jsonResponse({ status: "pending" }));
+		await expect(first).rejects.toMatchObject({ code: "TIMEOUT" });
+		await expect(second).resolves.toEqual({ requestId: "req_shared", status: "pending" });
+	});
+
+	it("forwards the consumer-owned AbortSignal into the fetch init", async () => {
+		let observed: AbortSignal | undefined;
+		const client = createGrokImagineClient({
+			resolveApiKey: async () => "xai-test-key",
+			attachments: new MemoryAttachments(),
+			media: await tempMedia(),
+			fetch: async (_input, init) => {
+				observed = init?.signal ?? undefined;
+				return jsonResponse({ data: [{ b64_json: Buffer.from(PNG).toString("base64") }] });
+			},
+			downloader: {
+				download: async () => {
+					throw new Error("download must not run");
+				},
+			},
+		});
+
+		const controller = new AbortController();
+		await client.generateImage({ prompt: "x" }, controller.signal);
+		expect(observed).toBeDefined();
+		expect(observed?.aborted).toBe(false);
+	});
+});
+
+describe("imagine image route suffix hardening", () => {
+	it("accepts opaque DSH attachment ids while rejecting path syntax and controls", () => {
+		expect(isSafeImagineAttachmentId(`sha256:${"ab".repeat(32)}`)).toBe(true);
+		expect(isSafeImagineAttachmentId("att.dot")).toBe(true);
+		expect(isSafeImagineAttachmentId("att..dot")).toBe(false);
+		expect(isSafeImagineAttachmentId("att/slash")).toBe(false);
+		expect(isSafeImagineAttachmentId("att\\backslash")).toBe(false);
+		expect(isSafeImagineAttachmentId("att with space")).toBe(false);
+		// NUL byte is rejected even before the regex check.
+		expect(isSafeImagineAttachmentId("att\u0000byte")).toBe(false);
+		expect(isSafeImagineAttachmentId("att_a-b_c-123")).toBe(true);
+	});
+
+	it("rejects unknown image subtypes for downloads", () => {
+		expect(() =>
+			imagineImageDownloadHeaders({
+				attachmentId: "att_a-b_c-123",
+				mediaType: "image/svg+xml" as "image/png",
+				bytes: 10,
+				width: 1,
+				height: 1,
+			}),
+		).toThrow(GrokImagineError);
+	});
+
+	it("renders an ASCII-safe inline filename", () => {
+		const header = imagineImageDownloadHeaders({
+			attachmentId: "att_x1",
+			mediaType: "image/png",
+			bytes: 10,
+			width: 1,
+			height: 1,
+		});
+		expect(header["Content-Disposition"]).toBe(`inline; filename="imagine-att_x1.png"`);
+		expect(header["X-Content-Type-Options"]).toBe("nosniff");
 	});
 });

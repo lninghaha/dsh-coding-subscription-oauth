@@ -165,13 +165,16 @@ export interface CapabilitySettingsService {
 export interface CapabilitySettingsControllerOptions {
 	readonly settings?: CapabilitySettingsService | undefined;
 	readonly base?: CapabilitySettingsPatch | undefined;
+	/** Contain both synchronous and asynchronous observer failures. */
+	readonly onListenerError?: ((error: unknown) => void) | undefined;
 }
 
 /** Listener invoked after a committed snapshot change. */
-export type CapabilitySettingsListener = (snapshot: CapabilitySettingsSnapshot) => void;
+export type CapabilitySettingsListener = (snapshot: CapabilitySettingsSnapshot) => void | Promise<void>;
 
 const SECRET_KEY = /secret|token|password|passphrase|apikey|api_key|authorization|credential|cookie|private[_-]?key/iu;
 const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const KNOWN_KEYS = new Set<string>(CAPABILITY_SETTINGS_KEYS);
 
 /**
  * A write refused because the namespace moved since the caller read it.
@@ -314,6 +317,33 @@ export function normalizeCapabilitySettingsPatch(input?: unknown): CapabilitySet
 	return Object.freeze(patch);
 }
 
+/**
+ * Strictly admit a caller-authored sparse section before normalizing it. Reads
+ * remain compatibility-tolerant, but writes must never silently drop unknown
+ * fields, coerce types, truncate decimals, or clamp out-of-range limits.
+ */
+export function assertCapabilitySettingsPatch(
+	input: unknown,
+	label = "capability settings",
+): asserts input is CapabilitySettingsPatch {
+	assertPlainObject(input, label);
+	for (const [key, value] of Object.entries(input)) {
+		if (!KNOWN_KEYS.has(key)) throw new TypeError(`${label} contains unknown key ${key}`);
+		if ((CAPABILITY_FLAG_KEYS as readonly string[]).includes(key)) {
+			if (typeof value !== "boolean") throw new TypeError(`${label}.${key} must be a boolean`);
+			continue;
+		}
+		const limitKey = key as CapabilityLimitKey;
+		const bounds = CAPABILITY_SETTINGS_BOUNDS[limitKey];
+		if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value)) {
+			throw new TypeError(`${label}.${key} must be an integer`);
+		}
+		if (value < bounds.min || value > bounds.max) {
+			throw new TypeError(`${label}.${key} must be in [${String(bounds.min)}, ${String(bounds.max)}]`);
+		}
+	}
+}
+
 /** Reject a resolved section the owner could not act on. Schema-valid by construction after normalize. */
 export function assertServiceableCapabilitySettings(value: CapabilitySettings): void {
 	for (const key of CAPABILITY_FLAG_KEYS) {
@@ -340,6 +370,7 @@ export class CapabilitySettingsController {
 	readonly ns = CAPABILITY_SETTINGS_NAMESPACE;
 	private readonly settings: CapabilitySettingsService | undefined;
 	private readonly base: CapabilitySettingsPatch;
+	private readonly onListenerError: (error: unknown) => void;
 	private readonly listeners = new Set<CapabilitySettingsListener>();
 	private scope: CapabilitySettingsScope | undefined;
 	private scopeDisposer: (() => void) | undefined;
@@ -350,6 +381,7 @@ export class CapabilitySettingsController {
 	constructor(options: CapabilitySettingsControllerOptions = {}) {
 		this.settings = options.settings;
 		this.base = normalizeCapabilitySettingsPatch(options.base);
+		this.onListenerError = options.onListenerError ?? (() => undefined);
 		this.attachScope();
 		this.lastSnapshot = this.readSnapshot();
 	}
@@ -406,11 +438,17 @@ export class CapabilitySettingsController {
 
 	/** Drop the register() watcher and every listener. Further writes fail. */
 	dispose(): void {
+		if (this.disposed) return;
 		this.disposed = true;
-		this.scopeDisposer?.();
+		const releaseScope = this.scopeDisposer;
 		this.scopeDisposer = undefined;
 		this.scope = undefined;
 		this.listeners.clear();
+		try {
+			releaseScope?.();
+		} catch (error: unknown) {
+			this.onListenerError(error);
+		}
 	}
 
 	private attachScope(): void {
@@ -450,12 +488,13 @@ export class CapabilitySettingsController {
 	): Promise<CapabilitySettingsSnapshot> {
 		const reason = this.writeReason();
 		if (reason !== undefined) throw new CapabilitySettingsReadOnlyError(reason);
-		assertPlainObject(input, `capability settings ${mode}`);
+		assertCapabilitySettingsPatch(input, `capability settings ${mode}`);
 		const current = this.readSnapshot();
 		if (expectedRevision !== current.revision) {
 			throw new CapabilitySettingsConflictError(expectedRevision, current.revision);
 		}
 		const normalized = normalizeCapabilitySettingsPatch(input);
+		if (mode === "update" && !hasOwnKeys(normalized)) return current;
 		const settings = this.settings!;
 		try {
 			if (mode === "update") {
@@ -532,9 +571,11 @@ export class CapabilitySettingsController {
 		this.lastSnapshot = next;
 		for (const listener of [...this.listeners]) {
 			try {
-				listener(next);
-			} catch {
+				const result = listener(next);
+				if (result !== undefined) void Promise.resolve(result).catch(this.onListenerError);
+			} catch (error) {
 				// One broken observer must not starve the rest or the write path.
+				this.onListenerError(error);
 			}
 		}
 	}

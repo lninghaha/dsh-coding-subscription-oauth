@@ -71,7 +71,8 @@ export interface CodexSearchProviderOptions {
 	readonly auth: CodexAuthSession;
 	readonly http?: CodexHttpClient;
 	readonly fetchImpl?: CodexFetch;
-	readonly model: string;
+	/** Current visible Codex model, or a live resolver for catalog/login changes. */
+	readonly model: string | (() => string);
 	readonly mode?: CodexSearchMode;
 	readonly contextSize?: CodexSearchContextSize;
 	readonly maxOutputTokens?: number;
@@ -207,7 +208,10 @@ export function createCodexSearchProvider(options: CodexSearchProviderOptions): 
 	const contextSize = options.contextSize ?? DEFAULT_CONTEXT_SIZE;
 	const maxOutputTokens = options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
 	const resolveRequestId = options.resolveRequestId ?? (() => crypto.randomUUID());
-	const available = (): boolean => options.model.length > 0 && Number.isInteger(maxOutputTokens) && maxOutputTokens > 0;
+	const configuredModel = options.model;
+	const resolveModel: () => string = typeof configuredModel === "function" ? configuredModel : () => configuredModel;
+	const available = (): boolean =>
+		resolveModel().trim().length > 0 && Number.isInteger(maxOutputTokens) && maxOutputTokens > 0;
 
 	return {
 		id: CODEX_SEARCH_PROVIDER_ID,
@@ -218,12 +222,13 @@ export function createCodexSearchProvider(options: CodexSearchProviderOptions): 
 				throw new LlmError("Codex search requires a non-empty query", "INVALID_ARGS");
 			}
 			assertCodexSearchMaxResults(request.maxResults);
-			if (!available()) {
+			const model = resolveModel().trim();
+			if (model.length === 0 || !Number.isInteger(maxOutputTokens) || maxOutputTokens <= 0) {
 				throw new LlmError("Codex search is not configured", "INVALID_ARGS");
 			}
 			const body = buildCodexSearchRequestBody(query, {
 				id: resolveRequestId(),
-				model: options.model,
+				model,
 				mode,
 				contextSize,
 				maxOutputTokens,

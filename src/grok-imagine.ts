@@ -20,6 +20,7 @@ import {
 	type MediaStoreVideoType,
 	type TrustedImagineAuthz,
 } from "./media-store.ts";
+import { safeMessage } from "./redact.ts";
 
 export const XAI_API_ORIGIN = "https://api.x.ai";
 export const GROK_IMAGINE_IMAGE_PATH = "/v1/images/generations";
@@ -59,6 +60,16 @@ export const IMAGINE_VIDEO_MIN_DURATION_SECONDS = 1;
 export const IMAGINE_VIDEO_MAX_DURATION_SECONDS = 15;
 export const IMAGINE_IMAGE_MAX_N = 10;
 
+/**
+ * Hard ceilings enforced both at the tool boundary (consumer guard) and inside
+ * the Imagine client (defence-in-depth). The prompt ceiling uses UTF-16 code
+ * units because that is what the JSON wire format bounds; the image-id arrays
+ * are bounded so a runaway caller cannot exhaust the bounded body reader.
+ */
+export const IMAGINE_PROMPT_MAX_LENGTH = 4000;
+export const IMAGINE_IMAGE_IDS_MIN = 1;
+export const IMAGINE_IMAGE_IDS_MAX = 5;
+
 export const DEFAULT_IMAGE_DOWNLOAD_MAX_BYTES = 5 * 1024 * 1024;
 export const DEFAULT_API_TIMEOUT_MS = 30_000;
 export const DEFAULT_IMAGE_DOWNLOAD_TIMEOUT_MS = 15_000;
@@ -85,6 +96,7 @@ export interface ImagineMediaHopRequest {
 	timeoutMs: number;
 	maxBytes: number;
 	accept: string;
+	signal?: AbortSignal;
 }
 
 export interface ImagineMediaHop {
@@ -104,6 +116,7 @@ export interface ImagineDownloadRequest {
 	timeoutMs: number;
 	maxBytes: number;
 	accept: string;
+	signal?: AbortSignal;
 }
 
 export interface ImagineDownloadResult {
@@ -244,7 +257,11 @@ export interface ImagineImageDownloadView {
 	headers: ImagineImageDownloadHeaders;
 }
 
-const VIDEO_REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+/**
+ * Safe official-xAI request-id pattern: ASCII letters, digits, dashes, and
+ * underscores. Limited to 256 characters. Public boundary validator.
+ */
+const VIDEO_REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,256}$/;
 const FROZEN_OUTPUT_HOSTS = new Set<string>(XAI_OUTPUT_HOSTS);
 const IMAGE_RESOLUTION_SET = new Set<string>(IMAGINE_IMAGE_RESOLUTIONS);
 const VIDEO_RESOLUTION_SET = new Set<string>(IMAGINE_VIDEO_RESOLUTIONS);
@@ -288,13 +305,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function redactImagineMessage(error: unknown): string {
-	return (error instanceof Error ? error.message : String(error))
-		.replace(/https?:\/\/[^\s"'<>\\]+/giu, "[redacted-url]")
-		.replace(/(\bBearer\s+)[^\s"',}]+/giu, "$1[redacted]")
-		.replace(/\bxai-[A-Za-z0-9._-]{8,}/gu, "[redacted]")
-		.replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, "[redacted token]")
-		.replace(/([?&](?:token|key|sig|signature|expires|auth|access_token|X-Amz-[^=]+)=)[^&\s"']+/giu, "$1[redacted]")
-		.slice(0, 1000);
+	const withoutRemoteUrls = (error instanceof Error ? error.message : String(error)).replace(
+		/https?:\/\/[^\s"'<>\\]+/giu,
+		"[redacted-url]",
+	);
+	return safeMessage(withoutRemoteUrls);
 }
 
 function dottedFromWords(high: number, low: number): string {
@@ -422,6 +437,8 @@ export function isSafeImagineAttachmentId(attachmentId: string): boolean {
 	) {
 		return false;
 	}
+	// DSH's local attachment backend currently emits `sha256:<hex>`; keep the
+	// host's opaque colon/dot-compatible contract while excluding separators.
 	return /^[A-Za-z0-9:._-]+$/u.test(attachmentId);
 }
 
@@ -435,22 +452,68 @@ export function imagineImagePath(attachmentId: string): string {
 export function parseImagineImagePath(pathname: string): string | undefined {
 	if (!pathname.startsWith(IMAGINE_IMAGE_ROUTE_PREFIX)) return undefined;
 	const rest = pathname.slice(IMAGINE_IMAGE_ROUTE_PREFIX.length);
-	if (rest.includes("/") || rest.includes("\\")) return undefined;
+	if (rest.length === 0) return undefined;
+	if (rest.includes("/") || rest.includes("\\") || rest.includes("..")) return undefined;
+	if (rest.includes("\0")) return undefined;
 	let decoded: string;
 	try {
 		decoded = decodeURIComponent(rest);
 	} catch {
 		return undefined;
 	}
+	if (decoded.length === 0 || decoded.length > 128) return undefined;
 	return isSafeImagineAttachmentId(decoded) ? decoded : undefined;
+}
+
+const IMAGE_SUFFIX = new Set<string>(["png", "jpg", "jpeg", "webp", "gif"]);
+const IMAGE_SUFFIX_RE = /\.([a-z0-9]{2,5})$/iu;
+
+/**
+ * Build a `Content-Disposition` token for an Imagine image. Falls back to a
+ * percent-encoded `filename*=UTF-8''…` parameter when the legacy token would
+ * carry characters that would break RFC 6266 quoting.
+ */
+function imageContentDisposition(filename: string): string {
+	let safe = "";
+	let needsEncoding = false;
+	for (const character of filename) {
+		const codePoint = character.codePointAt(0) ?? 0;
+		if (
+			character === '"' ||
+			character === ";" ||
+			character === "\\" ||
+			character === "/" ||
+			codePoint < 0x20 ||
+			codePoint === 0x7f ||
+			codePoint >= 0x80
+		) {
+			needsEncoding = true;
+			continue;
+		}
+		safe = `${safe}${character}`;
+	}
+	safe = safe.trim().slice(0, 120);
+	if (!needsEncoding) return `inline; filename="${filename}"`;
+	const encoded = encodeURIComponent(filename).replace(
+		/[!'()*]/gu,
+		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`,
+	);
+	return `inline; filename="${safe}"; filename*=UTF-8''${encoded}`;
 }
 
 export function imagineImageDownloadHeaders(ref: ImagineImageAttachmentRef): ImagineImageDownloadHeaders {
 	const subtype = ref.mediaType.slice("image/".length);
+	if (!IMAGE_SUFFIX.has(subtype)) {
+		throw new GrokImagineError("INVALID_INPUT", "imagine image subtype is not recognized for downloads");
+	}
+	const filename = `imagine-${ref.attachmentId}.${subtype}`;
+	if (!IMAGE_SUFFIX_RE.test(filename) || filename.length > 200) {
+		throw new GrokImagineError("INVALID_INPUT", "imagine image filename is not safe for downloads");
+	}
 	return {
 		"Content-Type": ref.mediaType,
 		"Content-Length": String(ref.bytes),
-		"Content-Disposition": `inline; filename="imagine-${encodeURIComponent(ref.attachmentId)}.${subtype}"`,
+		"Content-Disposition": imageContentDisposition(filename),
 		"Cache-Control": "private, max-age=0, no-store",
 		"X-Content-Type-Options": "nosniff",
 	};
@@ -612,13 +675,24 @@ interface LimitedBodyResponse {
 	arrayBuffer(): Promise<ArrayBuffer>;
 }
 
-async function readLimitedBody(response: LimitedBodyResponse, maxBytes: number): Promise<Uint8Array> {
+async function readLimitedBody(
+	response: LimitedBodyResponse,
+	maxBytes: number,
+	signal?: AbortSignal,
+): Promise<Uint8Array> {
+	const throwIfAborted = (): void => {
+		if (signal?.aborted === true) {
+			throw new GrokImagineError("TIMEOUT", "Imagine response body read was aborted", { cause: signal.reason });
+		}
+	};
+	throwIfAborted();
 	const declared = Number(response.headers.get("content-length"));
 	if (Number.isFinite(declared) && declared > maxBytes) {
 		throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
 	}
 	if (response.body === null) {
 		const buffer = new Uint8Array(await response.arrayBuffer());
+		throwIfAborted();
 		if (buffer.byteLength > maxBytes) {
 			throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
 		}
@@ -635,16 +709,27 @@ async function readLimitedBody(response: LimitedBodyResponse, maxBytes: number):
 	const reader = response.body.getReader() as LimitedBodyReader;
 	const chunks: Uint8Array[] = [];
 	let size = 0;
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		if (value === undefined) continue;
-		size += value.byteLength;
-		if (size > maxBytes) {
-			await reader.cancel().catch(() => undefined);
-			throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
+	const onAbort = (): void => {
+		void reader.cancel().catch(() => undefined);
+	};
+	if (signal?.aborted === true) onAbort();
+	else signal?.addEventListener("abort", onAbort, { once: true });
+	try {
+		while (true) {
+			throwIfAborted();
+			const { done, value } = await reader.read();
+			throwIfAborted();
+			if (done) break;
+			if (value === undefined) continue;
+			size += value.byteLength;
+			if (size > maxBytes) {
+				await reader.cancel().catch(() => undefined);
+				throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
+			}
+			chunks.push(value);
 		}
-		chunks.push(value);
+	} finally {
+		signal?.removeEventListener("abort", onAbort);
 	}
 	const out = new Uint8Array(size);
 	let offset = 0;
@@ -653,6 +738,11 @@ async function readLimitedBody(response: LimitedBodyResponse, maxBytes: number):
 		offset += chunk.byteLength;
 	}
 	return out;
+}
+
+function requestSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+	const timeout = AbortSignal.timeout(timeoutMs);
+	return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
 }
 
 function mapUpstreamStatus(status: number, bodyText: string): GrokImagineError {
@@ -680,12 +770,13 @@ export function createPinnedMediaTransport(lookup: ImagineDnsLookup = defaultIma
 			const validated = await assertSafeRemoteMediaUrl(url.href, lookup);
 			const addresses = await resolvePublicAddresses(validated.hostname, lookup);
 			const agent = createPinnedAgent(validated.hostname, addresses);
+			const signal = requestSignal(request.signal, request.timeoutMs);
 			try {
 				const response = await undiciFetch(validated, {
 					method: "GET",
 					redirect: "manual",
 					dispatcher: agent,
-					signal: AbortSignal.timeout(request.timeoutMs),
+					signal,
 					headers: { accept: request.accept },
 				});
 				if (response.status >= 300 && response.status < 400) {
@@ -695,10 +786,10 @@ export function createPinnedMediaTransport(lookup: ImagineDnsLookup = defaultIma
 						: { status: response.status, location };
 				}
 				if (!response.ok) {
-					const text = new TextDecoder().decode(await readLimitedBody(response, 4096));
+					const text = new TextDecoder().decode(await readLimitedBody(response, 4096, signal));
 					throw mapUpstreamStatus(response.status, text);
 				}
-				const data = await readLimitedBody(response, request.maxBytes);
+				const data = await readLimitedBody(response, request.maxBytes, signal);
 				const contentType = parseContentType(response.headers.get("content-type"));
 				if (contentType === undefined) return { status: response.status, data };
 				return { status: response.status, contentType, data };
@@ -732,17 +823,18 @@ export function createPinnedApiFetch(
 		}
 		const addresses = await resolvePublicAddresses(url.hostname, lookup);
 		const agent = createPinnedAgent(url.hostname, addresses);
+		const signal = init?.signal ?? undefined;
 		try {
 			const requestHeaders = init?.headers === undefined ? undefined : Object.fromEntries(new Headers(init.headers));
 			const response = await undiciFetch(url, {
 				...(init?.method === undefined ? {} : { method: init.method }),
 				...(init?.body === undefined || init.body === null ? {} : { body: init.body }),
 				...(requestHeaders === undefined ? {} : { headers: requestHeaders }),
-				...(init?.signal === undefined || init.signal === null ? {} : { signal: init.signal }),
+				...(signal === undefined ? {} : { signal }),
 				dispatcher: agent,
 				redirect: "error",
 			});
-			const data = await readLimitedBody(response, maxBytes);
+			const data = await readLimitedBody(response, maxBytes, signal);
 			const responseHeaders: Record<string, string> = {};
 			response.headers.forEach((value, key) => {
 				responseHeaders[key] = value;
@@ -776,6 +868,7 @@ export async function downloadRemoteImagineMedia(
 		maxBytes: number;
 		accept: string;
 		maxRedirects: number;
+		signal?: AbortSignal;
 	},
 ): Promise<ImagineDownloadResult> {
 	let current = initialUrl;
@@ -785,6 +878,7 @@ export async function downloadRemoteImagineMedia(
 			timeoutMs: options.timeoutMs,
 			maxBytes: options.maxBytes,
 			accept: options.accept,
+			...(options.signal === undefined ? {} : { signal: options.signal }),
 		});
 		if (result.status >= 300 && result.status < 400) {
 			if (result.location === undefined || result.location.trim() === "") {
@@ -820,6 +914,7 @@ export function createPinnedImagineDownloader(
 				maxBytes: request.maxBytes,
 				accept: request.accept,
 				maxRedirects,
+				...(request.signal === undefined ? {} : { signal: request.signal }),
 			}),
 	};
 }
@@ -839,11 +934,12 @@ export function createImagineDownloaderFromFetch(
 	const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
 	const transport: ImagineMediaTransport = {
 		async get(url, request) {
+			const signal = requestSignal(request.signal, request.timeoutMs);
 			try {
 				const response = await fetchImpl(url, {
 					method: "GET",
 					redirect: "manual",
-					signal: AbortSignal.timeout(request.timeoutMs),
+					signal,
 					headers: { accept: request.accept },
 				});
 				if (response.status >= 300 && response.status < 400) {
@@ -853,10 +949,10 @@ export function createImagineDownloaderFromFetch(
 						: { status: response.status, location };
 				}
 				if (!response.ok) {
-					const text = new TextDecoder().decode(await readLimitedBody(response, 4096));
+					const text = new TextDecoder().decode(await readLimitedBody(response, 4096, signal));
 					throw mapUpstreamStatus(response.status, text);
 				}
-				const data = await readLimitedBody(response, request.maxBytes);
+				const data = await readLimitedBody(response, request.maxBytes, signal);
 				const contentType = parseContentType(response.headers.get("content-type"));
 				if (contentType === undefined) return { status: response.status, data };
 				return { status: response.status, contentType, data };
@@ -880,6 +976,7 @@ export function createImagineDownloaderFromFetch(
 				maxBytes: request.maxBytes,
 				accept: request.accept,
 				maxRedirects,
+				...(request.signal === undefined ? {} : { signal: request.signal }),
 			}),
 	};
 }
@@ -888,7 +985,88 @@ function requirePrompt(prompt: string | undefined): string {
 	if (typeof prompt !== "string" || prompt.trim() === "") {
 		throw new GrokImagineError("INVALID_INPUT", "prompt must be a non-empty string");
 	}
+	if (prompt.length > IMAGINE_PROMPT_MAX_LENGTH) {
+		throw new GrokImagineError(
+			"INVALID_INPUT",
+			`prompt must be ${String(IMAGINE_PROMPT_MAX_LENGTH)} characters or fewer (got ${String(prompt.length)})`,
+		);
+	}
 	return prompt;
+}
+
+/**
+ * Validate a tool-supplied Imagine video `requestId`. Returns the id unchanged
+ * on success or throws an `INVALID_INPUT` error. Exposed so capability tools
+ * fail closed at the boundary instead of dispatching a malformed id to the
+ * internal client.
+ */
+export function parseVideoRequestId(value: unknown): string {
+	if (typeof value !== "string") {
+		throw new GrokImagineError("INVALID_INPUT", "video request id must be a string");
+	}
+	if (!VIDEO_REQUEST_ID_PATTERN.test(value)) {
+		throw new GrokImagineError(
+			"INVALID_INPUT",
+			"video request id must match ^[A-Za-z0-9_-]{1,256}$ and be a safe ASCII identifier",
+		);
+	}
+	return value;
+}
+
+/** Enforce min/max bounds on a candidate image-id array. */
+export function clampImagineImageIds(ids: readonly unknown[]): readonly string[] {
+	if (!Array.isArray(ids)) {
+		throw new GrokImagineError("INVALID_INPUT", "imageIds must be an array");
+	}
+	if (ids.length < IMAGINE_IMAGE_IDS_MIN || ids.length > IMAGINE_IMAGE_IDS_MAX) {
+		throw new GrokImagineError(
+			"INVALID_INPUT",
+			`imageIds must contain between ${String(IMAGINE_IMAGE_IDS_MIN)} and ${String(IMAGINE_IMAGE_IDS_MAX)} ids (got ${String(ids.length)})`,
+		);
+	}
+	return ids.map((entry, index) => {
+		if (typeof entry !== "string" || entry.length === 0 || entry.length > 128) {
+			throw new GrokImagineError("INVALID_INPUT", `imageIds[${String(index)}] must be a non-empty ASCII id`);
+		}
+		return entry;
+	});
+}
+
+class ImagineAbortError extends Error {
+	readonly name = "ImagineAbortError";
+	constructor(reason?: unknown) {
+		super("Imagine operation aborted");
+		this.cause = reason;
+	}
+}
+
+function isImagineAbortError(error: unknown): error is ImagineAbortError {
+	return error instanceof ImagineAbortError;
+}
+
+/**
+ * Combine a caller-supplied external `AbortSignal` with the client's internal
+ * `AbortController` so a `dispose()` cancels in-flight API, download, and
+ * persistence work without leaving the operation running in the background.
+ */
+function composeSignals(
+	external: AbortSignal | undefined,
+	internal: AbortSignal,
+): { signal: AbortSignal; observe: () => void } {
+	return {
+		signal: external === undefined ? internal : AbortSignal.any([external, internal]),
+		// AbortSignal.any owns and releases its internal listeners; callers retain
+		// a uniform cleanup shape for runtimes that optimize this helper later.
+		observe: () => undefined,
+	};
+}
+
+function assertImagineSignalActive(signal: AbortSignal, operation: ImagineOperation): void {
+	if (signal.aborted) {
+		throw new GrokImagineError("TIMEOUT", `Imagine ${operation} was aborted before work started`, {
+			cause: signal.reason,
+		});
+	}
 }
 
 function requireApiKey(value: string | undefined, operation: ImagineOperation): string {
@@ -954,16 +1132,35 @@ function officialVideoError(payload: Record<string, unknown>): string | undefine
 	return typeof message === "string" && message.length > 0 ? redactImagineMessage(message) : undefined;
 }
 
+/**
+ * Strict base64 decoder. Node's decoder ignores some malformed characters and
+ * padding, so validate the alphabet and compare a canonical re-encoding. Both
+ * canonical padded input and canonical unpadded input are accepted.
+ */
+const BASE64_STRICT_RE = /^[A-Za-z0-9+/]+={0,2}$/u;
 function decodeBase64(value: string, maxBytes: number): Uint8Array {
-	const maxChars = Math.ceil(maxBytes / 3) * 4 + 8;
+	if (typeof value !== "string" || value.length === 0) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json must be a non-empty string");
+	}
+	if (!BASE64_STRICT_RE.test(value)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json contains non-base64 characters");
+	}
+	const remainder = value.length % 4;
+	if (remainder === 1 || (value.includes("=") && remainder !== 0)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json has invalid padding");
+	}
+	const maxChars = Math.ceil(maxBytes / 3) * 4 + 4;
 	if (value.length > maxChars) {
 		throw new GrokImagineError("MEDIA", `Imagine image b64_json exceeds the ${maxBytes} byte ceiling`);
 	}
-	let decoded: Buffer;
-	try {
-		decoded = Buffer.from(value, "base64");
-	} catch (error) {
-		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json could not be decoded", { cause: error });
+	const decoded = Buffer.from(value, "base64");
+	if (decoded.byteLength === 0) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json decoded to an empty buffer");
+	}
+	const canonical = decoded.toString("base64");
+	const inputWithoutPadding = value.replace(/=+$/u, "");
+	if (canonical.replace(/=+$/u, "") !== inputWithoutPadding || (value.includes("=") && canonical !== value)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json is not canonical base64");
 	}
 	if (decoded.byteLength > maxBytes) {
 		throw new GrokImagineError("MEDIA", `Imagine image exceeds the ${maxBytes} byte ceiling`);
@@ -1017,6 +1214,8 @@ export class GrokImagineClient {
 	private readonly apiJsonMaxBytes: number;
 	private readonly videoResults = new Map<string, ImagineVideoStatusResult>();
 	private readonly videoInflight = new Map<string, Promise<ImagineVideoStatusResult>>();
+	private readonly disposeController = new AbortController();
+	private disposed = false;
 
 	constructor(options: GrokImagineClientOptions) {
 		this.resolveApiKey = options.resolveApiKey;
@@ -1033,87 +1232,157 @@ export class GrokImagineClient {
 		this.downloader = options.downloader ?? createPinnedImagineDownloader({ maxRedirects: this.maxRedirects });
 	}
 
-	async generateImage(input: GenerateImagineImageInput): Promise<ImagineImageResult> {
-		const prompt = requirePrompt(input.prompt);
-		const model = requireImageModel(input.model);
-		const n = input.n ?? 1;
-		if (!Number.isSafeInteger(n) || n < 1 || n > IMAGINE_IMAGE_MAX_N) {
-			throw new GrokImagineError("INVALID_INPUT", `n must be an integer between 1 and ${IMAGINE_IMAGE_MAX_N}`);
+	/**
+	 * Permanently retire this client. In-flight API calls, downloads, and
+	 * media persistence operations are aborted; subsequent operations fail
+	 * closed with an `INVALID_INPUT` error until callers construct a new client.
+	 */
+	dispose(): void {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.disposeController.abort(new ImagineAbortError("client disposed"));
+		for (const inflight of this.videoInflight.values()) {
+			inflight.catch(() => undefined);
 		}
-		const aspectRatio = optionalEnum(input.aspectRatio, IMAGE_ASPECT_SET, "aspectRatio");
-		const resolution = optionalEnum(input.resolution, IMAGE_RESOLUTION_SET, "resolution");
-		const apiKey = requireApiKey(await this.resolveCredential("image.generate"), "image.generate");
-		const body: Record<string, unknown> = {
-			model,
-			prompt,
-			n,
-			response_format: "url",
-		};
-		if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
-		if (resolution !== undefined) body["resolution"] = resolution;
-		const payload = await this.apiJson("POST", GROK_IMAGINE_IMAGE_PATH, apiKey, body);
-		const rows = Array.isArray(payload["data"]) ? payload["data"] : undefined;
-		if (rows === undefined) {
-			throw new GrokImagineError("UPSTREAM", "Imagine image response did not include data");
+		this.videoInflight.clear();
+	}
+
+	/** @returns true once {@link dispose} has been called. */
+	get isDisposed(): boolean {
+		return this.disposed;
+	}
+
+	private assertWritable(operation: ImagineOperation): void {
+		if (this.disposed) {
+			throw new GrokImagineError(
+				"INVALID_INPUT",
+				`Imagine client was disposed before ${operation}; refusing to start new work`,
+			);
 		}
-		const images: ImaginePersistedImage[] = [];
-		for (const row of rows) {
-			if (!isRecord(row)) {
-				throw new GrokImagineError("UPSTREAM", "Imagine image data row is not an object");
+	}
+
+	async generateImage(input: GenerateImagineImageInput, signal?: AbortSignal): Promise<ImagineImageResult> {
+		this.assertWritable("image.generate");
+		const { signal: external, observe } = composeSignals(signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "image.generate");
+			const prompt = requirePrompt(input.prompt);
+			const model = requireImageModel(input.model);
+			const n = input.n ?? 1;
+			if (!Number.isSafeInteger(n) || n < 1 || n > IMAGINE_IMAGE_MAX_N) {
+				throw new GrokImagineError("INVALID_INPUT", `n must be an integer between 1 and ${IMAGINE_IMAGE_MAX_N}`);
 			}
-			images.push(await this.persistGeneratedImage(row, input.name));
+			const aspectRatio = optionalEnum(input.aspectRatio, IMAGE_ASPECT_SET, "aspectRatio");
+			const resolution = optionalEnum(input.resolution, IMAGE_RESOLUTION_SET, "resolution");
+			const apiKey = requireApiKey(await this.resolveCredential("image.generate"), "image.generate");
+			const body: Record<string, unknown> = {
+				model,
+				prompt,
+				n,
+				response_format: "url",
+			};
+			if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
+			if (resolution !== undefined) body["resolution"] = resolution;
+			const payload = await this.apiJson("POST", GROK_IMAGINE_IMAGE_PATH, apiKey, body, external);
+			const rows = Array.isArray(payload["data"]) ? payload["data"] : undefined;
+			if (rows === undefined) {
+				throw new GrokImagineError("UPSTREAM", "Imagine image response did not include data");
+			}
+			const images: ImaginePersistedImage[] = [];
+			for (const row of rows) {
+				if (!isRecord(row)) {
+					throw new GrokImagineError("UPSTREAM", "Imagine image data row is not an object");
+				}
+				images.push(await this.persistGeneratedImage(row, input.name, external));
+			}
+			const first = images[0];
+			if (first === undefined) {
+				throw new GrokImagineError("UPSTREAM", "Imagine image response did not include any images");
+			}
+			return {
+				model,
+				images,
+				attachment: first.attachment,
+				path: first.path,
+			};
+		} finally {
+			observe();
 		}
-		const first = images[0];
-		if (first === undefined) {
-			throw new GrokImagineError("UPSTREAM", "Imagine image response did not include any images");
-		}
-		return {
-			model,
-			images,
-			attachment: first.attachment,
-			path: first.path,
-		};
 	}
 
-	async startVideo(input: StartImagineVideoInput): Promise<ImagineVideoStartResult> {
-		const prompt = requirePrompt(input.prompt);
-		const model = requireVideoModel(input.model);
-		const duration = optionalDuration(input.duration);
-		const aspectRatio = optionalEnum(input.aspectRatio, VIDEO_ASPECT_SET, "aspectRatio");
-		const resolution = optionalEnum(input.resolution, VIDEO_RESOLUTION_SET, "resolution");
-		const apiKey = requireApiKey(await this.resolveCredential("video.start"), "video.start");
-		const body: Record<string, unknown> = { model, prompt };
-		if (duration !== undefined) body["duration"] = duration;
-		if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
-		if (resolution !== undefined) body["resolution"] = resolution;
-		const payload = await this.apiJson("POST", GROK_IMAGINE_VIDEO_START_PATH, apiKey, body);
-		const requestId = payload["request_id"];
-		if (typeof requestId !== "string" || !VIDEO_REQUEST_ID_PATTERN.test(requestId)) {
-			throw new GrokImagineError("UPSTREAM", "Imagine video start did not return a safe request_id");
+	async startVideo(input: StartImagineVideoInput, signal?: AbortSignal): Promise<ImagineVideoStartResult> {
+		this.assertWritable("video.start");
+		const { signal: external, observe } = composeSignals(signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "video.start");
+			const prompt = requirePrompt(input.prompt);
+			const model = requireVideoModel(input.model);
+			const duration = optionalDuration(input.duration);
+			const aspectRatio = optionalEnum(input.aspectRatio, VIDEO_ASPECT_SET, "aspectRatio");
+			const resolution = optionalEnum(input.resolution, VIDEO_RESOLUTION_SET, "resolution");
+			const apiKey = requireApiKey(await this.resolveCredential("video.start"), "video.start");
+			const body: Record<string, unknown> = { model, prompt };
+			if (duration !== undefined) body["duration"] = duration;
+			if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
+			if (resolution !== undefined) body["resolution"] = resolution;
+			const payload = await this.apiJson("POST", GROK_IMAGINE_VIDEO_START_PATH, apiKey, body, external);
+			const requestId = payload["request_id"];
+			if (typeof requestId !== "string" || !VIDEO_REQUEST_ID_PATTERN.test(requestId)) {
+				throw new GrokImagineError("UPSTREAM", "Imagine video start did not return a safe request_id");
+			}
+			return { model, requestId, status: "pending" };
+		} finally {
+			observe();
 		}
-		return { model, requestId, status: "pending" };
 	}
 
-	async videoStatus(requestId: string, options: { name?: string } = {}): Promise<ImagineVideoStatusResult> {
-		if (!VIDEO_REQUEST_ID_PATTERN.test(requestId)) {
-			throw new GrokImagineError("INVALID_INPUT", "video request id is not a safe identifier");
+	async videoStatus(
+		requestId: string,
+		options: { name?: string; signal?: AbortSignal } = {},
+	): Promise<ImagineVideoStatusResult> {
+		const validated = parseVideoRequestId(requestId);
+		this.assertWritable("video.status");
+		const { signal: external, observe } = composeSignals(options.signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "video.status");
+		} catch (error) {
+			observe();
+			throw error;
 		}
-		const cached = this.videoResults.get(requestId);
+		const cached = this.videoResults.get(validated);
 		if (cached !== undefined && cached.status !== "pending") {
+			observe();
 			return cloneVideoStatus(cached);
 		}
-		const inflight = this.videoInflight.get(requestId);
-		if (inflight !== undefined) return inflight;
-		const run = this.pollVideo(requestId, options).finally(() => {
-			this.videoInflight.delete(requestId);
+		const poll = (): Promise<ImagineVideoStatusResult> =>
+			this.pollVideo(validated, { ...options, signal: external }).catch((error: unknown) => {
+				if (isImagineAbortError(error)) {
+					throw new GrokImagineError("TIMEOUT", `video polling for ${validated} was aborted`, { cause: error });
+				}
+				throw error;
+			});
+		if (options.signal !== undefined) return poll().finally(observe);
+		const inflight = this.videoInflight.get(validated);
+		if (inflight !== undefined) {
+			observe();
+			return inflight;
+		}
+		const run = poll().finally(() => {
+			observe();
+			if (this.videoInflight.get(validated) === run) {
+				this.videoInflight.delete(validated);
+			}
 		});
-		this.videoInflight.set(requestId, run);
+		this.videoInflight.set(validated, run);
 		return run;
 	}
 
-	private async pollVideo(requestId: string, options: { name?: string }): Promise<ImagineVideoStatusResult> {
+	private async pollVideo(
+		requestId: string,
+		options: { name?: string; signal?: AbortSignal },
+	): Promise<ImagineVideoStatusResult> {
 		const apiKey = requireApiKey(await this.resolveCredential("video.status"), "video.status");
-		const payload = await this.apiJson("GET", grokImagineVideoStatusPath(requestId), apiKey);
+		const payload = await this.apiJson("GET", grokImagineVideoStatusPath(requestId), apiKey, undefined, options.signal);
 		const status = classifyOfficialVideoStatus(payload["status"]);
 		if (status === "pending") return { requestId, status };
 		if (status === "failed") {
@@ -1137,18 +1406,37 @@ export class GrokImagineClient {
 		if (url === undefined) {
 			throw new GrokImagineError("UPSTREAM", "completed Imagine video did not include a downloadable URL");
 		}
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed before video artifact save");
+		}
 		const downloaded = await this.downloader.download({
 			url,
 			timeoutMs: this.videoDownloadTimeoutMs,
 			maxBytes: this.media.maxBytes,
 			accept: "video/mp4,video/webm",
+			...(options.signal === undefined ? {} : { signal: options.signal }),
 		});
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed after video download");
+		}
 		const mediaType = resolveVideoMediaType(downloaded.data, downloaded.contentType);
+		const operationAborted = (): boolean => options.signal?.aborted === true || this.disposed;
+		if (operationAborted()) {
+			throw new GrokImagineError("TIMEOUT", "Imagine video persistence was aborted", {
+				cause: options.signal?.reason,
+			});
+		}
 		const artifact = await this.media.save({
 			data: downloaded.data,
 			mediaType,
 			...(options.name === undefined ? {} : { name: options.name }),
 		});
+		if (operationAborted()) {
+			await this.media.delete(artifact.artifactId).catch(() => undefined);
+			throw new GrokImagineError("TIMEOUT", "Imagine video persistence was aborted", {
+				cause: options.signal?.reason,
+			});
+		}
 		const result: ImagineVideoStatusResult = {
 			requestId,
 			status: "completed",
@@ -1169,6 +1457,7 @@ export class GrokImagineClient {
 	private async persistGeneratedImage(
 		row: Record<string, unknown>,
 		name: string | undefined,
+		signal: AbortSignal,
 	): Promise<ImaginePersistedImage> {
 		const b64 = typeof row["b64_json"] === "string" ? row["b64_json"] : undefined;
 		const url = typeof row["url"] === "string" ? row["url"] : undefined;
@@ -1181,14 +1470,21 @@ export class GrokImagineClient {
 			if (url === undefined) {
 				throw new GrokImagineError("UPSTREAM", "Imagine image row did not include url or b64_json");
 			}
+			if (signal.aborted) {
+				throw new GrokImagineError("TIMEOUT", "image download aborted before request", { cause: signal.reason });
+			}
 			const downloaded = await this.downloader.download({
 				url,
 				timeoutMs: this.imageDownloadTimeoutMs,
 				maxBytes: this.imageMaxBytes,
 				accept: "image/png,image/jpeg,image/webp,image/gif",
+				signal,
 			});
 			data = downloaded.data;
 			declared = downloaded.contentType ?? declared;
+		}
+		if (signal.aborted) {
+			throw new GrokImagineError("TIMEOUT", "image download aborted before persistence", { cause: signal.reason });
 		}
 		if (data.byteLength > this.imageMaxBytes) {
 			throw new GrokImagineError("MEDIA", `Imagine image exceeds the ${this.imageMaxBytes} byte ceiling`);
@@ -1198,11 +1494,21 @@ export class GrokImagineClient {
 		if (allowed !== undefined && !allowed.includes(mediaType)) {
 			throw new GrokImagineError("MEDIA", `Imagine image type ${mediaType} is not accepted by the attachment store`);
 		}
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed before attachment persist");
+		}
 		const attachment = await this.attachments.saveImage({
 			data,
 			mediaType,
 			...(name === undefined ? {} : { name }),
 		});
+		if (signal.aborted || this.disposed) {
+			// AttachmentStore exposes no delete/cancellation seam; fail closed and do
+			// not publish the now-orphaned immutable reference.
+			throw new GrokImagineError("TIMEOUT", "Imagine attachment persistence was aborted", {
+				cause: signal.reason,
+			});
+		}
 		if (!isSafeImagineAttachmentId(attachment.attachmentId)) {
 			throw new GrokImagineError("MEDIA", "attachment store returned an unsafe identifier");
 		}
@@ -1230,7 +1536,8 @@ export class GrokImagineClient {
 		method: "GET" | "POST",
 		path: string,
 		apiKey: string,
-		body?: Record<string, unknown>,
+		body: Record<string, unknown> | undefined,
+		signal?: AbortSignal,
 	): Promise<Record<string, unknown>> {
 		const url = new URL(path, XAI_API_ORIGIN);
 		if (url.origin !== XAI_API_ORIGIN) {
@@ -1240,11 +1547,16 @@ export class GrokImagineClient {
 			Authorization: `Bearer ${apiKey}`,
 			Accept: "application/json",
 		};
+		const composed = AbortSignal.any(
+			signal === undefined
+				? [AbortSignal.timeout(this.apiTimeoutMs), this.disposeController.signal]
+				: [signal, AbortSignal.timeout(this.apiTimeoutMs), this.disposeController.signal],
+		);
 		const init: RequestInit = {
 			method,
 			headers,
 			redirect: "error",
-			signal: AbortSignal.timeout(this.apiTimeoutMs),
+			signal: composed,
 		};
 		if (body !== undefined) {
 			headers["Content-Type"] = "application/json";
@@ -1253,17 +1565,20 @@ export class GrokImagineClient {
 		let response: Response;
 		try {
 			response = await this.apiFetch(url, init);
+			if (composed.aborted) {
+				throw new GrokImagineError("TIMEOUT", "Imagine API request was aborted", { cause: composed.reason });
+			}
 		} catch (error) {
 			if (error instanceof GrokImagineError) throw error;
 			const name = error instanceof Error ? error.name : "";
-			if (name === "TimeoutError" || name === "AbortError") {
-				throw new GrokImagineError("TIMEOUT", "Imagine API request timed out", { cause: error });
+			if (name === "TimeoutError" || name === "AbortError" || signal?.aborted === true) {
+				throw new GrokImagineError("TIMEOUT", "Imagine API request was aborted", { cause: error });
 			}
 			throw new GrokImagineError("UPSTREAM", `Imagine API request failed (${redactImagineMessage(error)})`, {
 				cause: error,
 			});
 		}
-		const bytes = await readLimitedBody(response, this.apiJsonMaxBytes);
+		const bytes = await readLimitedBody(response, this.apiJsonMaxBytes, composed);
 		const text = new TextDecoder().decode(bytes);
 		if (!response.ok) throw mapUpstreamStatus(response.status, text);
 		if (text.trim() === "") return {};

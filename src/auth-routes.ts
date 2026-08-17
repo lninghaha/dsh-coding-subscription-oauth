@@ -759,7 +759,7 @@ export function registerCodingOAuthRoutes(
 					try {
 						json(res, 200, await allStatus());
 					} catch (error: unknown) {
-						json(res, 500, { error: safeMessage(error) });
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
 				},
 			}),

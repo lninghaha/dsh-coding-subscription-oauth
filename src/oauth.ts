@@ -7,13 +7,25 @@
  * @module dsh-coding-subscription-oauth/oauth
  */
 
+import { Buffer } from "node:buffer";
 import { createHash, randomBytes } from "node:crypto";
 import type { Server } from "node:http";
 import { createServer } from "node:http";
 import type { OAuthCredential } from "@earendil-works/pi-ai";
+import { safeMessage } from "./redact.ts";
 
 /** OIDC issuer for both Grok CLI and Grok Build. */
 export const GROK_BUILD_OAUTH_ISSUER = "https://auth.x.ai";
+
+/** Approved Grok OIDC issuer origin. Discovery authorization/token endpoints must remain on this origin. */
+const APPROVED_GROK_ISSUER_ORIGIN = "https://auth.x.ai";
+
+/** Hard ceiling on the discovery document body. Discovery is small JSON; anything larger is hostile. */
+const DISCOVERY_MAX_BYTES = 64 * 1024;
+const TOKEN_RESPONSE_MAX_BYTES = 64 * 1024;
+
+/** Hard ceiling on a user-pasted authorization code extracted from arbitrary input. */
+const EXTRACTED_CODE_MAX_LENGTH = 1024;
 
 /**
  * Public client id known to work for the device flow; reused as the default
@@ -78,48 +90,178 @@ export function resolveOAuthParams(overrides: Partial<GrokBuildOAuthParams> = {}
 }
 
 interface DiscoveryDocument {
+	issuer: string;
 	authorization_endpoint: string;
 	token_endpoint: string;
 }
 
 let discoveryCache: { issuer: string; document: DiscoveryDocument; fetchedAt: number } | undefined;
 
+/**
+ * Validate that an issuer string points at the approved Grok OIDC origin. HTTPS
+ * is required in production; the loopback tests opt in via
+ * {@link DiscoveryFetchOptions.allowInsecureLoopbackIssuer} so the existing mock
+ * IdP can keep using `http://127.0.0.1`.
+ */
+function assertApprovedIssuer(issuer: string, options: DiscoveryFetchOptions): URL {
+	let parsed: URL;
+	try {
+		parsed = new URL(issuer);
+	} catch {
+		throw new GrokBuildOAuthError("discovery", "configured issuer is not a valid URL");
+	}
+	const isLoopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]" || parsed.hostname === "::1";
+	if (parsed.protocol !== "https:" && !(options.allowInsecureLoopbackIssuer === true && isLoopback)) {
+		throw new GrokBuildOAuthError(
+			"discovery",
+			`configured issuer must use HTTPS${options.allowInsecureLoopbackIssuer === true ? " (loopback test override ignored for non-loopback host)" : ""}`,
+		);
+	}
+	if (!isLoopback && parsed.origin !== APPROVED_GROK_ISSUER_ORIGIN) {
+		throw new GrokBuildOAuthError("discovery", "configured issuer is not on the approved Grok OIDC origin");
+	}
+	if (
+		parsed.username !== "" ||
+		parsed.password !== "" ||
+		parsed.pathname !== "/" ||
+		parsed.search !== "" ||
+		parsed.hash !== ""
+	) {
+		throw new GrokBuildOAuthError("discovery", "configured issuer must be an origin URL without userinfo or path");
+	}
+	return parsed;
+}
+
+/** Validate a discovery endpoint URL is on the approved issuer origin. */
+function assertApprovedEndpointUrl(
+	value: string,
+	role: "authorization_endpoint" | "token_endpoint",
+	issuer: URL,
+	options: DiscoveryFetchOptions,
+): URL {
+	let parsed: URL;
+	try {
+		parsed = new URL(value);
+	} catch {
+		throw new GrokBuildOAuthError("discovery", `discovery ${role} is not a valid URL`);
+	}
+	const isLoopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]" || parsed.hostname === "::1";
+	if (parsed.protocol !== "https:" && !(options.allowInsecureLoopbackIssuer === true && isLoopback)) {
+		throw new GrokBuildOAuthError("discovery", `discovery ${role} must use HTTPS`);
+	}
+	if (parsed.username !== "" || parsed.password !== "") {
+		throw new GrokBuildOAuthError("discovery", `discovery ${role} must not carry userinfo`);
+	}
+	// Endpoint origin must always equal the already approved issuer origin. The
+	// test-only loopback override relaxes HTTPS, never host or port pinning.
+	if (parsed.origin !== issuer.origin) {
+		throw new GrokBuildOAuthError("discovery", `discovery ${role} escaped the approved issuer origin`);
+	}
+	return parsed;
+}
+
+export interface DiscoveryFetchOptions {
+	/** Loopback-only test override: permit `http://127.0.0.1`/`http://[::1]` issuers. */
+	readonly allowInsecureLoopbackIssuer?: boolean;
+}
+
 /** Fetch (and cache for the process) the issuer's discovery document. */
-export async function discoverOAuthEndpoints(issuer: string, signal?: AbortSignal): Promise<DiscoveryDocument> {
+export async function discoverOAuthEndpoints(
+	issuer: string,
+	signal?: AbortSignal,
+	options: DiscoveryFetchOptions = {},
+): Promise<DiscoveryDocument> {
+	const approvedIssuer = assertApprovedIssuer(issuer, options);
 	if (
 		discoveryCache !== undefined &&
-		discoveryCache.issuer === issuer &&
+		discoveryCache.issuer === approvedIssuer.href &&
 		Date.now() - discoveryCache.fetchedAt < 60 * 60 * 1000
 	) {
 		return discoveryCache.document;
 	}
 	let response: Response;
 	try {
-		response = await fetch(`${issuer}${DISCOVERY_PATH}`, {
+		response = await fetch(new URL(DISCOVERY_PATH, approvedIssuer).href, {
 			headers: { accept: "application/json" },
+			// Discovery must never follow a redirect to an unverified host.
+			redirect: "error",
 			...(signal !== undefined ? { signal } : {}),
 		});
 	} catch {
-		throw new GrokBuildOAuthError("discovery", `issuer ${issuer} is unreachable`);
+		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} is unreachable`);
 	}
 	if (!response.ok) {
-		throw new GrokBuildOAuthError("discovery", `issuer ${issuer} discovery failed (HTTP ${response.status})`);
+		throw new GrokBuildOAuthError(
+			"discovery",
+			`issuer ${approvedIssuer.href} discovery failed (HTTP ${response.status})`,
+		);
 	}
+	const declaredLength = response.headers.get("content-length");
+	if (declaredLength !== null) {
+		const parsedLength = Number(declaredLength);
+		if (Number.isFinite(parsedLength) && parsedLength > DISCOVERY_MAX_BYTES) {
+			await response.body?.cancel().catch(() => undefined);
+			throw new GrokBuildOAuthError(
+				"discovery",
+				`issuer ${approvedIssuer.href} discovery body exceeds ${DISCOVERY_MAX_BYTES} bytes`,
+			);
+		}
+	}
+	const reader = response.body?.getReader();
+	if (reader === undefined) {
+		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} discovery returned no body`);
+	}
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			if (value === undefined) continue;
+			total += value.byteLength;
+			if (total > DISCOVERY_MAX_BYTES) {
+				await reader.cancel().catch(() => undefined);
+				throw new GrokBuildOAuthError(
+					"discovery",
+					`issuer ${approvedIssuer.href} discovery body exceeds ${DISCOVERY_MAX_BYTES} bytes`,
+				);
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	const text = new TextDecoder("utf-8", { fatal: false }).decode(Buffer.concat(chunks, total));
 	let body: unknown;
 	try {
-		body = await response.json();
+		body = JSON.parse(text);
 	} catch {
-		throw new GrokBuildOAuthError("discovery", `issuer ${issuer} discovery returned invalid JSON`);
+		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} discovery returned invalid JSON`);
 	}
 	const document = body as Partial<DiscoveryDocument>;
-	if (typeof document.authorization_endpoint !== "string" || typeof document.token_endpoint !== "string") {
-		throw new GrokBuildOAuthError("discovery", `issuer ${issuer} discovery lacks OAuth endpoints`);
+	if (typeof document.issuer !== "string") {
+		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} discovery lacks its issuer identity`);
 	}
+	const discoveredIssuer = assertApprovedIssuer(document.issuer, options);
+	if (discoveredIssuer.href !== approvedIssuer.href) {
+		throw new GrokBuildOAuthError("discovery", "discovery issuer identity does not match the configured issuer");
+	}
+	if (typeof document.authorization_endpoint !== "string" || typeof document.token_endpoint !== "string") {
+		throw new GrokBuildOAuthError("discovery", `issuer ${approvedIssuer.href} discovery lacks OAuth endpoints`);
+	}
+	const authorizeUrl = assertApprovedEndpointUrl(
+		document.authorization_endpoint,
+		"authorization_endpoint",
+		approvedIssuer,
+		options,
+	);
+	const tokenUrl = assertApprovedEndpointUrl(document.token_endpoint, "token_endpoint", approvedIssuer, options);
 	const parsed: DiscoveryDocument = {
-		authorization_endpoint: document.authorization_endpoint,
-		token_endpoint: document.token_endpoint,
+		issuer: discoveredIssuer.href,
+		authorization_endpoint: authorizeUrl.href,
+		token_endpoint: tokenUrl.href,
 	};
-	discoveryCache = { issuer, document: parsed, fetchedAt: Date.now() };
+	discoveryCache = { issuer: approvedIssuer.href, document: parsed, fetchedAt: Date.now() };
 	return parsed;
 }
 
@@ -178,11 +320,14 @@ async function listenForCode(
 	port: number,
 	state: string,
 	signal: AbortSignal,
-): Promise<{ server: Server; port: number; wait: Promise<LoopbackResult> }> {
+): Promise<{ server: Server; port: number; wait: Promise<LoopbackResult>; dispose: () => void }> {
 	let lastError: unknown;
 	for (let attempt = 0; attempt < PORT_SCAN_ATTEMPTS; attempt += 1) {
 		const candidate = port + attempt;
 		const server = createServer();
+		// Captured by the Promise executor below; declared up-front so the closure
+		// sees a single `let` binding rather than the per-iteration TDZ version.
+		let teardown: (() => void) | undefined;
 		const wait = new Promise<LoopbackResult>((resolvePromise, rejectPromise) => {
 			server.on("request", (request, response) => {
 				const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -203,14 +348,18 @@ async function listenForCode(
 				resolvePromise({ code });
 			});
 			server.on("error", (error) => rejectPromise(error));
-			signal.addEventListener(
-				"abort",
-				() => {
-					// Plain error on purpose: the caller maps aborts to cancelled/timeout.
-					rejectPromise(new Error("loopback listener aborted"));
-				},
-				{ once: true },
-			);
+			const onAbort = (): void => {
+				// Plain error on purpose: the caller maps aborts to cancelled/timeout.
+				rejectPromise(new Error("loopback listener aborted"));
+			};
+			signal.addEventListener("abort", onAbort, { once: true });
+			// Hand a single teardown to the caller so the abort listener is always removed
+			// before the server is closed — otherwise `{ once: true }` leaves an orphan
+			// on the signal for the lifetime of the parent flow (and EADDRINUSE retries
+			// could pile up several before the loop exits).
+			teardown = () => {
+				signal.removeEventListener("abort", onAbort);
+			};
 		});
 		try {
 			await new Promise<void>((resolvePromise, rejectPromise) => {
@@ -221,8 +370,17 @@ async function listenForCode(
 			wait.catch(() => {});
 			const address = server.address();
 			const boundPort = typeof address === "object" && address !== null ? address.port : candidate;
-			return { server, port: boundPort, wait };
+			// Move the teardown to the returned bundle so the caller drops it after `server.close()`.
+			const cleanup = teardown;
+			teardown = undefined;
+			return {
+				server,
+				port: boundPort,
+				wait,
+				dispose: () => cleanup?.(),
+			};
 		} catch (error) {
+			teardown?.();
 			lastError = error;
 			server.removeAllListeners();
 			await new Promise<void>((resolvePromise) => server.close(() => resolvePromise()));
@@ -259,6 +417,37 @@ function credentialFromTokenResponse(body: TokenResponse, previousRefresh?: stri
 	return { type: "oauth", access, refresh, expires: Date.now() + expiresIn * 1000 };
 }
 
+async function readTokenResponseText(response: Response): Promise<string> {
+	const declaredLength = response.headers.get("content-length");
+	if (declaredLength !== null) {
+		const parsedLength = Number(declaredLength);
+		if (Number.isFinite(parsedLength) && parsedLength > TOKEN_RESPONSE_MAX_BYTES) {
+			await response.body?.cancel().catch(() => undefined);
+			throw new GrokBuildOAuthError("token_exchange", "token endpoint response exceeded the size limit");
+		}
+	}
+	const reader = response.body?.getReader();
+	if (reader === undefined) throw new GrokBuildOAuthError("token_exchange", "token endpoint returned no body");
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			if (value === undefined) continue;
+			total += value.byteLength;
+			if (total > TOKEN_RESPONSE_MAX_BYTES) {
+				await reader.cancel().catch(() => undefined);
+				throw new GrokBuildOAuthError("token_exchange", "token endpoint response exceeded the size limit");
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	return new TextDecoder("utf-8", { fatal: false }).decode(Buffer.concat(chunks, total));
+}
+
 async function postTokenForm(
 	tokenEndpoint: string,
 	fields: Record<string, string>,
@@ -278,20 +467,18 @@ async function postTokenForm(
 		});
 	} catch (error) {
 		if (signal?.aborted) throw new GrokBuildOAuthError("cancelled", "request was cancelled");
-		throw new GrokBuildOAuthError(
-			"token_exchange",
-			`token endpoint is unreachable: ${error instanceof Error ? error.message : String(error)}`,
-		);
+		throw new GrokBuildOAuthError("token_exchange", `token endpoint is unreachable: ${safeMessage(error)}`);
 	}
 	let body: TokenResponse & { error?: unknown; error_description?: unknown };
 	try {
-		body = (await response.json()) as TokenResponse;
-	} catch {
+		body = JSON.parse(await readTokenResponseText(response)) as TokenResponse;
+	} catch (error) {
+		if (error instanceof GrokBuildOAuthError) throw error;
 		throw new GrokBuildOAuthError("token_exchange", `token endpoint returned invalid JSON (HTTP ${response.status})`);
 	}
 	if (!response.ok) {
-		const code = typeof body.error === "string" ? body.error : `HTTP ${response.status}`;
-		const detail = typeof body.error_description === "string" ? `: ${body.error_description}` : "";
+		const code = typeof body.error === "string" ? safeMessage(body.error) : `HTTP ${response.status}`;
+		const detail = typeof body.error_description === "string" ? `: ${safeMessage(body.error_description)}` : "";
 		throw new GrokBuildOAuthError("token_exchange", `token endpoint rejected the request (${code})${detail}`);
 	}
 	return credentialFromTokenResponse(body, previousRefresh);
@@ -302,9 +489,10 @@ export async function refreshGrokBuildToken(
 	refreshToken: string,
 	overrides: Partial<GrokBuildOAuthParams> = {},
 	signal?: AbortSignal,
+	discoveryOptions: DiscoveryFetchOptions = {},
 ): Promise<OAuthCredential> {
 	const params = resolveOAuthParams(overrides);
-	const endpoints = await discoverOAuthEndpoints(params.issuer, signal);
+	const endpoints = await discoverOAuthEndpoints(params.issuer, signal, discoveryOptions);
 	return postTokenForm(
 		endpoints.token_endpoint,
 		{
@@ -333,12 +521,20 @@ export interface PkceLoginCallbacks {
 export function extractCode(input: string): string {
 	const trimmed = input.trim();
 	if (trimmed.length === 0) return trimmed;
+	let candidate: string;
 	try {
 		const url = new URL(trimmed);
-		return url.searchParams.get("code") ?? trimmed;
+		candidate = url.searchParams.get("code") ?? trimmed;
 	} catch {
-		return trimmed;
+		candidate = trimmed;
 	}
+	if (candidate.length > EXTRACTED_CODE_MAX_LENGTH) {
+		throw new GrokBuildOAuthError(
+			"token_exchange",
+			`pasted authorization code exceeds ${EXTRACTED_CODE_MAX_LENGTH} characters`,
+		);
+	}
+	return candidate;
 }
 
 /**
@@ -348,9 +544,10 @@ export function extractCode(input: string): string {
  */
 export async function loginGrokBuildPkce(
 	callbacks: PkceLoginCallbacks,
-	overrides: Partial<GrokBuildOAuthParams> = {},
+	overrides: Partial<GrokBuildOAuthParams & DiscoveryFetchOptions> = {},
 ): Promise<OAuthCredential> {
-	const params = resolveOAuthParams(overrides);
+	const { allowInsecureLoopbackIssuer, ...oauthOverrides } = overrides;
+	const params = resolveOAuthParams(oauthOverrides);
 	const timeoutMs = callbacks.timeoutMs ?? DEFAULT_LOGIN_TIMEOUT_MS;
 	const controller = new AbortController();
 	/** Aborts the losing code-capture channel once one channel wins. */
@@ -362,7 +559,9 @@ export async function loginGrokBuildPkce(
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 	timer.unref?.();
 	try {
-		const endpoints = await discoverOAuthEndpoints(params.issuer, controller.signal);
+		const endpoints = await discoverOAuthEndpoints(params.issuer, controller.signal, {
+			...(allowInsecureLoopbackIssuer === undefined ? {} : { allowInsecureLoopbackIssuer }),
+		});
 		const { verifier, challenge } = generatePkce();
 		const state = randomToken();
 		const nonce = randomToken();
@@ -396,6 +595,7 @@ export async function loginGrokBuildPkce(
 			);
 		} finally {
 			listener.server.close();
+			listener.dispose();
 		}
 	} catch (error) {
 		if (controller.signal.aborted && !(error instanceof GrokBuildOAuthError)) {

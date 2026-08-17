@@ -51,8 +51,10 @@ describe("mergeLiveCatalog", () => {
 		expect(extra?.api).toBe("openai-responses");
 		expect(extra?.name).toBe("Grok 4.6");
 		expect(extra?.reasoning).toBe(true);
+		expect(extra?.input).toEqual(["text", "image"]);
 		expect(extra?.thinkingLevelMap?.off).toBeNull();
 		expect(extra?.thinkingLevelMap?.xhigh).toBe("xhigh");
+		expect(known?.input).toEqual(["text", "image"]);
 		expect(known?.thinkingLevelMap?.xhigh).toBeNull();
 	});
 
@@ -97,6 +99,7 @@ describe("materializeLiveModel", () => {
 		expect(model.provider).toBe(GROK_BUILD_ROUTE);
 		expect(model.api).toBe("openai-responses");
 		expect(model.name).toBe("Grok 9 Future");
+		expect(model.input).toEqual(["text", "image"]);
 		expect(model.thinkingLevelMap?.xhigh).toBe("xhigh");
 	});
 

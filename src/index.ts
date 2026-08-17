@@ -28,6 +28,7 @@ import {
 	CapabilitySettingsSchema,
 	type CapabilitySettingsService,
 	createCapabilitySettingsController,
+	resolveCapabilitySettings,
 } from "./capability-settings.ts";
 import {
 	CODEX_IMAGE_EDIT_TOOL,
@@ -342,7 +343,8 @@ function unavailableImagineClient(): {
 export function apply(ctx: Context, config: Config): void {
 	ensureCodingOAuthProxy(config.proxy, config.proxyKimi === undefined ? {} : { proxyKimi: config.proxyKimi });
 	const logger = ctx.logger(name);
-	const runtime = new CapabilityRuntimeState(undefined, () => {
+	const baseCapabilities = resolveCapabilitySettings(config.capabilities);
+	const runtime = new CapabilityRuntimeState(baseCapabilities, () => {
 		logger.warn("an optional capability listener failed");
 	});
 	let active = true;
@@ -414,22 +416,36 @@ export function apply(ctx: Context, config: Config): void {
 		});
 
 	let settingsOwner = 0;
+	let releaseActiveSettings = (): void => undefined;
+	ctx.effect(() => () => releaseActiveSettings(), "dsh-coding-subscription-oauth: capability settings bridge");
 	ctx.inject(["settings"], (settingsCtx) => {
+		// Re-injection may happen before Cordis runs the previous child effect's
+		// disposer. Release it synchronously so an obsolete watcher cannot race a
+		// newly attached settings service.
+		releaseActiveSettings();
 		const owner = ++settingsOwner;
 		const controller = createCapabilitySettingsController({
 			settings: settingsCtx.get("settings") as CapabilitySettingsService,
 			...(config.capabilities === undefined ? {} : { base: config.capabilities }),
+			onListenerError: () => logger.warn("a capability settings listener failed"),
 		});
 		runtime.set(controller.current());
-		const unsubscribe = controller.subscribe((snapshot) => runtime.set(snapshot.value));
-		settingsCtx.effect(
-			() => () => {
-				unsubscribe();
-				controller.dispose();
-				if (owner === settingsOwner) runtime.reset();
-			},
-			"dsh-coding-subscription-oauth: capability settings",
-		);
+		const unsubscribe = controller.subscribe((snapshot) => {
+			runtime.set(snapshot.value);
+		});
+		let released = false;
+		const release = (): void => {
+			if (released) return;
+			released = true;
+			unsubscribe();
+			controller.dispose();
+			if (owner === settingsOwner) {
+				releaseActiveSettings = (): void => undefined;
+				runtime.set(baseCapabilities);
+			}
+		};
+		releaseActiveSettings = release;
+		settingsCtx.effect(() => release, "dsh-coding-subscription-oauth: capability settings");
 		settingsCtx.inject(["webServer"], (webCtx) => {
 			registerCapabilityRoutes(webCtx, {
 				controller,
@@ -451,7 +467,9 @@ export function apply(ctx: Context, config: Config): void {
 
 	const search = createCodexSearchProvider({
 		auth: codexAuth,
-		model: codex.visibleModels()[0]?.id ?? "",
+		// Login, import, model selection, and catalog refreshes can all change the
+		// first visible Codex model after plugin startup.
+		model: () => codex.visibleModels()[0]?.id ?? "",
 	});
 	ctx.inject(["web"], (webCtx) => {
 		const web = webCtx.get("web") as CapabilitySearchRegistry;
@@ -493,16 +511,17 @@ export function apply(ctx: Context, config: Config): void {
 			media,
 		});
 		const routedImagine = {
-			async generateImage(input: Parameters<typeof imagine.generateImage>[0]) {
-				const result = await imagine.generateImage(input);
+			async generateImage(input: Parameters<typeof imagine.generateImage>[0], signal?: AbortSignal) {
+				const result = await imagine.generateImage(input, signal);
 				if (runtime.current().grokImagineImage) {
 					routeRegistry.rememberImages(result.images.map((image) => image.attachment));
 				}
 				return result;
 			},
-			startVideo: (input: Parameters<typeof imagine.startVideo>[0]) => imagine.startVideo(input),
-			async videoStatus(requestId: string) {
-				const result = await imagine.videoStatus(requestId);
+			startVideo: (input: Parameters<typeof imagine.startVideo>[0], signal?: AbortSignal) =>
+				imagine.startVideo(input, signal),
+			async videoStatus(requestId: string, options?: Parameters<typeof imagine.videoStatus>[1]) {
+				const result = await imagine.videoStatus(requestId, options);
 				if (result.artifact !== undefined && runtime.current().grokImagineVideo) {
 					routeRegistry.rememberArtifact(result.artifact);
 				}
@@ -520,22 +539,32 @@ export function apply(ctx: Context, config: Config): void {
 		).filter((definition) => IMAGINE_TOOL_NAMES.has(definition.name));
 		let previousSettings = runtime.current();
 		const releaseRetention = runtime.subscribe((settings) => {
-			media.setRetentionMs(settings.videoArtifactTtlMs);
-			if (previousSettings.grokImagineImage && !settings.grokImagineImage) routeRegistry.revokeImages();
-			if (previousSettings.grokImagineVideo && !settings.grokImagineVideo) routeRegistry.revokeArtifacts();
+			const previous = previousSettings;
 			previousSettings = settings;
+			if (previous.grokImagineImage && !settings.grokImagineImage) routeRegistry.revokeImages();
+			if (previous.grokImagineVideo && !settings.grokImagineVideo) routeRegistry.revokeArtifacts();
+			return media
+				.applyRetentionMs(settings.videoArtifactTtlMs)
+				.then(() => undefined)
+				.catch(() => logger.warn("Imagine media retention cleanup failed"));
 		});
 		toolCtx.effect(
 			() => bindCapabilityTools(runtime, tools, definitions),
 			"dsh-coding-subscription-oauth: Grok Imagine tools",
 		);
 		toolCtx.effect(
-			() => () => {
+			() => async () => {
+				// Abort new/in-flight work before cleanup regardless of Cordis disposer
+				// ordering. GrokImagineClient.dispose() is intentionally idempotent.
+				imagine.dispose();
 				releaseRetention();
-				void media.cleanup().catch(() => logger.warn("Imagine media cleanup failed"));
+				try {
+					await media.cleanup();
+				} catch {
+					logger.warn("Imagine media cleanup failed");
+				}
 			},
-			"dsh-coding-subscription-oauth: Imagine media cleanup",
+			"dsh-coding-subscription-oauth: Imagine client and media lifetime",
 		);
-		void media.cleanup().catch(() => logger.warn("Imagine media startup cleanup failed"));
 	});
 }
