@@ -18,6 +18,7 @@ const CAPABILITIES_PATH = "/plugins/dsh-grok-build/capabilities";
 const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
 const IMAGINE_CREDENTIAL_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
 const GATEWAY_PATH = "/plugins/dsh-grok-build/gateway";
+const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
 const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
 const POLL_INTERVAL_MS = 1_000;
 
@@ -321,13 +322,23 @@ const PROVIDERS: readonly ProviderCardDefinition[] = [
 	},
 ];
 
+type SettingsTabId = "accounts" | "capabilities" | "gateway" | "about";
+type CopyField = "openai" | "anthropic" | "key";
+
+const SETTINGS_TABS: readonly { id: SettingsTabId; label: GrokBuildSettingsKey }[] = [
+	{ id: "accounts", label: "tabAccounts" },
+	{ id: "gateway", label: "tabGateway" },
+	{ id: "capabilities", label: "tabCapabilities" },
+	{ id: "about", label: "tabAbout" },
+];
+
 export interface GrokBuildSettingsInjected {
 	t: (key: GrokBuildSettingsKey, params?: Record<string, unknown>) => string;
 }
 
 export type GrokBuildSettingsProps = Partial<GrokBuildSettingsInjected>;
 
-const pageStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 18, maxWidth: 780 };
+const pageStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 16, maxWidth: 780 };
 const titleStyle: CSSProperties = {
 	margin: 0,
 	fontSize: 20,
@@ -440,6 +451,37 @@ const nestedStyle: CSSProperties = {
 	background: "var(--dsw-alias-bg-layer-1)",
 };
 const hintStyle: CSSProperties = { ...bodyStyle, fontSize: 13 };
+const tabNavStyle: CSSProperties = {
+	display: "flex",
+	flexWrap: "wrap",
+	gap: 8,
+};
+const tabButtonStyle: CSSProperties = {
+	...buttonStyle,
+	borderRadius: 10,
+};
+const tabButtonActiveStyle: CSSProperties = {
+	...primaryButtonStyle,
+	borderRadius: 10,
+};
+const panelStyle: CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	gap: 14,
+	minWidth: 0,
+};
+const accountGridStyle: CSSProperties = {
+	display: "grid",
+	gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+	gap: 14,
+};
+const copyRowStyle: CSSProperties = {
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "space-between",
+	flexWrap: "wrap",
+	gap: 8,
+};
 
 function dotStyle(
 	status: ProviderStatus["status"] | "loading" | "available" | "unavailable",
@@ -835,6 +877,57 @@ function parseGateway(value: unknown): GatewayView | undefined {
 	};
 }
 
+function formatGatewayBaseUrl(bind: string, port: number): string {
+	const host = bind.includes(":") && !bind.startsWith("[") ? `[${bind}]` : bind;
+	return `http://${host}:${String(port)}`;
+}
+
+const GATEWAY_PORT_MIN = 1024;
+const GATEWAY_PORT_MAX = 65_535;
+const GATEWAY_RANDOM_PORT_MIN = 18_100;
+const GATEWAY_RANDOM_PORT_MAX = 18_999;
+const GATEWAY_RANDOM_RESERVED = new Set([22, 53, 3080, 7890, 9090, 18_080]);
+
+function randomGatewayPort(exclude?: number): number {
+	for (let attempt = 0; attempt < 32; attempt += 1) {
+		const span = GATEWAY_RANDOM_PORT_MAX - GATEWAY_RANDOM_PORT_MIN + 1;
+		const candidate = GATEWAY_RANDOM_PORT_MIN + Math.floor(Math.random() * span);
+		if (candidate !== exclude && !GATEWAY_RANDOM_RESERVED.has(candidate)) return candidate;
+	}
+	return exclude === GATEWAY_RANDOM_PORT_MIN ? GATEWAY_RANDOM_PORT_MIN + 1 : GATEWAY_RANDOM_PORT_MIN;
+}
+
+function parseGatewayPort(value: string): number | undefined {
+	const port = Number(value);
+	if (!Number.isInteger(port) || port < GATEWAY_PORT_MIN || port > GATEWAY_PORT_MAX) return undefined;
+	return port;
+}
+
+async function copyText(text: string): Promise<boolean> {
+	try {
+		if (typeof navigator !== "undefined" && navigator.clipboard?.writeText !== undefined) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {
+		// fall through to execCommand
+	}
+	try {
+		const area = document.createElement("textarea");
+		area.value = text;
+		area.setAttribute("readonly", "");
+		area.style.position = "fixed";
+		area.style.left = "-9999px";
+		document.body.appendChild(area);
+		area.select();
+		const ok = document.execCommand("copy");
+		document.body.removeChild(area);
+		return ok;
+	} catch {
+		return false;
+	}
+}
+
 function parseImagineCredential(value: unknown): ImagineCredentialView | undefined {
 	if (!isRecord(value)) return undefined;
 	const configured = optionalBoolean(value["configured"]);
@@ -899,6 +992,15 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [gatewayError, setGatewayError] = useState<string | undefined>(undefined);
 	const [gatewayBusy, setGatewayBusy] = useState(false);
 	const [gatewayOnceKey, setGatewayOnceKey] = useState<string | undefined>(undefined);
+	const [gatewayKeyVisible, setGatewayKeyVisible] = useState(false);
+	const [gatewayRotateConfirm, setGatewayRotateConfirm] = useState(false);
+	const [gatewayRevealError, setGatewayRevealError] = useState<string | undefined>(undefined);
+	const [portDraft, setPortDraft] = useState("");
+	const [activeTab, setActiveTab] = useState<SettingsTabId>("accounts");
+	const [copiedField, setCopiedField] = useState<CopyField | undefined>(undefined);
+	const [copyFailedField, setCopyFailedField] = useState<CopyField | undefined>(undefined);
+	const [expandedProviders, setExpandedProviders] = useState<Partial<Record<ProviderSlug, boolean>>>({});
+	const copiedTimerRef = useRef<number | undefined>(undefined);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -977,6 +1079,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		mountedRef.current = true;
 		return () => {
 			mountedRef.current = false;
+			if (copiedTimerRef.current !== undefined) window.clearTimeout(copiedTimerRef.current);
 			previewEpochRef.current += 1;
 			const active = previewRef.current;
 			if (active !== undefined) cancelPreviewTicket(active.previewId, true);
@@ -1189,6 +1292,108 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 
 	const showUsage = capabilities?.value.codexUsage === true && status?.providers.codex.status === "signed-in";
 
+	const markCopied = (field: CopyField): void => {
+		if (copiedTimerRef.current !== undefined) window.clearTimeout(copiedTimerRef.current);
+		setCopiedField(field);
+		setCopyFailedField(undefined);
+		copiedTimerRef.current = window.setTimeout(() => {
+			if (mountedRef.current) {
+				setCopiedField(undefined);
+				setCopyFailedField(undefined);
+			}
+			copiedTimerRef.current = undefined;
+		}, 2000);
+	};
+
+	const handleCopy = async (field: CopyField, text: string): Promise<void> => {
+		const ok = await copyText(text);
+		if (ok) {
+			markCopied(field);
+			return;
+		}
+		setCopiedField(undefined);
+		setCopyFailedField(field);
+	};
+
+	const copyLabel = (field: CopyField, idle?: string): string => {
+		if (copiedField === field) return t("copied");
+		if (copyFailedField === field) return t("copyFailed");
+		return idle ?? t("copy");
+	};
+
+	const ensureGatewayKey = async (): Promise<string> => {
+		if (gatewayOnceKey !== undefined) return gatewayOnceKey;
+		const value = await jsonRequest<{ apiKey?: string }>(GATEWAY_REVEAL_PATH, "POST");
+		if (typeof value.apiKey !== "string" || value.apiKey.length === 0) {
+			throw new Error(t("gatewayRevealFailed"));
+		}
+		setGatewayOnceKey(value.apiKey);
+		return value.apiKey;
+	};
+
+	const copyGatewayKey = async (): Promise<void> => {
+		try {
+			const key = await ensureGatewayKey();
+			await handleCopy("key", key);
+			setGatewayRevealError(undefined);
+		} catch {
+			setGatewayRevealError(t("gatewayRevealFailed"));
+		}
+	};
+
+	const toggleGatewayKeyVisible = async (): Promise<void> => {
+		if (gatewayKeyVisible) {
+			setGatewayKeyVisible(false);
+			return;
+		}
+		try {
+			await ensureGatewayKey();
+			setGatewayKeyVisible(true);
+			setGatewayRevealError(undefined);
+		} catch {
+			setGatewayRevealError(t("gatewayRevealFailed"));
+		}
+	};
+
+	useEffect(() => {
+		if (gateway !== undefined) setPortDraft(String(gateway.port));
+	}, [gateway]);
+
+	const applyGatewayPort = async (): Promise<void> => {
+		const port = parseGatewayPort(portDraft);
+		if (port === undefined) {
+			setGatewayError(t("gatewayPortInvalid"));
+			return;
+		}
+		if (gateway !== undefined && port === gateway.port) return;
+		setGatewayBusy(true);
+		try {
+			setGateway(parseGateway(await jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { port })) ?? gateway);
+			setGatewayError(undefined);
+		} catch (error: unknown) {
+			setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+			if (gateway !== undefined) setPortDraft(String(gateway.port));
+		} finally {
+			setGatewayBusy(false);
+		}
+	};
+
+	const rotateGatewayKey = async (): Promise<void> => {
+		setGatewayBusy(true);
+		try {
+			const value = await jsonRequest<{ apiKey?: string; keyHint?: string }>(GATEWAY_ROTATE_PATH, "POST");
+			if (typeof value.apiKey === "string") setGatewayOnceKey(value.apiKey);
+			setGatewayKeyVisible(true);
+			setGatewayRotateConfirm(false);
+			setGatewayRevealError(undefined);
+			await refreshGateway();
+		} catch (error: unknown) {
+			setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+		} finally {
+			setGatewayBusy(false);
+		}
+	};
+
 	return (
 		<section style={pageStyle} aria-labelledby="coding-oauth-settings-title">
 			<div>
@@ -1197,694 +1402,820 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 				</h2>
 				<p style={{ ...bodyStyle, marginTop: 6 }}>{t("intro")}</p>
 			</div>
-			<p style={warningStyle}>{t("termsWarning")}</p>
 			{requestError === undefined ? null : (
 				<p style={errorStyle} role="alert">
 					{requestError}
 				</p>
 			)}
-			<section style={cardStyle} aria-labelledby="coding-oauth-sources-title">
-				<div style={rowStyle}>
-					<div>
-						<h3 id="coding-oauth-sources-title" style={{ ...titleStyle, fontSize: 16 }}>
-							{t("sourcesTitle")}
-						</h3>
-						<p style={{ ...bodyStyle, marginTop: 4 }}>{t("sourcesIntro")}</p>
-					</div>
+			<nav style={tabNavStyle} aria-label={t("title")}>
+				{SETTINGS_TABS.map((tab) => (
 					<button
+						key={tab.id}
 						type="button"
-						style={buttonStyle}
-						disabled={sourcesBusy}
-						aria-label={t("sourcesCheckAgain")}
+						style={activeTab === tab.id ? tabButtonActiveStyle : tabButtonStyle}
+						aria-current={activeTab === tab.id ? "page" : undefined}
 						onClick={() => {
-							void refreshSources();
+							setActiveTab(tab.id);
 						}}
 					>
-						{sourcesBusy ? t("working") : t("sourcesCheckAgain")}
+						{t(tab.label)}
 					</button>
-				</div>
-				<p style={hintStyle}>{t("sourcesReadOnlyHint")}</p>
-				{sourcesError === undefined ? null : (
-					<p style={errorStyle} role="alert">
-						{sourcesError}
-					</p>
-				)}
-				{sourcesNotice === undefined ? null : (
-					<p style={bodyStyle} role="status">
-						{sourcesNotice}
-					</p>
-				)}
-				{sources === undefined ? (
-					<div style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle("loading")} />
-						{t("sourcesLoading")}
-					</div>
-				) : (
-					<ul style={listStyle}>
-						{sources.map((source) => {
-							const expiry = formatEpoch(source.expiresAt);
-							const active = preview?.kind === source.kind ? preview : undefined;
-							return (
-								<li key={source.kind} style={nestedStyle}>
-									<div style={rowStyle}>
-										<div>
-											<p style={{ ...statusStyle, margin: 0 }}>
-												<span aria-hidden="true" style={dotStyle(source.available ? "available" : "unavailable")} />
-												<span>{t(SOURCE_KIND_KEY[source.kind])}</span>
-											</p>
-											<p style={{ ...hintStyle, marginTop: 4 }}>
-												<span style={monoStyle}>{source.displayPath}</span>
-											</p>
-											<p style={hintStyle} role="status">
-												{source.available
-													? t("sourcesAvailable")
-													: source.reason !== undefined
-														? t(SOURCE_REASON_KEY[source.reason])
-														: t("sourcesUnavailable")}
-												{expiry === undefined ? "" : ` · ${expiry}`}
-											</p>
-										</div>
-										{source.available ? (
-											<button
-												type="button"
-												style={primaryButtonStyle}
-												disabled={sourcesBusy}
-												aria-label={`${t("sourcesPullCopy")} (${t(SOURCE_KIND_KEY[source.kind])})`}
-												onClick={() => {
-													void previewSource(source.kind);
-												}}
-											>
-												{t("sourcesPullCopy")}
-											</button>
-										) : null}
-									</div>
-									{active === undefined ? null : (
-										<div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-live="polite">
-											<p style={bodyStyle}>{t("sourcesPreviewTitle")}</p>
-											<p style={hintStyle}>
-												<span style={monoStyle}>{active.displayPath}</span>
-											</p>
-											<p style={bodyStyle}>
-												{t("sourcesConflict", {
-													detail: t(
-														active.conflict === undefined
-															? "sourceConflictUnrecognized"
-															: SOURCE_CONFLICT_KEY[active.conflict],
-													),
-												})}
-											</p>
-											<p style={bodyStyle}>
-												{t("sourcesAction", {
-													detail: t(
-														active.action === undefined
-															? "sourceActionUnrecognized"
-															: SOURCE_PREVIEW_ACTION_KEY[active.action],
-													),
-												})}
-											</p>
-											{formatEpoch(active.expiresAt) === undefined ? null : (
-												<p style={hintStyle}>{t("sourcesPreviewExpires", { time: formatEpoch(active.expiresAt) })}</p>
-											)}
-											{formatEpoch(active.ticketExpiresAt) === undefined ? null : (
-												<p style={hintStyle}>
-													{t("sourcesTicketExpires", { time: formatEpoch(active.ticketExpiresAt) })}
-												</p>
-											)}
-											{active.warnings.length === 0 ? null : (
-												<ul style={{ ...listStyle, gap: 4 }} aria-label={t("sourcesWarnings")}>
-													{active.warnings.map((warning) => (
-														<li key={warning} style={hintStyle}>
-															{warning}
-														</li>
-													))}
-												</ul>
-											)}
-											{active.confirmOverwriteRequired ? (
-												<label style={checkRowStyle}>
-													<input
-														type="checkbox"
-														checked={confirmOverwrite}
-														disabled={sourcesBusy || active.action === "blocked"}
-														onChange={(event) => setConfirmOverwrite(event.target.checked)}
-													/>
-													<span>
-														{t("sourcesConfirmOverwrite")}
-														<span style={{ display: "block", ...hintStyle }}>{t("sourcesConfirmOverwriteHint")}</span>
-													</span>
-												</label>
-											) : null}
-											<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-												<button
-													type="button"
-													style={primaryButtonStyle}
-													disabled={
-														sourcesBusy ||
-														active.action === "blocked" ||
-														(active.confirmOverwriteRequired && !confirmOverwrite)
-													}
-													onClick={() => {
-														void commitSource();
-													}}
-												>
-													{t("sourcesCommit")}
-												</button>
-												<button
-													type="button"
-													style={buttonStyle}
-													disabled={sourcesBusy}
-													onClick={() => {
-														void cancelSourcePreview();
-													}}
-												>
-													{t("sourcesCancelPreview")}
-												</button>
-											</div>
-										</div>
-									)}
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</section>
-			{status === undefined ? (
-				<div style={cardStyle}>
-					<div style={statusStyle}>
-						<span aria-hidden="true" style={dotStyle("loading")} />
-						{t("loadingAccount")}
-					</div>
-				</div>
-			) : (
-				PROVIDERS.map((definition) => {
-					const providerStatus = status.providers[definition.slug];
-					const grokProviderStatus = definition.slug === "grok" ? (providerStatus as GrokStatus) : undefined;
-					const busy = busyProvider === definition.slug;
-					const statusLabel =
-						providerStatus.status === "signed-in"
-							? t("signedIn")
-							: providerStatus.status === "signing-in"
-								? t("signingIn")
-								: providerStatus.status === "error"
-									? t("requestFailed")
-									: t("signedOut");
-					const activeMethod = providerStatus.status === "signing-in" ? providerStatus.method : definition.recommended;
-					const { available, selected } = modelFields(providerStatus);
-					const localCode = codeInputs[definition.slug] ?? "";
-					return (
-						<div key={definition.slug} style={cardStyle}>
-							<div style={rowStyle}>
-								<div>
-									<h3 style={{ ...titleStyle, fontSize: 16 }}>{t(definition.titleKey)}</h3>
-									<p style={{ ...bodyStyle, marginTop: 4 }}>{t(definition.descriptionKey)}</p>
-									<p style={{ ...bodyStyle, marginTop: 4 }}>
-										<span style={monoStyle}>{definition.route}</span>
-									</p>
-								</div>
-								<div style={statusStyle} role="status">
-									<span aria-hidden="true" style={dotStyle(providerStatus.status)} />
-									<span>{statusLabel}</span>
-								</div>
+				))}
+			</nav>
+			<div style={panelStyle}>
+				{activeTab === "accounts" ? (
+					status === undefined ? (
+						<div style={cardStyle}>
+							<div style={statusStyle}>
+								<span aria-hidden="true" style={dotStyle("loading")} />
+								{t("loadingAccount")}
 							</div>
-							<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-								{providerStatus.status === "signed-in" ? (
-									<button
-										type="button"
-										style={buttonStyle}
-										disabled={busy}
-										onClick={() => {
-											void signOut(definition.slug);
-										}}
-									>
-										{busy ? t("working") : t("logout")}
-									</button>
-								) : providerStatus.status === "signing-in" ? (
-									<>
-										{definition.methods
-											.filter((method) => method !== activeMethod)
-											.map((method) => (
-												<button
-													key={method}
-													type="button"
-													style={buttonStyle}
-													disabled={busy}
-													onClick={() => {
-														void signIn(definition.slug, method);
-													}}
-												>
-													{methodLabel(method, t)}
-												</button>
+						</div>
+					) : (
+						<>
+							{sourcesError === undefined ? null : (
+								<p style={errorStyle} role="alert">
+									{sourcesError}
+								</p>
+							)}
+							{sourcesNotice === undefined ? null : (
+								<p style={bodyStyle} role="status">
+									{sourcesNotice}
+								</p>
+							)}
+							<div style={accountGridStyle}>
+								{PROVIDERS.map((definition) => {
+									const providerStatus = status.providers[definition.slug];
+									const grokProviderStatus = definition.slug === "grok" ? (providerStatus as GrokStatus) : undefined;
+									const busy = busyProvider === definition.slug;
+									const statusLabel =
+										providerStatus.status === "signed-in"
+											? t("signedIn")
+											: providerStatus.status === "signing-in"
+												? t("signingIn")
+												: providerStatus.status === "error"
+													? t("requestFailed")
+													: t("signedOut");
+									const activeMethod =
+										providerStatus.status === "signing-in" ? providerStatus.method : definition.recommended;
+									const { available, selected } = modelFields(providerStatus);
+									const localCode = codeInputs[definition.slug] ?? "";
+									const source = sources?.find((entry) => entry.kind === definition.slug);
+									const expanded =
+										providerStatus.status === "signing-in" || expandedProviders[definition.slug] === true;
+									const usagePercent =
+										definition.slug === "codex" && showUsage
+											? usage?.individualRemainingPercent === undefined
+												? usage?.rateLimits[0]?.windows[0]?.usedPercent
+												: 100 - usage.individualRemainingPercent
+											: undefined;
+									return (
+										<div key={definition.slug} style={cardStyle}>
+											<div style={rowStyle}>
+												<div>
+													<h3 style={{ ...titleStyle, fontSize: 16 }}>{t(definition.titleKey)}</h3>
+													{providerStatus.status === "signed-in" && !expanded ? (
+														<p style={{ ...hintStyle, marginTop: 4 }}>
+															{t("modelsSummary", { selected: selected.length, total: available.length })}
+															{usagePercent === undefined
+																? ""
+																: ` · ${t("usageUsedShort", { value: `${String(usagePercent)}%` })}`}
+														</p>
+													) : (
+														<>
+															<p style={{ ...bodyStyle, marginTop: 4 }}>{t(definition.descriptionKey)}</p>
+															<p style={{ ...bodyStyle, marginTop: 4 }}>
+																<span style={monoStyle}>{definition.route}</span>
+															</p>
+														</>
+													)}
+												</div>
+												<div style={statusStyle} role="status">
+													<span aria-hidden="true" style={dotStyle(providerStatus.status)} />
+													<span>{statusLabel}</span>
+												</div>
+											</div>
+											<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+												{providerStatus.status === "signed-in" ? (
+													<>
+														<button
+															type="button"
+															style={buttonStyle}
+															disabled={busy}
+															onClick={() => {
+																void signOut(definition.slug);
+															}}
+														>
+															{busy ? t("working") : t("logout")}
+														</button>
+														<button
+															type="button"
+															style={buttonStyle}
+															onClick={() => {
+																setExpandedProviders((current) => ({
+																	...current,
+																	[definition.slug]: !expanded,
+																}));
+															}}
+														>
+															{expanded ? t("collapseModels") : t("expandModels")}
+														</button>
+														{source?.available === true ? (
+															<button
+																type="button"
+																style={buttonStyle}
+																disabled={sourcesBusy}
+																onClick={() => {
+																	void previewSource(definition.slug);
+																}}
+															>
+																{t("sourcesPullCopy")}
+															</button>
+														) : null}
+													</>
+												) : providerStatus.status === "signing-in" ? (
+													<>
+														{definition.methods
+															.filter((method) => method !== activeMethod)
+															.map((method) => (
+																<button
+																	key={method}
+																	type="button"
+																	style={buttonStyle}
+																	disabled={busy}
+																	onClick={() => {
+																		void signIn(definition.slug, method);
+																	}}
+																>
+																	{methodLabel(method, t)}
+																</button>
+															))}
+														<button
+															type="button"
+															style={buttonStyle}
+															disabled={busy}
+															onClick={() => {
+																void cancelLogin(definition.slug);
+															}}
+														>
+															{t("cancelLogin")}
+														</button>
+													</>
+												) : (
+													<>
+														{definition.methods.map((method, index) => (
+															<button
+																key={method}
+																type="button"
+																style={index === 0 ? primaryButtonStyle : buttonStyle}
+																disabled={busy}
+																onClick={() => {
+																	void signIn(definition.slug, method);
+																}}
+															>
+																{busy ? t("working") : methodLabel(method, t)}
+															</button>
+														))}
+														{source?.available === true ? (
+															<button
+																type="button"
+																style={buttonStyle}
+																disabled={sourcesBusy}
+																onClick={() => {
+																	void previewSource(definition.slug);
+																}}
+															>
+																{t("sourcesPullCopy")}
+															</button>
+														) : source !== undefined && source.reason !== undefined ? (
+															<span style={hintStyle}>{t(SOURCE_REASON_KEY[source.reason])}</span>
+														) : null}
+													</>
+												)}
+											</div>
+											{providerStatus.status === "error" ? <p style={errorStyle}>{providerStatus.message}</p> : null}
+											{providerStatus.status === "signing-in" && providerStatus.userCode !== undefined ? (
+												<p style={bodyStyle}>
+													{t("userCode")} <span style={codeStyle}>{providerStatus.userCode}</span>
+												</p>
+											) : null}
+											{providerStatus.status === "signing-in" && providerStatus.url !== undefined ? (
+												<p style={bodyStyle}>
+													{popupBlocked[definition.slug] === true ? t("popupBlocked") : t("openUrl")}{" "}
+													<a href={providerStatus.url} target="_blank" rel="noreferrer" style={linkStyle}>
+														{providerStatus.url}
+													</a>
+												</p>
+											) : null}
+											{providerStatus.status === "signing-in" && activeMethod !== "device" ? (
+												<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+													<p style={bodyStyle}>
+														{t(activeMethod === "browser" ? "pasteBrowserCodeHint" : "pasteCodeHint")}
+													</p>
+													<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+														<input
+															style={{ ...inputStyle, flex: "1 1 360px" }}
+															value={localCode}
+															placeholder={t("pasteCodePlaceholder")}
+															disabled={busy}
+															onChange={(event) =>
+																setCodeInputs((current) => ({ ...current, [definition.slug]: event.target.value }))
+															}
+															onKeyDown={(event) => {
+																if (event.key === "Enter") {
+																	event.preventDefault();
+																	void submitCode(definition.slug);
+																}
+															}}
+														/>
+														<button
+															type="button"
+															style={primaryButtonStyle}
+															disabled={busy || localCode.trim().length === 0}
+															onClick={() => {
+																void submitCode(definition.slug);
+															}}
+														>
+															{t("submitCode")}
+														</button>
+													</div>
+												</div>
+											) : null}
+											{providerStatus.status === "signed-in" && expanded ? (
+												<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+													<div style={rowStyle}>
+														<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("models")}</h4>
+														<button
+															type="button"
+															style={buttonStyle}
+															disabled={busy}
+															onClick={() => {
+																void saveModels(definition.slug, []);
+															}}
+														>
+															{t("selectAll")}
+														</button>
+													</div>
+													{grokProviderStatus?.status === "signed-in" ? (
+														<p style={bodyStyle}>
+															{grokProviderStatus.catalogSource === "live"
+																? t("catalogLive")
+																: grokProviderStatus.catalogSource === "cache"
+																	? t("catalogCache")
+																	: t("catalogFallback")}
+														</p>
+													) : null}
+													<p style={bodyStyle}>
+														{t("modelHint")} <span style={monoStyle}>{definition.route}/&lt;id&gt;</span>
+													</p>
+													<ul style={listStyle}>
+														{available.map((id) => {
+															const checked = selected.includes(id);
+															return (
+																<li key={id}>
+																	<label style={checkRowStyle}>
+																		<input
+																			type="checkbox"
+																			checked={checked}
+																			disabled={busy}
+																			onChange={() => {
+																				const current = new Set(selected);
+																				if (checked) current.delete(id);
+																				else current.add(id);
+																				void saveModels(definition.slug, [...current]);
+																			}}
+																		/>
+																		<span style={monoStyle}>{id}</span>
+																	</label>
+																</li>
+															);
+														})}
+													</ul>
+													{grokProviderStatus?.status === "signed-in" &&
+													grokProviderStatus.catalogError !== undefined ? (
+														<p style={errorStyle}>{t("catalogError")}</p>
+													) : null}
+													{definition.slug === "codex" && showUsage ? (
+														<div style={nestedStyle}>
+															<p style={{ ...bodyStyle, color: "var(--dsw-alias-label-primary)" }}>{t("usageTitle")}</p>
+															{usageError === undefined ? null : (
+																<p style={errorStyle} role="alert">
+																	{usageError}
+																</p>
+															)}
+															{usageLoading && usage === undefined ? (
+																<p style={hintStyle}>{t("usageLoading")}</p>
+															) : usage === undefined || !usageHasVisibleFields(usage) ? (
+																<p style={hintStyle}>{t("usageEmpty")}</p>
+															) : (
+																<>
+																	{formatEpoch(usage.fetchedAt) === undefined ? null : (
+																		<p style={hintStyle}>
+																			{t("usageFetchedAt", { time: formatEpoch(usage.fetchedAt) })}
+																		</p>
+																	)}
+																	{usage.rateLimits.map((limit) => (
+																		<p key={limit.id} style={hintStyle}>
+																			{limit.name ?? t("usageRateLimit")}
+																			{limit.windows[0]?.usedPercent === undefined
+																				? ""
+																				: ` · ${t("usageUsed", { value: `${String(limit.windows[0].usedPercent)}%` })}`}
+																			{formatEpoch(limit.windows[0]?.resetsAt) === undefined
+																				? ""
+																				: ` · ${t("usageResets", { time: formatEpoch(limit.windows[0]?.resetsAt) })}`}
+																		</p>
+																	))}
+																</>
+															)}
+														</div>
+													) : null}
+												</div>
+											) : null}
+										</div>
+									);
+								})}
+							</div>
+							{preview === undefined ? null : (
+								<div style={cardStyle} aria-live="polite">
+									<p style={bodyStyle}>
+										{t("sourcesPreviewTitle")} · {t(SOURCE_KIND_KEY[preview.kind])}
+									</p>
+									<p style={hintStyle}>
+										<span style={monoStyle}>{preview.displayPath}</span>
+									</p>
+									<p style={bodyStyle}>
+										{t("sourcesConflict", {
+											detail: t(
+												preview.conflict === undefined
+													? "sourceConflictUnrecognized"
+													: SOURCE_CONFLICT_KEY[preview.conflict],
+											),
+										})}
+									</p>
+									<p style={bodyStyle}>
+										{t("sourcesAction", {
+											detail: t(
+												preview.action === undefined
+													? "sourceActionUnrecognized"
+													: SOURCE_PREVIEW_ACTION_KEY[preview.action],
+											),
+										})}
+									</p>
+									{formatEpoch(preview.expiresAt) === undefined ? null : (
+										<p style={hintStyle}>{t("sourcesPreviewExpires", { time: formatEpoch(preview.expiresAt) })}</p>
+									)}
+									{formatEpoch(preview.ticketExpiresAt) === undefined ? null : (
+										<p style={hintStyle}>{t("sourcesTicketExpires", { time: formatEpoch(preview.ticketExpiresAt) })}</p>
+									)}
+									{preview.warnings.length === 0 ? null : (
+										<ul style={{ ...listStyle, gap: 4 }} aria-label={t("sourcesWarnings")}>
+											{preview.warnings.map((warning) => (
+												<li key={warning} style={hintStyle}>
+													{warning}
+												</li>
 											))}
+										</ul>
+									)}
+									{preview.confirmOverwriteRequired ? (
+										<label style={checkRowStyle}>
+											<input
+												type="checkbox"
+												checked={confirmOverwrite}
+												disabled={sourcesBusy || preview.action === "blocked"}
+												onChange={(event) => setConfirmOverwrite(event.target.checked)}
+											/>
+											<span>
+												{t("sourcesConfirmOverwrite")}
+												<span style={{ display: "block", ...hintStyle }}>{t("sourcesConfirmOverwriteHint")}</span>
+											</span>
+										</label>
+									) : null}
+									<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+										<button
+											type="button"
+											style={primaryButtonStyle}
+											disabled={
+												sourcesBusy ||
+												preview.action === "blocked" ||
+												(preview.confirmOverwriteRequired && !confirmOverwrite)
+											}
+											onClick={() => {
+												void commitSource();
+											}}
+										>
+											{t("sourcesCommit")}
+										</button>
 										<button
 											type="button"
 											style={buttonStyle}
-											disabled={busy}
+											disabled={sourcesBusy}
 											onClick={() => {
-												void cancelLogin(definition.slug);
+												void cancelSourcePreview();
 											}}
 										>
-											{t("cancelLogin")}
+											{t("sourcesCancelPreview")}
 										</button>
-									</>
-								) : (
-									definition.methods.map((method, index) => (
-										<button
-											key={method}
-											type="button"
-											style={index === 0 ? primaryButtonStyle : buttonStyle}
-											disabled={busy}
-											onClick={() => {
-												void signIn(definition.slug, method);
-											}}
-										>
-											{busy ? t("working") : methodLabel(method, t)}
-										</button>
-									))
-								)}
+									</div>
+								</div>
+							)}
+						</>
+					)
+				) : null}
+				{activeTab === "capabilities" ? (
+					<section style={cardStyle} aria-labelledby="coding-oauth-capabilities-title">
+						<div>
+							<h3 id="coding-oauth-capabilities-title" style={{ ...titleStyle, fontSize: 16 }}>
+								{t("capabilitiesTitle")}
+							</h3>
+							<p style={{ ...bodyStyle, marginTop: 4 }}>{t("capabilitiesIntro")}</p>
+							<p style={{ ...hintStyle, marginTop: 4 }}>{t("capabilitiesQuotaHint")}</p>
+						</div>
+						{imagineError === undefined ? null : (
+							<p style={errorStyle} role="alert">
+								{imagineError}
+							</p>
+						)}
+						{imagine === undefined && imagineError === undefined ? (
+							<div style={statusStyle} role="status">
+								<span aria-hidden="true" style={dotStyle("loading")} />
+								{t("imagineLoading")}
 							</div>
-							{providerStatus.status === "error" ? <p style={errorStyle}>{providerStatus.message}</p> : null}
-							{providerStatus.status === "signing-in" && providerStatus.userCode !== undefined ? (
-								<p style={bodyStyle}>
-									{t("userCode")} <span style={codeStyle}>{providerStatus.userCode}</span>
+						) : imagine === undefined ? null : (
+							<div style={nestedStyle}>
+								<p style={statusStyle} role="status">
+									<span aria-hidden="true" style={dotStyle(imagine.configured ? "available" : "unavailable")} />
+									<span>{imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}</span>
 								</p>
-							) : null}
-							{providerStatus.status === "signing-in" && providerStatus.url !== undefined ? (
-								<p style={bodyStyle}>
-									{popupBlocked[definition.slug] === true ? t("popupBlocked") : t("openUrl")}{" "}
-									<a href={providerStatus.url} target="_blank" rel="noreferrer" style={linkStyle}>
-										{providerStatus.url}
-									</a>
+								<p style={hintStyle}>{t("imagineSource", { source: imagineSourceLabel(imagine.source, t) })}</p>
+							</div>
+						)}
+						{capabilitiesError === undefined ? null : (
+							<p style={errorStyle} role="alert">
+								{capabilitiesError}
+							</p>
+						)}
+						{capabilities === undefined ? (
+							<div style={statusStyle} role="status">
+								<span aria-hidden="true" style={dotStyle("loading")} />
+								{t("capabilitiesLoading")}
+							</div>
+						) : (
+							<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+								<legend style={{ ...bodyStyle, position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+									{t("capabilitiesTitle")}
+								</legend>
+								{capabilities.writable ? null : <p style={hintStyle}>{t("capabilitiesReadOnly")}</p>}
+								<ul style={listStyle}>
+									{CAPABILITY_TOGGLES.filter((item) => !item.key.startsWith("grokImagine")).map((item) => {
+										const checked = capabilities.value[item.key];
+										const imagesOff = item.requiresImages === true && !capabilities.value.codexImages;
+										const disabled = capabilitiesBusy || !capabilities.writable || imagesOff;
+										return (
+											<li key={item.key}>
+												<label style={checkRowStyle}>
+													<input
+														type="checkbox"
+														checked={checked}
+														disabled={disabled}
+														aria-describedby={`cap-hint-${item.key}`}
+														onChange={(event) => {
+															void patchCapability(item.key, event.target.checked);
+														}}
+													/>
+													<span>
+														<span style={{ display: "block" }}>{t(item.label)}</span>
+														<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
+															{t(item.hint)}
+														</span>
+													</span>
+												</label>
+											</li>
+										);
+									})}
+								</ul>
+								<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("imagineTitle")}</h4>
+								<ul style={listStyle}>
+									{CAPABILITY_TOGGLES.filter((item) => item.key.startsWith("grokImagine")).map((item) => {
+										const checked = capabilities.value[item.key];
+										const disabled = capabilitiesBusy || !capabilities.writable;
+										return (
+											<li key={item.key}>
+												<label style={checkRowStyle}>
+													<input
+														type="checkbox"
+														checked={checked}
+														disabled={disabled}
+														aria-describedby={`cap-hint-${item.key}`}
+														onChange={(event) => {
+															void patchCapability(item.key, event.target.checked);
+														}}
+													/>
+													<span>
+														<span style={{ display: "block" }}>{t(item.label)}</span>
+														<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
+															{t(item.hint)}
+														</span>
+													</span>
+												</label>
+											</li>
+										);
+									})}
+								</ul>
+								<div style={nestedStyle}>
+									<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("capabilityLimitsTitle")}</h4>
+									<p style={hintStyle}>{t("capabilityLimitsHint")}</p>
+									<ul style={listStyle}>
+										{CAPABILITY_LIMITS.map((item) => {
+											const displayValue = capabilities.value[item.key] / item.scale;
+											const inputId = `cap-limit-${item.key}`;
+											return (
+												<li key={item.key} style={rowStyle}>
+													<label htmlFor={inputId} style={{ ...bodyStyle, flex: "1 1 360px" }}>
+														<span style={{ display: "block", color: "var(--dsw-alias-label-primary)" }}>
+															{t(item.label)}
+														</span>
+														<span id={`${inputId}-hint`} style={{ display: "block", ...hintStyle }}>
+															{t(item.hint)}
+														</span>
+													</label>
+													<input
+														key={`${item.key}-${String(capabilities.revision)}-${String(displayValue)}`}
+														id={inputId}
+														type="number"
+														inputMode="numeric"
+														min={item.min}
+														max={item.max}
+														step={1}
+														defaultValue={displayValue}
+														disabled={capabilitiesBusy || !capabilities.writable}
+														aria-describedby={`${inputId}-hint`}
+														style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
+														onInput={(event) => event.currentTarget.setCustomValidity("")}
+														onKeyDown={(event) => {
+															if (event.key === "Enter") event.currentTarget.blur();
+															if (event.key === "Escape") {
+																event.currentTarget.value = String(displayValue);
+																event.currentTarget.setCustomValidity("");
+															}
+														}}
+														onBlur={(event) => {
+															const target = event.currentTarget;
+															const next = Number(target.value);
+															if (!Number.isInteger(next) || next < item.min || next > item.max) {
+																target.setCustomValidity(t("capabilityLimitInvalid", { min: item.min, max: item.max }));
+																target.reportValidity();
+																return;
+															}
+															target.setCustomValidity("");
+															const apiValue = next * item.scale;
+															if (apiValue === capabilities.value[item.key]) return;
+															void patchCapability(item.key, apiValue).then((saved) => {
+																if (!saved && target.isConnected) target.value = String(displayValue);
+															});
+														}}
+													/>
+												</li>
+											);
+										})}
+									</ul>
+								</div>
+							</fieldset>
+						)}
+					</section>
+				) : null}
+				{activeTab === "about" ? <p style={warningStyle}>{t("termsWarning")}</p> : null}
+				{activeTab === "gateway" ? (
+					<section style={cardStyle} aria-labelledby="coding-oauth-gateway-title">
+						<div>
+							<h3 id="coding-oauth-gateway-title" style={{ ...titleStyle, fontSize: 16 }}>
+								{t("gatewayTitle")}
+							</h3>
+							<p style={{ ...bodyStyle, marginTop: 4 }}>{t("gatewayIntro")}</p>
+							<p style={{ ...hintStyle, marginTop: 8 }}>{t("gatewayWarning")}</p>
+						</div>
+						{gatewayError === undefined ? null : (
+							<p style={errorStyle} role="alert">
+								{gatewayError}
+							</p>
+						)}
+						{gatewayRevealError === undefined ? null : (
+							<p style={errorStyle} role="alert">
+								{gatewayRevealError}
+							</p>
+						)}
+						{gateway === undefined && gatewayError === undefined ? (
+							<div style={statusStyle} role="status">
+								<span aria-hidden="true" style={dotStyle("loading")} />
+								{t("gatewayLoading")}
+							</div>
+						) : gateway === undefined ? null : (
+							<div style={nestedStyle}>
+								<p style={statusStyle} role="status">
+									<span aria-hidden="true" style={dotStyle(gateway.running ? "available" : "unavailable")} />
+									<span>{gateway.running ? t("gatewayRunning") : t("gatewayStopped")}</span>
 								</p>
-							) : null}
-							{providerStatus.status === "signing-in" && activeMethod !== "device" ? (
-								<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-									<p style={bodyStyle}>{t(activeMethod === "browser" ? "pasteBrowserCodeHint" : "pasteCodeHint")}</p>
-									<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+								<label style={checkRowStyle}>
+									<input
+										type="checkbox"
+										checked={gateway.enabled}
+										disabled={gatewayBusy}
+										onChange={(event) => {
+											const enabled = event.target.checked;
+											setGatewayBusy(true);
+											void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { enabled })
+												.then((value) => {
+													setGateway(parseGateway(value) ?? gateway);
+													setGatewayError(undefined);
+												})
+												.catch((error: unknown) => {
+													setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+												})
+												.finally(() => setGatewayBusy(false));
+										}}
+									/>
+									<span>{t("gatewayEnabled")}</span>
+								</label>
+								<div>
+									<label
+										htmlFor="coding-oauth-gateway-port"
+										style={{ ...bodyStyle, color: "var(--dsw-alias-label-primary)" }}
+									>
+										{t("gatewayPort")}
+									</label>
+									<p id="coding-oauth-gateway-port-hint" style={hintStyle}>
+										{t("gatewayPortHint")}
+									</p>
+									<div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
 										<input
-											style={{ ...inputStyle, flex: "1 1 360px" }}
-											value={localCode}
-											placeholder={t("pasteCodePlaceholder")}
-											disabled={busy}
-											onChange={(event) =>
-												setCodeInputs((current) => ({ ...current, [definition.slug]: event.target.value }))
-											}
+											id="coding-oauth-gateway-port"
+											type="number"
+											inputMode="numeric"
+											min={GATEWAY_PORT_MIN}
+											max={GATEWAY_PORT_MAX}
+											step={1}
+											value={portDraft}
+											disabled={gatewayBusy}
+											aria-describedby="coding-oauth-gateway-port-hint"
+											style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
+											onChange={(event) => setPortDraft(event.target.value)}
 											onKeyDown={(event) => {
 												if (event.key === "Enter") {
 													event.preventDefault();
-													void submitCode(definition.slug);
+													void applyGatewayPort();
+												}
+												if (event.key === "Escape" && gateway !== undefined) {
+													setPortDraft(String(gateway.port));
 												}
 											}}
 										/>
 										<button
 											type="button"
 											style={primaryButtonStyle}
-											disabled={busy || localCode.trim().length === 0}
+											disabled={
+												gatewayBusy || portDraft === String(gateway.port) || parseGatewayPort(portDraft) === undefined
+											}
 											onClick={() => {
-												void submitCode(definition.slug);
+												void applyGatewayPort();
 											}}
 										>
-											{t("submitCode")}
+											{t("gatewayPortApply")}
 										</button>
-									</div>
-								</div>
-							) : null}
-							{providerStatus.status === "signed-in" ? (
-								<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-									<div style={rowStyle}>
-										<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("models")}</h4>
 										<button
 											type="button"
 											style={buttonStyle}
-											disabled={busy}
+											disabled={gatewayBusy}
 											onClick={() => {
-												void saveModels(definition.slug, []);
+												setPortDraft(String(randomGatewayPort(gateway.port)));
 											}}
 										>
-											{t("selectAll")}
+											{t("gatewayPortRandom")}
 										</button>
 									</div>
-									{grokProviderStatus?.status === "signed-in" ? (
-										<p style={bodyStyle}>
-											{grokProviderStatus.catalogSource === "live"
-												? t("catalogLive")
-												: grokProviderStatus.catalogSource === "cache"
-													? t("catalogCache")
-													: t("catalogFallback")}
-										</p>
-									) : null}
-									<p style={bodyStyle}>
-										{t("modelHint")} <span style={monoStyle}>{definition.route}/&lt;id&gt;</span>
-									</p>
-									<ul style={listStyle}>
-										{available.map((id) => {
-											const checked = selected.includes(id);
-											return (
-												<li key={id}>
-													<label style={checkRowStyle}>
-														<input
-															type="checkbox"
-															checked={checked}
-															disabled={busy}
-															onChange={() => {
-																const current = new Set(selected);
-																if (checked) current.delete(id);
-																else current.add(id);
-																void saveModels(definition.slug, [...current]);
-															}}
-														/>
-														<span style={monoStyle}>{id}</span>
-													</label>
-												</li>
-											);
-										})}
-									</ul>
-									{grokProviderStatus?.status === "signed-in" && grokProviderStatus.catalogError !== undefined ? (
-										<p style={errorStyle}>{t("catalogError")}</p>
-									) : null}
 								</div>
-							) : null}
-						</div>
-					);
-				})
-			)}
-			<section style={cardStyle} aria-labelledby="coding-oauth-capabilities-title">
-				<div>
-					<h3 id="coding-oauth-capabilities-title" style={{ ...titleStyle, fontSize: 16 }}>
-						{t("capabilitiesTitle")}
-					</h3>
-					<p style={{ ...bodyStyle, marginTop: 4 }}>{t("capabilitiesIntro")}</p>
-					<p style={{ ...hintStyle, marginTop: 4 }}>{t("capabilitiesQuotaHint")}</p>
-				</div>
-				{capabilitiesError === undefined ? null : (
-					<p style={errorStyle} role="alert">
-						{capabilitiesError}
-					</p>
-				)}
-				{capabilities === undefined ? (
-					<div style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle("loading")} />
-						{t("capabilitiesLoading")}
-					</div>
-				) : (
-					<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-						<legend style={{ ...bodyStyle, position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
-							{t("capabilitiesTitle")}
-						</legend>
-						{capabilities.writable ? null : <p style={hintStyle}>{t("capabilitiesReadOnly")}</p>}
-						<ul style={listStyle}>
-							{CAPABILITY_TOGGLES.map((item) => {
-								const checked = capabilities.value[item.key];
-								const imagesOff = item.requiresImages === true && !capabilities.value.codexImages;
-								const disabled = capabilitiesBusy || !capabilities.writable || imagesOff;
-								return (
-									<li key={item.key}>
-										<label style={checkRowStyle}>
-											<input
-												type="checkbox"
-												checked={checked}
-												disabled={disabled}
-												aria-describedby={`cap-hint-${item.key}`}
-												onChange={(event) => {
-													void patchCapability(item.key, event.target.checked);
-												}}
-											/>
-											<span>
-												<span style={{ display: "block" }}>{t(item.label)}</span>
-												<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-													{t(item.hint)}
-												</span>
-											</span>
-										</label>
-									</li>
-								);
-							})}
-						</ul>
-						<div style={nestedStyle}>
-							<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("capabilityLimitsTitle")}</h4>
-							<p style={hintStyle}>{t("capabilityLimitsHint")}</p>
-							<ul style={listStyle}>
-								{CAPABILITY_LIMITS.map((item) => {
-									const displayValue = capabilities.value[item.key] / item.scale;
-									const inputId = `cap-limit-${item.key}`;
-									return (
-										<li key={item.key} style={rowStyle}>
-											<label htmlFor={inputId} style={{ ...bodyStyle, flex: "1 1 360px" }}>
-												<span style={{ display: "block", color: "var(--dsw-alias-label-primary)" }}>
-													{t(item.label)}
-												</span>
-												<span id={`${inputId}-hint`} style={{ display: "block", ...hintStyle }}>
-													{t(item.hint)}
-												</span>
-											</label>
-											<input
-												key={`${item.key}-${String(capabilities.revision)}-${String(displayValue)}`}
-												id={inputId}
-												type="number"
-												inputMode="numeric"
-												min={item.min}
-												max={item.max}
-												step={1}
-												defaultValue={displayValue}
-												disabled={capabilitiesBusy || !capabilities.writable}
-												aria-describedby={`${inputId}-hint`}
-												style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
-												onInput={(event) => event.currentTarget.setCustomValidity("")}
-												onKeyDown={(event) => {
-													if (event.key === "Enter") event.currentTarget.blur();
-													if (event.key === "Escape") {
-														event.currentTarget.value = String(displayValue);
-														event.currentTarget.setCustomValidity("");
-													}
-												}}
-												onBlur={(event) => {
-													const target = event.currentTarget;
-													const next = Number(target.value);
-													if (!Number.isInteger(next) || next < item.min || next > item.max) {
-														target.setCustomValidity(t("capabilityLimitInvalid", { min: item.min, max: item.max }));
-														target.reportValidity();
-														return;
-													}
-													target.setCustomValidity("");
-													const apiValue = next * item.scale;
-													if (apiValue === capabilities.value[item.key]) return;
-													void patchCapability(item.key, apiValue).then((saved) => {
-														if (!saved && target.isConnected) target.value = String(displayValue);
-													});
-												}}
-											/>
-										</li>
-									);
-								})}
-							</ul>
-						</div>
-					</fieldset>
-				)}
-			</section>
-			{showUsage ? (
-				<section style={cardStyle} aria-labelledby="coding-oauth-usage-title">
-					<h3 id="coding-oauth-usage-title" style={{ ...titleStyle, fontSize: 16 }}>
-						{t("usageTitle")}
-					</h3>
-					{usageError === undefined ? null : (
-						<p style={errorStyle} role="alert">
-							{usageError}
-						</p>
-					)}
-					{usageLoading && usage === undefined ? (
-						<div style={statusStyle} role="status">
-							<span aria-hidden="true" style={dotStyle("loading")} />
-							{t("usageLoading")}
-						</div>
-					) : usageError !== undefined ? null : usage === undefined || !usageHasVisibleFields(usage) ? (
-						<p style={bodyStyle}>{t("usageEmpty")}</p>
-					) : (
-						<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-							{formatEpoch(usage.fetchedAt) === undefined ? null : (
-								<p style={hintStyle}>{t("usageFetchedAt", { time: formatEpoch(usage.fetchedAt) })}</p>
-							)}
-							{usage.rateLimits.map((limit) => (
-								<div key={limit.id} style={nestedStyle}>
-									<p style={{ ...bodyStyle, color: "var(--dsw-alias-label-primary)" }}>
-										{limit.name ?? t("usageRateLimit")}
-									</p>
-									{limit.windows.map((window, index) => {
-										const reset = formatEpoch(window.resetsAt);
-										return (
-											<p key={`${limit.id}-${String(index)}`} style={hintStyle}>
-												{window.windowSeconds === undefined
-													? null
-													: `${t("usageWindow", { seconds: window.windowSeconds })} · `}
-												{window.usedPercent === undefined
-													? null
-													: `${t("usageUsed", { value: `${String(window.usedPercent)}%` })} · `}
-												{window.remainingPercent === undefined
-													? null
-													: `${t("usageRemaining", { value: `${String(window.remainingPercent)}%` })}`}
-												{reset === undefined ? null : ` · ${t("usageResets", { time: reset })}`}
-											</p>
-										);
-									})}
-								</div>
-							))}
-							{usage.creditsUnlimited === undefined && usage.creditsBalance === undefined ? null : (
-								<p style={bodyStyle}>
-									{usage.creditsUnlimited === true ? t("usageCreditsUnlimited") : t("usageCreditsLimited")}
-									{usage.creditsBalance === undefined ? "" : ` · ${t("usageBalance", { value: usage.creditsBalance })}`}
+								<p style={copyRowStyle}>
+									<span style={hintStyle}>
+										{t("gatewayOpenAiUrl")}
+										<span style={{ display: "block", ...monoStyle }}>
+											{`${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`}
+										</span>
+									</span>
+									<button
+										type="button"
+										style={primaryButtonStyle}
+										onClick={() => {
+											void handleCopy("openai", `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`);
+										}}
+									>
+										{copyLabel("openai")}
+									</button>
 								</p>
-							)}
-							{usage.individualLimit === undefined &&
-							usage.individualUsed === undefined &&
-							usage.individualRemaining === undefined &&
-							usage.individualRemainingPercent === undefined ? null : (
-								<p style={bodyStyle}>
-									{t("usageIndividualLimit")}
-									{usage.individualLimit === undefined ? "" : ` · ${t("usageLimit", { value: usage.individualLimit })}`}
-									{usage.individualUsed === undefined
-										? ""
-										: ` · ${t("usageUsedAmount", { value: usage.individualUsed })}`}
-									{usage.individualRemaining === undefined
-										? ""
-										: ` · ${t("usageRemainingAmount", { value: usage.individualRemaining })}`}
-									{usage.individualRemainingPercent === undefined
-										? ""
-										: ` · ${t("usageRemaining", { value: `${String(usage.individualRemainingPercent)}%` })}`}
-									{formatEpoch(usage.individualResetsAt) === undefined
-										? ""
-										: ` · ${t("usageResets", { time: formatEpoch(usage.individualResetsAt) })}`}
+								<p style={copyRowStyle}>
+									<span style={hintStyle}>
+										{t("gatewayAnthropicUrl")}
+										<span style={{ display: "block", ...monoStyle }}>
+											{formatGatewayBaseUrl(gateway.bind, gateway.port)}
+										</span>
+									</span>
+									<button
+										type="button"
+										style={buttonStyle}
+										onClick={() => {
+											void handleCopy("anthropic", formatGatewayBaseUrl(gateway.bind, gateway.port));
+										}}
+									>
+										{copyLabel("anthropic")}
+									</button>
 								</p>
-							)}
-							{usage.spendControlReached === true ? <p style={bodyStyle}>{t("usageSpendControlReached")}</p> : null}
-							{usage.resetCredits === undefined ? null : (
-								<p style={bodyStyle}>{t("usageResetCredits", { value: usage.resetCredits })}</p>
-							)}
-						</div>
-					)}
-				</section>
-			) : null}
-			<section style={cardStyle} aria-labelledby="coding-oauth-imagine-title">
-				<div>
-					<h3 id="coding-oauth-imagine-title" style={{ ...titleStyle, fontSize: 16 }}>
-						{t("imagineTitle")}
-					</h3>
-					<p style={{ ...bodyStyle, marginTop: 4 }}>{t("imagineIntro")}</p>
-				</div>
-				{imagineError === undefined ? null : (
-					<p style={errorStyle} role="alert">
-						{imagineError}
-					</p>
-				)}
-				{imagine === undefined && imagineError === undefined ? (
-					<div style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle("loading")} />
-						{t("imagineLoading")}
-					</div>
-				) : imagine === undefined ? null : (
-					<div style={nestedStyle}>
-						<p style={statusStyle} role="status">
-							<span aria-hidden="true" style={dotStyle(imagine.configured ? "available" : "unavailable")} />
-							<span>{imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}</span>
-						</p>
-						<p style={hintStyle}>{t("imagineSource", { source: imagineSourceLabel(imagine.source, t) })}</p>
-						<p style={hintStyle}>{imagine.writable === true ? t("imagineWritable") : t("imagineReadOnly")}</p>
-					</div>
-				)}
-			</section>
-			<section style={cardStyle} aria-labelledby="coding-oauth-gateway-title">
-				<div>
-					<h3 id="coding-oauth-gateway-title" style={{ ...titleStyle, fontSize: 16 }}>
-						{t("gatewayTitle")}
-					</h3>
-					<p style={{ ...bodyStyle, marginTop: 4 }}>{t("gatewayIntro")}</p>
-					<p style={{ ...hintStyle, marginTop: 8 }}>{t("gatewayWarning")}</p>
-				</div>
-				{gatewayError === undefined ? null : (
-					<p style={errorStyle} role="alert">
-						{gatewayError}
-					</p>
-				)}
-				{gateway === undefined && gatewayError === undefined ? (
-					<div style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle("loading")} />
-						{t("gatewayLoading")}
-					</div>
-				) : gateway === undefined ? null : (
-					<div style={nestedStyle}>
-						<p style={statusStyle} role="status">
-							<span aria-hidden="true" style={dotStyle(gateway.running ? "available" : "unavailable")} />
-							<span>{gateway.running ? t("gatewayRunning") : t("gatewayStopped")}</span>
-						</p>
-						<label style={checkRowStyle}>
-							<input
-								type="checkbox"
-								checked={gateway.enabled}
-								disabled={gatewayBusy}
-								onChange={(event) => {
-									const enabled = event.target.checked;
-									setGatewayBusy(true);
-									void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { enabled })
-										.then((value) => {
-											setGateway(parseGateway(value) ?? gateway);
-											setGatewayError(undefined);
-										})
-										.catch((error: unknown) => {
-											setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
-										})
-										.finally(() => setGatewayBusy(false));
-								}}
-							/>
-							<span>{t("gatewayEnabled")}</span>
-						</label>
-						<p style={hintStyle}>
-							{t("gatewayBind")}: <span style={monoStyle}>{gateway.bind}</span>
-							{" · "}
-							{t("gatewayPort")}: <span style={monoStyle}>{String(gateway.port)}</span>
-						</p>
-						<p style={hintStyle}>
-							{t("gatewayKeyHint")}: <span style={monoStyle}>{gateway.keyHint || "—"}</span>
-						</p>
-						<button
-							type="button"
-							style={buttonStyle}
-							disabled={gatewayBusy}
-							onClick={() => {
-								setGatewayBusy(true);
-								void jsonRequest<{ apiKey?: string; keyHint?: string }>(GATEWAY_ROTATE_PATH, "POST")
-									.then((value) => {
-										if (typeof value.apiKey === "string") setGatewayOnceKey(value.apiKey);
-										void refreshGateway();
-									})
-									.catch((error: unknown) => {
-										setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
-									})
-									.finally(() => setGatewayBusy(false));
-							}}
-						>
-							{t("gatewayRotate")}
-						</button>
-						{gatewayOnceKey === undefined ? null : (
-							<p style={bodyStyle}>{t("gatewayRotated", { key: gatewayOnceKey })}</p>
+								<p style={copyRowStyle}>
+									<span style={hintStyle}>
+										{t("gatewayKeyHint")}
+										<span style={{ display: "block", ...monoStyle, overflowWrap: "anywhere" }}>
+											{gatewayKeyVisible && gatewayOnceKey !== undefined ? gatewayOnceKey : gateway.keyHint || "—"}
+										</span>
+									</span>
+									<span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+										<button
+											type="button"
+											style={primaryButtonStyle}
+											disabled={gatewayBusy}
+											onClick={() => {
+												void copyGatewayKey();
+											}}
+										>
+											{copyLabel("key", t("gatewayCopyKey"))}
+										</button>
+										<button
+											type="button"
+											style={buttonStyle}
+											disabled={gatewayBusy}
+											onClick={() => {
+												void toggleGatewayKeyVisible();
+											}}
+										>
+											{gatewayKeyVisible ? t("gatewayHideKey") : t("gatewayShowKey")}
+										</button>
+									</span>
+								</p>
+								<p style={hintStyle}>{t("gatewayKeyCopyHint")}</p>
+								{gatewayRotateConfirm ? (
+									<div style={nestedStyle}>
+										<p style={bodyStyle}>{t("gatewayRotateConfirm")}</p>
+										<p style={hintStyle}>{t("gatewayRotateConfirmHint")}</p>
+										<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+											<button
+												type="button"
+												style={buttonStyle}
+												disabled={gatewayBusy}
+												onClick={() => {
+													void rotateGatewayKey();
+												}}
+											>
+												{t("gatewayRotateConfirmAction")}
+											</button>
+											<button
+												type="button"
+												style={buttonStyle}
+												disabled={gatewayBusy}
+												onClick={() => setGatewayRotateConfirm(false)}
+											>
+												{t("gatewayRotateCancel")}
+											</button>
+										</div>
+									</div>
+								) : (
+									<button
+										type="button"
+										style={buttonStyle}
+										disabled={gatewayBusy}
+										onClick={() => setGatewayRotateConfirm(true)}
+									>
+										{t("gatewayRotate")}
+									</button>
+								)}
+							</div>
 						)}
-					</div>
-				)}
-			</section>
-			{status === undefined ? null : (
-				<div style={cardStyle}>
-					<div style={rowStyle}>
-						<div>
-							<h3 style={{ ...titleStyle, fontSize: 16 }}>{t("antigravityTitle")}</h3>
-							<p style={{ ...bodyStyle, marginTop: 4 }}>{t("antigravityDescription")}</p>
-							<p style={{ ...bodyStyle, marginTop: 4 }}>
-								<span style={monoStyle}>{status.antigravity.route}</span>
-							</p>
+					</section>
+				) : null}
+				{activeTab === "about" && status !== undefined ? (
+					<div style={cardStyle}>
+						<div style={rowStyle}>
+							<div>
+								<h3 style={{ ...titleStyle, fontSize: 16 }}>{t("antigravityTitle")}</h3>
+								<p style={{ ...bodyStyle, marginTop: 4 }}>{t("antigravityDescription")}</p>
+								<p style={{ ...bodyStyle, marginTop: 4 }}>
+									<span style={monoStyle}>{status.antigravity.route}</span>
+								</p>
+							</div>
+							<div style={statusStyle} role="status">
+								<span aria-hidden="true" style={dotStyle("signed-out", status.antigravity.installed)} />
+								<span>{status.antigravity.installed ? t("antigravityInstalled") : t("antigravityMissing")}</span>
+							</div>
 						</div>
-						<div style={statusStyle} role="status">
-							<span aria-hidden="true" style={dotStyle("signed-out", status.antigravity.installed)} />
-							<span>{status.antigravity.installed ? t("antigravityInstalled") : t("antigravityMissing")}</span>
-						</div>
+						<p style={bodyStyle}>{t("antigravityCliHint")}</p>
+						<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>
 					</div>
-					<p style={bodyStyle}>{t("antigravityCliHint")}</p>
-					<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>
-				</div>
-			)}
+				) : null}
+			</div>
 		</section>
 	);
 }

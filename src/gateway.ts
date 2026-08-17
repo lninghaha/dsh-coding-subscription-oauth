@@ -13,7 +13,7 @@ import {
 	persistGatewayKeyDocument,
 } from "./gateway-auth.ts";
 import { createSessionGatewayBackend, type GatewayBackend } from "./gateway-backend.ts";
-import { type GatewayConfig, resolveGatewayConfig } from "./gateway-config.ts";
+import { assertGatewayPort, type GatewayConfig, resolveGatewayConfig } from "./gateway-config.ts";
 import { closeGateway, createGatewayHttpServer, listenGateway } from "./gateway-http.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
 import type { GrokBuildSession } from "./session.ts";
@@ -49,6 +49,8 @@ export interface CodingOAuthGatewayController {
 	status(): Promise<GatewayPublicStatus>;
 	startIfEnabled(): Promise<StartedGateway | undefined>;
 	setEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
+	setPort(port: number): Promise<GatewayPublicStatus>;
+	revealKey(): Promise<{ apiKey: string; keyHint: string }>;
 	rotateKey(): Promise<{ apiKey: string; keyHint: string }>;
 	stop(): Promise<void>;
 }
@@ -68,6 +70,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 	};
 	let server: Server | undefined;
 	let apiKey = yaml.apiKey ?? "";
+	let port = yaml.port;
 	let lock: Promise<void> = Promise.resolve();
 
 	const withLock = async <T>(work: () => Promise<T>): Promise<T> => {
@@ -91,18 +94,46 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		await closeGateway(current).catch(() => undefined);
 	};
 
+	const activeConfig = (): GatewayConfig => ({ ...yaml, port });
+
+	const snapshot = async (enabled?: boolean): Promise<GatewayPublicStatus> => ({
+		enabled: enabled ?? (await desiredEnabled()),
+		running: server !== undefined,
+		bind: yaml.bind,
+		port,
+		keyHint: apiKey.length === 0 ? "" : maskGatewayApiKey(apiKey),
+		warning: GATEWAY_TOS_WARNING,
+	});
+
+	const persistState = async (next: { enabled?: boolean; port?: number; apiKey?: string }): Promise<void> => {
+		const document = await loadGatewayKeyDocument(path);
+		const nextKey = next.apiKey ?? (apiKey.length === 0 ? document?.apiKey : apiKey);
+		if (nextKey === undefined || nextKey.length === 0) throw new Error("gateway api key is missing");
+		apiKey = nextKey;
+		const nextEnabled = next.enabled ?? document?.enabled;
+		const nextPort = next.port ?? document?.port ?? port;
+		port = nextPort;
+		await persistGatewayKeyDocument(path, {
+			version: 1,
+			apiKey: nextKey,
+			...(nextEnabled === undefined ? {} : { enabled: nextEnabled }),
+			port: nextPort,
+		});
+	};
+
 	const listen = async (): Promise<StartedGateway> => {
 		if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
-		const http = createGatewayHttpServer({ config: yaml, apiKey, backend: backend() });
+		const config = activeConfig();
+		const http = createGatewayHttpServer({ config, apiKey, backend: backend() });
 		try {
-			await listenGateway(http, yaml);
+			await listenGateway(http, config);
 		} catch (error) {
 			await closeGateway(http).catch(() => undefined);
 			options.onError?.(error);
 			throw error;
 		}
 		server = http;
-		return { bind: yaml.bind, port: yaml.port, close: () => closeServer() };
+		return { bind: config.bind, port: config.port, close: () => closeServer() };
 	};
 
 	const desiredEnabled = async (): Promise<boolean> => {
@@ -110,25 +141,25 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		return document?.enabled ?? yaml.enabled;
 	};
 
+	const hydratePort = async (): Promise<void> => {
+		const document = await loadGatewayKeyDocument(path);
+		if (document?.port !== undefined) port = document.port;
+	};
+
 	return {
 		async status() {
+			await hydratePort();
 			if (apiKey.length === 0) {
 				const document = await loadGatewayKeyDocument(path);
 				apiKey = document?.apiKey ?? "";
 			}
-			return {
-				enabled: await desiredEnabled(),
-				running: server !== undefined,
-				bind: yaml.bind,
-				port: yaml.port,
-				keyHint: apiKey.length === 0 ? "" : maskGatewayApiKey(apiKey),
-				warning: GATEWAY_TOS_WARNING,
-			};
+			return snapshot();
 		},
 		startIfEnabled() {
 			return withLock(async () => {
+				await hydratePort();
 				if (!(await desiredEnabled())) return undefined;
-				if (server !== undefined) return { bind: yaml.bind, port: yaml.port, close: () => closeServer() };
+				if (server !== undefined) return { bind: yaml.bind, port, close: () => closeServer() };
 				try {
 					return await listen();
 				} catch {
@@ -138,8 +169,9 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		},
 		setEnabled(enabled) {
 			return withLock(async () => {
+				await hydratePort();
 				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
-				await persistGatewayKeyDocument(path, { version: 1, apiKey, enabled });
+				await persistState({ enabled });
 				if (enabled && server === undefined) {
 					try {
 						await listen();
@@ -148,23 +180,46 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 					}
 				}
 				if (!enabled) await closeServer();
-				return {
-					enabled,
-					running: server !== undefined,
-					bind: yaml.bind,
-					port: yaml.port,
-					keyHint: maskGatewayApiKey(apiKey),
-					warning: GATEWAY_TOS_WARNING,
-				};
+				return snapshot(enabled);
+			});
+		},
+		setPort(nextPort) {
+			return withLock(async () => {
+				await hydratePort();
+				const wanted = assertGatewayPort(nextPort);
+				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
+				const previous = port;
+				const shouldRun = server !== undefined;
+				await persistState({ port: wanted });
+				if (!shouldRun) return snapshot();
+				await closeServer();
+				try {
+					await listen();
+					return snapshot();
+				} catch (error) {
+					port = previous;
+					await persistState({ port: previous });
+					try {
+						await listen();
+					} catch {
+						// previous port may also fail; status.running reflects reality
+					}
+					throw error;
+				}
+			});
+		},
+		revealKey() {
+			return withLock(async () => {
+				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
+				return { apiKey, keyHint: maskGatewayApiKey(apiKey) };
 			});
 		},
 		rotateKey() {
 			return withLock(async () => {
+				await hydratePort();
 				const next = generateGatewayApiKey();
 				const document = await loadGatewayKeyDocument(path);
-				apiKey = next;
-				await persistGatewayKeyDocument(path, {
-					version: 1,
+				await persistState({
 					apiKey: next,
 					...(document?.enabled === undefined ? {} : { enabled: document.enabled }),
 				});

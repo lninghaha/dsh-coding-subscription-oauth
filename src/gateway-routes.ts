@@ -5,12 +5,14 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CodingOAuthGatewayController } from "./gateway.ts";
+import { assertGatewayPort } from "./gateway-config.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import { safeMessage } from "./redact.ts";
 import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export const GATEWAY_SETTINGS_PATH = "/plugins/dsh-grok-build/gateway";
+export const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
 export const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
 
 export interface GatewayRouteContext {
@@ -32,6 +34,11 @@ export function registerGatewayRoutes(ctx: GatewayRouteContext, controller: Codi
 				kind: "exact",
 				path: GATEWAY_SETTINGS_PATH,
 				handler: (req, res) => handleGatewaySettings(req, res, controller),
+			});
+			webServer.register({
+				kind: "exact",
+				path: GATEWAY_REVEAL_PATH,
+				handler: (req, res) => handleGatewayReveal(req, res, controller),
 			});
 			webServer.register({
 				kind: "exact",
@@ -59,16 +66,56 @@ async function handleGatewaySettings(
 			return;
 		}
 		if (req.method === "PATCH") {
-			const body = await readJsonRequest(req);
-			const enabled = typeof body === "object" && body !== null ? (body as { enabled?: unknown }).enabled : undefined;
-			if (typeof enabled !== "boolean") {
+			const raw = await readJsonRequest(req);
+			const payload = typeof raw === "object" && raw !== null ? (raw as { enabled?: unknown; port?: unknown }) : {};
+			const enabled = payload.enabled;
+			const port = payload.port;
+			if (enabled === undefined && port === undefined) {
+				json(res, 400, { error: "enabled or port is required" });
+				return;
+			}
+			if (enabled !== undefined && typeof enabled !== "boolean") {
 				json(res, 400, { error: "enabled must be a boolean" });
 				return;
 			}
-			json(res, 200, await controller.setEnabled(enabled));
+			if (port !== undefined) {
+				if (typeof port !== "number" || !Number.isSafeInteger(port)) {
+					json(res, 400, { error: "port must be an integer" });
+					return;
+				}
+				try {
+					assertGatewayPort(port);
+				} catch (error) {
+					json(res, 400, { error: safeMessage(error) });
+					return;
+				}
+				await controller.setPort(port);
+			}
+			const status = typeof enabled === "boolean" ? await controller.setEnabled(enabled) : await controller.status();
+			json(res, 200, status);
 			return;
 		}
 		json(res, 405, { error: "method not allowed" });
+	} catch (error) {
+		json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
+	}
+}
+
+async function handleGatewayReveal(
+	req: IncomingMessage,
+	res: ServerResponse,
+	controller: CodingOAuthGatewayController,
+): Promise<void> {
+	if (!isTrustedLoopbackWebRequest(req)) {
+		json(res, 403, { error: "forbidden" });
+		return;
+	}
+	if (req.method !== "POST") {
+		json(res, 405, { error: "method not allowed" });
+		return;
+	}
+	try {
+		json(res, 200, await controller.revealKey());
 	} catch (error) {
 		json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 	}

@@ -17,6 +17,7 @@ export interface GatewayKeyDocument {
 	version: typeof KEY_FORMAT_VERSION;
 	apiKey: string;
 	enabled?: boolean;
+	port?: number;
 }
 
 export function gatewayKeyPath(dshHome?: string): string {
@@ -53,10 +54,12 @@ export async function loadGatewayKeyDocument(path: string): Promise<GatewayKeyDo
 		) {
 			throw new Error("gateway key file is invalid");
 		}
+		const port = document["port"];
 		return {
 			version: KEY_FORMAT_VERSION,
 			apiKey: document["apiKey"],
 			...(typeof document["enabled"] === "boolean" ? { enabled: document["enabled"] } : {}),
+			...(typeof port === "number" && Number.isSafeInteger(port) && port >= 1024 && port <= 65_535 ? { port } : {}),
 		};
 	} catch (error) {
 		if (error instanceof OAuthSourceError && error.code === "not_found") return undefined;
@@ -71,6 +74,7 @@ export async function loadOrCreateGatewayApiKey(path: string, configured?: strin
 			version: KEY_FORMAT_VERSION,
 			apiKey: configured,
 			...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
+			...(existing?.port === undefined ? {} : { port: existing.port }),
 		});
 		return configured;
 	}
@@ -86,6 +90,7 @@ export async function persistGatewayApiKey(path: string, apiKey: string): Promis
 		version: KEY_FORMAT_VERSION,
 		apiKey,
 		...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
+		...(existing?.port === undefined ? {} : { port: existing.port }),
 	});
 }
 

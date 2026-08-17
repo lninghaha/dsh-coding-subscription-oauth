@@ -8,6 +8,7 @@ export interface GatewayKeyDocument {
     version: typeof KEY_FORMAT_VERSION;
     apiKey: string;
     enabled?: boolean;
+    port?: number;
 }
 export declare function gatewayKeyPath(dshHome?: string): string;
 export declare function generateGatewayApiKey(): string;

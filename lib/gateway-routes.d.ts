@@ -5,6 +5,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CodingOAuthGatewayController } from "./gateway.js";
 export declare const GATEWAY_SETTINGS_PATH = "/plugins/dsh-grok-build/gateway";
+export declare const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
 export declare const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
 export interface GatewayRouteContext {
     readonly webServer: {

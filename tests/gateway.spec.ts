@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createCodingOAuthGatewayController, startCodingOAuthGateway } from "../src/gateway.ts";
 import { gatewayKeysEqual, generateGatewayApiKey, loadOrCreateGatewayApiKey } from "../src/gateway-auth.ts";
 import { assistantReplay, type GatewayBackend, GatewayRequestError } from "../src/gateway-backend.ts";
-import { resolveGatewayConfig } from "../src/gateway-config.ts";
+import { randomGatewayPort, resolveGatewayConfig } from "../src/gateway-config.ts";
 import { closeGateway, createGatewayHttpServer, listenGateway } from "../src/gateway-http.ts";
 import type { GatewayCompletionRequest, GatewayStreamPart } from "../src/gateway-protocol.ts";
 
@@ -78,6 +78,18 @@ describe("resolveGatewayConfig", () => {
 
 	it("rejects an out-of-range port", () => {
 		expect(() => resolveGatewayConfig({ port: 80 })).toThrow(/1024/);
+	});
+
+	it("picks a random high port that is not reserved", () => {
+		const picked = new Set<number>();
+		for (let index = 0; index < 8; index += 1) {
+			const port = randomGatewayPort(18_080);
+			expect(port).toBeGreaterThanOrEqual(18_100);
+			expect(port).toBeLessThanOrEqual(18_999);
+			expect(port).not.toBe(18_080);
+			picked.add(port);
+		}
+		expect(picked.size).toBeGreaterThan(0);
 	});
 });
 
@@ -204,9 +216,11 @@ describe("startCodingOAuthGateway", () => {
 	});
 
 	it("starts and stops an enabled loopback server", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-gateway-start-"));
 		const started = await startCodingOAuthGateway({
 			config: { enabled: true, bind: "127.0.0.1", port: 19_160, apiKey: "loop-key" },
 			backend: mockBackend(),
+			dshHome: dir,
 		});
 		expect(started).toBeDefined();
 		servers.push(started!);
@@ -231,5 +245,45 @@ describe("startCodingOAuthGateway", () => {
 		expect(rotated.keyHint.startsWith("****")).toBe(true);
 		await controller.setEnabled(false);
 		expect((await controller.status()).running).toBe(false);
+	});
+
+	it("reveals the current key without rotating it", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-gateway-reveal-"));
+		const controller = createCodingOAuthGatewayController({
+			config: { enabled: false, bind: "127.0.0.1", port: 19_162, apiKey: "reveal-key-value-bbbb" },
+			backend: mockBackend(),
+			dshHome: dir,
+		});
+		servers.push({ close: () => controller.stop() });
+		const first = await controller.revealKey();
+		const second = await controller.revealKey();
+		expect(first.apiKey).toBe("reveal-key-value-bbbb");
+		expect(second.apiKey).toBe(first.apiKey);
+		expect(first.keyHint).toContain("bbbb");
+		const status = await controller.status();
+		expect(status).not.toHaveProperty("apiKey");
+		expect(status.keyHint).toBe(first.keyHint);
+		const rotated = await controller.rotateKey();
+		expect(rotated.apiKey).not.toBe(first.apiKey);
+		expect((await controller.revealKey()).apiKey).toBe(rotated.apiKey);
+	});
+
+	it("persists a user-selected port and rebinds when running", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-gateway-port-"));
+		const controller = createCodingOAuthGatewayController({
+			config: { enabled: false, bind: "127.0.0.1", port: 19_170, apiKey: "port-key-value-cccc" },
+			backend: mockBackend(),
+			dshHome: dir,
+		});
+		servers.push({ close: () => controller.stop() });
+		expect((await controller.setPort(19_171)).port).toBe(19_171);
+		expect((await controller.status()).port).toBe(19_171);
+		expect((await controller.setEnabled(true)).running).toBe(true);
+		const rebound = await controller.setPort(19_172);
+		expect(rebound.port).toBe(19_172);
+		expect(rebound.running).toBe(true);
+		expect((await request(19_172, "/healthz")).status).toBe(200);
+		await expect(controller.setPort(80)).rejects.toThrow(/1024/);
+		expect((await controller.status()).port).toBe(19_172);
 	});
 });

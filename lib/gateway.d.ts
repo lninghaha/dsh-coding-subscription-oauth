@@ -32,6 +32,11 @@ export interface CodingOAuthGatewayController {
     status(): Promise<GatewayPublicStatus>;
     startIfEnabled(): Promise<StartedGateway | undefined>;
     setEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
+    setPort(port: number): Promise<GatewayPublicStatus>;
+    revealKey(): Promise<{
+        apiKey: string;
+        keyHint: string;
+    }>;
     rotateKey(): Promise<{
         apiKey: string;
         keyHint: string;
