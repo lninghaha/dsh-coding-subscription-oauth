@@ -19,6 +19,24 @@ pnpm run check        # full release gate (lint + release build + tests)
 
 Use a Node version that matches `package.json` `engines` (currently `^22.19.0 || >=24.0.0`) and the repo's `packageManager` (`pnpm@11.21.0`). Do not install into, modify, or validate against a DSH instance already running on a shared host unless a maintainer explicitly asks for that operation.
 
+### Cloud Agent DSH (native)
+
+Cursor Cloud Agents bootstrap an isolated DeepSeek Harness via `.cursor/install-cloud-dsh.sh` (wired from `.cursor/environment.json`):
+
+- installs pinned `@deepseek-ai/dsh@0.1.0-rc.6` globally
+- uses `$HOME/.dsh-cloud` as `DSH_HOME` (never a shared-host profile)
+- links this checkout into the `web` profile for live plugin verification
+
+```bash
+# already done by the Cloud Agent install hook; re-run safely anytime
+bash .cursor/install-cloud-dsh.sh
+
+# optional browser UI for Settings / OAuth flows
+dsh web --host 127.0.0.1 --port 18180
+```
+
+After changing `src/`, rebuild (`pnpm run release:build` or `pnpm run check`) so the linked `lib/` artifacts match, then restart `dsh web` if it is already running.
+
 ### Optional Docker sandbox
 
 The tracked `Dockerfile` remains available for CI and for contributors who want an offline sandbox on a shared physical host. When you use it: the image copies filtered source (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use privileged mode, credential or host-directory bind mounts, or the Docker socket.

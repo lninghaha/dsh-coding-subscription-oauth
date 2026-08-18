@@ -7,6 +7,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 ### Changed
 
 - Make native `pnpm` checks the default development verification path (including cloud agent environments). Docker sandbox targets remain optional for CI and shared-host isolation.
+- Bootstrap an isolated Cloud Agent DSH (`@deepseek-ai/dsh@0.1.0-rc.6`, `DSH_HOME=$HOME/.dsh-cloud`) via `.cursor/install-cloud-dsh.sh` and `.cursor/environment.json`, linking this checkout into the `web` profile.
 
 ## v0.5.2 - 2026-08-18
 
