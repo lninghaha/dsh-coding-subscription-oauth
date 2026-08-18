@@ -7,19 +7,19 @@
 import { createModels } from "@earendil-works/pi-ai";
 import { xaiProvider } from "@earendil-works/pi-ai/providers/xai";
 import {
+	codingOAuthProxyInEffect,
 	DEFAULT_GROK_BUILD_MODEL,
-	ensureGrokBuildProxy,
+	ensureCodingOAuthProxy,
 	GrokBuildSession,
 	grokBuildFingerprintHeaders,
-	grokBuildProxyInEffect,
 	safeMessage,
 	XAI_PI_PROVIDER,
 } from "../lib/index.js";
 
 const modelId = process.argv[2] ?? DEFAULT_GROK_BUILD_MODEL;
 
-ensureGrokBuildProxy();
-console.log(`proxy: ${grokBuildProxyInEffect() ?? "(none — direct)"}`);
+ensureCodingOAuthProxy();
+console.log(`proxy: ${codingOAuthProxyInEffect() ?? "(none — direct)"}`);
 
 const session = new GrokBuildSession();
 await session.loadCachedCatalog();

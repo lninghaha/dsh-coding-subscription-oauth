@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2 · 이전 이름 `dsh-grok-build`
+**v0.5.2**
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -17,18 +17,6 @@
 
 ---
 
-## 이름 변경
-
-처음에는 Grok Build 전용 **`dsh-grok-build`** 였습니다. 지금은 SuperGrok / Codex / Kimi / Claude / Antigravity 코딩 구독 OAuth입니다.
-
-| | 이것을 쓰세요 | 계속 동작 |
-|---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 이전 GitHub 저장소 `dsh-grok-build` 는 삭제됨 |
-| npm | `dsh-coding-subscription-oauth@0.5.2`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
-| 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
-| 자격 증명 파일 | `$DSH_HOME/.grok-build-auth.json` 및 기타 `*-oauth-auth.json` | 그대로 |
 
 ## ✨ 기능
 
@@ -174,7 +162,6 @@ gateway:
 ## CLI
 
 ```bash
-# `dsh-grok-build` 는 같은 CLI 별칭
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # 최신 프로바이더
@@ -194,10 +181,10 @@ Kimi Code 구독 OAuth는 `https://auth.kimi.com`, 추론은 `https://api.kimi.c
 
 ## 네트워크 프록시
 
-우선순위: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+우선순위: `config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -212,7 +199,7 @@ OAuth 액세스 토큰은 저장된 만료 시각 **5분 전**에 선제적으�
 요청 재시도는 harness retry 정책을 따릅니다. 일시 오류(`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`)와 **`AUTH`**는 지수 백오프로 재시도합니다(기본 2회, 500 ms → 10 s, 10% jitter). 쿼터 소진과 죽은 refresh token은 재시도하지 않습니다. 배포별 재정의:
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -225,7 +212,7 @@ OAuth 액세스 토큰은 저장된 만료 시각 **5분 전**에 선제적으�
 
 소유자 전용 `0600`, 원자적 쓰기, 크로스 프로세스 파일 잠금:
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`

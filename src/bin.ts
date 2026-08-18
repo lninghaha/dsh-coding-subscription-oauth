@@ -93,7 +93,6 @@ function printHelp(): void {
 	process.stdout.write(
 		[
 			"Usage: dsh-coding-oauth <login|logout|status|import> [provider] [options]",
-			"(legacy command name: dsh-grok-build)",
 			"",
 			"Providers: grok (default), codex, kimi, claude; status also accepts all.",
 			"",
@@ -105,7 +104,7 @@ function printHelp(): void {
 			"  logout [provider]",
 			"  status [provider|all]",
 			"",
-			"Network: set CODING_OAUTH_PROXY, GROK_BUILD_PROXY, or HTTPS_PROXY.",
+			"Network: set CODING_OAUTH_PROXY or HTTPS_PROXY.",
 			"Only audited subscription hosts use the proxy; Kimi stays direct by default.",
 			"",
 		].join("\n"),

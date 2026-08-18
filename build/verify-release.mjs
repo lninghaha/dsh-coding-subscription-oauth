@@ -13,7 +13,6 @@ assert.notEqual(manifest.private, true, "release package must not be private");
 assert.equal(manifest.version, "0.5.2", "release artifacts must use the v0.5.2 manifest");
 assert.deepEqual(manifest.bin, {
 	"dsh-coding-oauth": "lib/bin.js",
-	"dsh-grok-build": "lib/bin.js",
 });
 
 for (const path of [
@@ -88,17 +87,18 @@ for (const name of requiredRuntimePeers) {
 	);
 }
 for (const marker of [
-	"/plugins/dsh-grok-build/oauth/sources",
-	"/plugins/dsh-grok-build/capabilities",
+	"/plugins/dsh-coding-subscription-oauth/oauth/sources",
+	"/plugins/dsh-coding-subscription-oauth/capabilities",
 	"codex-oauth-fast",
 	"XAI_API_KEY",
-	"/plugins/dsh-grok-build/imagine/media/",
+	"/plugins/dsh-coding-subscription-oauth/imagine/media/",
 ]) {
 	assert.ok(serverSource.includes(marker), `server bundle is missing v0.4 runtime marker ${marker}`);
 }
 
 const plugin = await import(`${pathToFileURL(resolve(root, "lib/index.js")).href}?verify=${Date.now()}`);
-assert.equal(plugin.name, "llm-grok-build-oauth");
+assert.equal(plugin.name, "llm-coding-subscription-oauth");
+assert.equal(plugin.PLUGIN_HTTP_PREFIX, "/plugins/dsh-coding-subscription-oauth");
 assert.equal(typeof plugin.apply, "function");
 assert.ok(Array.isArray(plugin.inject));
 assert.ok(plugin.inject.includes("llm"));
@@ -112,8 +112,8 @@ assert.match(
 );
 assert.equal((clientSource.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1);
 for (const marker of [
-	"/plugins/dsh-grok-build/capabilities",
-	"/plugins/dsh-grok-build/imagine/credential-status",
+	"/plugins/dsh-coding-subscription-oauth/capabilities",
+	"/plugins/dsh-coding-subscription-oauth/imagine/credential-status",
 	"codexSearch",
 	"codexImages",
 	"codexImageEdits",

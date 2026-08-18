@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2 · ранее `dsh-grok-build`
+**v0.5.2**
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -17,18 +17,6 @@
 
 ---
 
-## Смена имени
-
-Сначала репозиторий назывался **`dsh-grok-build`** (только Grok Build). Теперь это OAuth для SuperGrok / Codex / Kimi / Claude / Antigravity.
-
-| | Используйте | По-прежнему работает |
-|---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Старый GitHub-репозиторий `dsh-grok-build` удалён |
-| npm | `dsh-coding-subscription-oauth@0.5.2` (текущая версия) | Старого npm-пакета не было |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis plugin id | `llm-grok-build-oauth` | без изменений |
-| HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
-| Файлы учёток | `$DSH_HOME/.grok-build-auth.json` и остальные `*-oauth-auth.json` | без изменений |
 
 ## ✨ Возможности
 
@@ -174,7 +162,6 @@ gateway:
 ## CLI
 
 ```bash
-# `dsh-grok-build` по-прежнему алиас той же команды
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # более новые провайдеры
@@ -194,10 +181,10 @@ OAuth подписки Kimi Code использует `https://auth.kimi.com`; �
 
 ## Сетевой прокси
 
-Приоритет: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+Приоритет: `config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -212,7 +199,7 @@ OAuth access token обновляется **за пять минут** до со
 Повторы идут по политике harness: временные сбои (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **и `AUTH`** повторяются с экспоненциальной задержкой (2 попытки, 500 мс → 10 с, 10% jitter). Исчерпание квоты и мёртвый refresh token **не** повторяются. Переопределение для развёртывания:
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -225,7 +212,7 @@ OAuth access token обновляется **за пять минут** до со
 
 Только-владелец `0600`, атомарная запись, межпроцессная блокировка файла:
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`

@@ -4,6 +4,9 @@ export const CODEX_PI_PROVIDER = "openai-codex";
 export const KIMI_PI_PROVIDER = "kimi-coding";
 export const CLAUDE_PI_PROVIDER = "anthropic";
 
+/** Stable HTTP prefix for Settings and plugin-owned web routes. */
+export const PLUGIN_HTTP_PREFIX = "/plugins/dsh-coding-subscription-oauth";
+
 /** Harness LLM routes. OAuth aliases avoid the user's API-key route ids. */
 export const GROK_BUILD_ROUTE = "grok-build";
 export const CODEX_OAUTH_ROUTE = "codex-oauth";
@@ -27,13 +30,13 @@ export type CodingOAuthOptionalRoute = (typeof CODING_OAUTH_OPTIONAL_ROUTES)[num
 export type CodingOAuthProviderSlug = "grok" | "codex" | "kimi" | "claude";
 
 /** Basenames of private OAuth documents inside the Harness home. */
-export const GROK_BUILD_AUTH_FILENAME = ".grok-build-auth.json";
+export const GROK_OAUTH_AUTH_FILENAME = ".grok-oauth-auth.json";
 export const CODEX_OAUTH_AUTH_FILENAME = ".codex-oauth-auth.json";
 export const KIMI_CODE_OAUTH_AUTH_FILENAME = ".kimi-code-oauth-auth.json";
 export const CLAUDE_CODE_OAUTH_AUTH_FILENAME = ".claude-code-oauth-auth.json";
 
 /** Basenames of model selection/catalog caches inside the Harness home. */
-export const GROK_BUILD_MODELS_CACHE_FILENAME = ".grok-build-models.json";
+export const GROK_OAUTH_MODELS_CACHE_FILENAME = ".grok-oauth-models.json";
 export const CODEX_OAUTH_MODELS_CACHE_FILENAME = ".codex-oauth-models.json";
 export const KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME = ".kimi-code-oauth-models.json";
 export const CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME = ".claude-code-oauth-models.json";

@@ -1,0 +1,1 @@
+{"version":3,"file":"gateway-openai-chat.d.ts","sourceRoot":"","sources":["../../src/gateway-openai-chat.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,OAAO,KAAK,EAAE,eAAe,EAAE,cAAc,EAAE,MAAM,WAAW,CAAC;AACjE,OAAO,EAAE,KAAK,cAAc,EAAwB,MAAM,sBAAsB,CAAC;AAKjF,wBAAsB,2BAA2B,CAChD,GAAG,EAAE,eAAe,EACpB,GAAG,EAAE,cAAc,EACnB,OAAO,EAAE,cAAc,GACrB,OAAO,CAAC,IAAI,CAAC,CAoCf"}

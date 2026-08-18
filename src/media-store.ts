@@ -25,7 +25,7 @@ export const MEDIA_STORE_INDEX_MAX_BYTES = 16 * 1024;
 /** Opaque public id: 32 lowercase hex characters. */
 export const MEDIA_ARTIFACT_ID_PATTERN = /^[a-f0-9]{32}$/;
 
-export const IMAGINE_MEDIA_ROUTE_PREFIX = "/plugins/dsh-grok-build/imagine/media/";
+export const IMAGINE_MEDIA_ROUTE_PREFIX = "/plugins/dsh-coding-subscription-oauth/imagine/media/";
 
 const NOFOLLOW = process.platform === "win32" ? 0 : (fsConstants.O_NOFOLLOW ?? 0);
 const TRUSTED_IMAGINE = Symbol.for("dsh-coding-subscription-oauth.trusted-imagine");

@@ -209,7 +209,7 @@ describe("capability route registrar", () => {
 	});
 });
 
-describe("GET /plugins/dsh-grok-build/capabilities", () => {
+describe("GET /plugins/dsh-coding-subscription-oauth/capabilities", () => {
 	it("returns the default-off secret-free snapshot", async () => {
 		const { routes } = createHarness();
 		const response = await invoke(routes.get(CAPABILITY_SETTINGS_PATH), request("GET"));

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2** · formerly `dsh-grok-build`
+**v0.5.2**
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -16,19 +16,6 @@
 </div>
 
 ---
-
-## Name change
-
-Published first as **`dsh-grok-build`** when it only covered Grok Build. The current name matches the full coding-subscription OAuth surface.
-
-| | Use this | Still works |
-|---|---|---|
-| npm (recommended) | Current release is `0.5.2`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2` | No legacy npm package was published |
-| GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis plugin id | `llm-grok-build-oauth` | unchanged |
-| Settings HTTP API | `/plugins/dsh-grok-build/*` | unchanged |
-| Credential files | `$DSH_HOME/.grok-build-auth.json` and the other `*-oauth-auth.json` files | unchanged |
 
 ## ✨ Features
 
@@ -187,7 +174,6 @@ On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1
 ## CLI
 
 ```bash
-# `dsh-grok-build` remains a command alias
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # newer providers
@@ -207,10 +193,10 @@ Kimi Code subscription OAuth uses `https://auth.kimi.com`; inference uses `https
 
 ## Network proxy
 
-Priority: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+Priority: `config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -225,7 +211,7 @@ OAuth access tokens refresh proactively **five minutes** before their stored exp
 Request retries use the harness retry policy: transient failures (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **and `AUTH`** retry with exponential backoff (default 2 retries, 500 ms → 10 s, 10% jitter). Quota exhaustion and a dead refresh token are **not** retried — they fail fast with the real message and a sign-in prompt. Override per deployment:
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -238,7 +224,7 @@ Request retries use the harness retry policy: transient failures (`RATE_LIMIT`/`
 
 Owner-only `0600`, atomically written, cross-process file lock:
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`
@@ -267,7 +253,7 @@ flowchart LR
 - **Codex/Kimi/Claude**: pi-ai native providers handle OAuth and refresh; the route-alias adapter maps them to native ids so multi-turn replay does not throw `INVALID_REPLAY_STATE`.
 - The Kimi access token is explicitly converted to `Authorization: Bearer` — never mistakenly an Anthropic `x-api-key`.
 - **Codex Fast / private endpoints**: `codex-oauth-fast` is opt-in and fail-closed on a stale catalog; search, usage and `gpt-image-2` images stay off until enabled.
-- **Grok Imagine**: official `api.x.ai` only, `XAI_API_KEY` through DSH credentials, same-origin download routes under `/plugins/dsh-grok-build/imagine/*`.
+- **Grok Imagine**: official `api.x.ai` only, `XAI_API_KEY` through DSH credentials, same-origin download routes under `/plugins/dsh-coding-subscription-oauth/imagine/*`.
 - Google Antigravity is **not** reverse-engineered here; it uses a version-pinned dedicated DSH plugin.
 
 ## Compliance

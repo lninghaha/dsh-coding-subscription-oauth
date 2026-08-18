@@ -50,7 +50,7 @@ describe("parseGrokAuthDocument", () => {
 
 describe("importGrokAuth", () => {
 	it("copies tokens into the dsh store and leaves the Grok file unchanged", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-grok-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-grok-"));
 		const grokFile = join(dir, "auth.json");
 		const dshFile = join(dir, "dsh.json");
 		const original = `${JSON.stringify(grokShape, null, 2)}\n`;
@@ -63,7 +63,7 @@ describe("importGrokAuth", () => {
 	});
 
 	it("probes availability without returning secrets", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-probe-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-probe-"));
 		const missing = await probeGrokAuth(join(dir, "missing.json"));
 		expect(missing.available).toBe(false);
 		const grokFile = join(dir, "auth.json");

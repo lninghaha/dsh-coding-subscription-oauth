@@ -17,7 +17,7 @@ import {
 	materializeLiveModel,
 	mergeLiveCatalog,
 } from "./catalog.ts";
-import { GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_ROUTE, XAI_PI_PROVIDER } from "./ids.ts";
+import { GROK_BUILD_ROUTE, GROK_OAUTH_MODELS_CACHE_FILENAME, XAI_PI_PROVIDER } from "./ids.ts";
 import { grokBuildBaselineModels, grokBuildProvider } from "./provider.ts";
 import { safeMessage } from "./redact.ts";
 import { GrokBuildCredentialStore } from "./store.ts";
@@ -41,7 +41,7 @@ function isENOENT(error: unknown): boolean {
 }
 
 function modelsCachePath(dshHome?: string): string {
-	return resolve(join(resolveDshHome(dshHome), GROK_BUILD_MODELS_CACHE_FILENAME));
+	return resolve(join(resolveDshHome(dshHome), GROK_OAUTH_MODELS_CACHE_FILENAME));
 }
 
 function parseIdList(value: unknown): string[] {

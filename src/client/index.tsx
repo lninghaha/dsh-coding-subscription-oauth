@@ -11,22 +11,22 @@ import { en, zh } from "./locales.ts";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
 	interface LocaleNamespaceMap {
-		"settings.grok-build": GrokBuildSettingsKey;
+		"settings.coding-subscription-oauth": GrokBuildSettingsKey;
 	}
 }
 
-export const name = "dsh-grok-build-client";
+export const name = "dsh-coding-subscription-oauth-client";
 export const inject = ["slots", "locale"];
 
 export function apply(ctx: ClientContext): void {
-	const namespace = "settings.grok-build";
+	const namespace = "settings.coding-subscription-oauth";
 	ctx.effect(() => ctx.locale.register(namespace, { zh, en }), "dsh-coding-subscription-oauth: settings copy");
 	const t = ctx.locale.bind(namespace) as GrokBuildSettingsInjected["t"];
 	ctx.slots.inject("settings.section", () =>
 		ctx.slots.register(
 			{
 				name: "settings.section",
-				id: "grok-build",
+				id: "coding-subscription-oauth",
 				order: 17,
 				label: () => t("nav"),
 				inject: (): GrokBuildSettingsInjected => ({ t }),

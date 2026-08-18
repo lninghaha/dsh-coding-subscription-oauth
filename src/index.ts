@@ -100,16 +100,8 @@ export {
 	CODING_OAUTH_LOGOUT_PATH,
 	CODING_OAUTH_MODELS_PATH,
 	CODING_OAUTH_STATUS_PATH,
-	GROK_BUILD_AUTH_IMPORT_PATH,
-	GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
-	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
-	GROK_BUILD_AUTH_LOGIN_PATH,
-	GROK_BUILD_AUTH_LOGOUT_PATH,
-	GROK_BUILD_AUTH_MODELS_PATH,
-	GROK_BUILD_AUTH_STATUS_PATH,
 	GrokBuildWebAuth,
 	registerCodingOAuthRoutes,
-	registerGrokBuildAuthRoutes,
 	SubscriptionWebAuth,
 } from "./auth-routes.ts";
 export type { CatalogSource, LiveModelDescriptor } from "./catalog.ts";
@@ -138,14 +130,15 @@ export {
 	CODEX_PI_PROVIDER,
 	CODING_OAUTH_ROUTES,
 	DEFAULT_GROK_BUILD_MODEL,
-	GROK_BUILD_AUTH_FILENAME,
-	GROK_BUILD_MODELS_CACHE_FILENAME,
 	GROK_BUILD_ROUTE,
 	GROK_BUILD_STREAM_IDLE_TIMEOUT_MS,
+	GROK_OAUTH_AUTH_FILENAME,
+	GROK_OAUTH_MODELS_CACHE_FILENAME,
 	KIMI_CODE_OAUTH_AUTH_FILENAME,
 	KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME,
 	KIMI_CODE_OAUTH_ROUTE,
 	KIMI_PI_PROVIDER,
+	PLUGIN_HTTP_PREFIX,
 	XAI_PI_PROVIDER,
 } from "./ids.ts";
 export type { GrokBuildOAuthErrorCode, GrokBuildOAuthParams, PkceLoginCallbacks } from "./oauth.ts";
@@ -187,8 +180,6 @@ export {
 	codingOAuthProxyInEffect,
 	codingOAuthProxyUnreachableHint,
 	ensureCodingOAuthProxy,
-	ensureGrokBuildProxy,
-	grokBuildProxyInEffect,
 } from "./proxy.ts";
 export { redactProxyUrl, safeMessage } from "./redact.ts";
 export { GrokBuildSession } from "./session.ts";
@@ -200,7 +191,7 @@ export {
 } from "./store.ts";
 
 /** Stable Cordis plugin name. */
-export const name = "llm-grok-build-oauth";
+export const name = "llm-coding-subscription-oauth";
 
 /** Separate API-key credential used only by official xAI Imagine REST calls. */
 export const XAI_API_KEY_CREDENTIAL = "XAI_API_KEY";

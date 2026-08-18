@@ -28,10 +28,10 @@ import { safeMessage } from "./redact.ts";
 import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const OAUTH_IMPORT_SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
-export const OAUTH_IMPORT_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
-export const OAUTH_IMPORT_COMMIT_PATH = "/plugins/dsh-grok-build/oauth/sources/commit";
-export const OAUTH_IMPORT_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
+export const OAUTH_IMPORT_SOURCES_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/sources";
+export const OAUTH_IMPORT_PREVIEW_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/sources/preview";
+export const OAUTH_IMPORT_COMMIT_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/sources/commit";
+export const OAUTH_IMPORT_CANCEL_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/sources/cancel";
 
 export interface OAuthImportRouteContext {
 	webServer: {

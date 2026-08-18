@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 async function tempStore(): Promise<GrokBuildCredentialStore> {
-	const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-"));
+	const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-"));
 	const filename = join(dir, "auth.json");
 	files.push(filename);
 	return new GrokBuildCredentialStore(filename);
@@ -75,7 +75,7 @@ describe("GrokBuildCredentialStore", () => {
 
 	it("rejects a leaf symlink even when its target is owner-only", async () => {
 		if (process.platform === "win32") return;
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-symlink-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-symlink-"));
 		const target = join(dir, "real-auth.json");
 		const store = new GrokBuildCredentialStore(join(dir, "auth.json"));
 		await writeFile(
@@ -192,7 +192,7 @@ describe("GrokBuildCredentialStore", () => {
 			).rejects.toThrow(/owner-only no-follow validation/);
 			expect(await readFile(wide.filename, "utf8")).toBe("{not-json");
 
-			const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-symlink-mod-"));
+			const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-symlink-mod-"));
 			const target = join(dir, "real-auth.json");
 			const linked = new GrokBuildCredentialStore(join(dir, "auth.json"));
 			await writeFile(target, "{not-json", { mode: 0o600 });
@@ -225,7 +225,7 @@ describe("GrokBuildCredentialStore", () => {
 		).rejects.toThrow(/owner-only no-follow validation/);
 		expect(await readFile(store.filename, "utf8")).toBe("{not-json");
 
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-revalidate-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-revalidate-"));
 		const store2 = new GrokBuildCredentialStore(join(dir, "auth.json"));
 		const target = join(dir, "outside.json");
 		await writeFile(store2.filename, "{not-json", { mode: 0o600 });

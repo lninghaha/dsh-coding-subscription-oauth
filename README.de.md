@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2 · früher `dsh-grok-build`
+**v0.5.2**
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -17,18 +17,6 @@
 
 ---
 
-## Namensänderung
-
-Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / Claude / Antigravity.
-
-| | Das verwenden | Funktioniert weiter |
-|---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Altes GitHub-Repo `dsh-grok-build` entfernt |
-| npm | `dsh-coding-subscription-oauth@0.5.2` (aktuelle Version) | Es gab kein altes npm-Paket |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
-| Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
-| Zugangsdateien | `$DSH_HOME/.grok-build-auth.json` und die anderen `*-oauth-auth.json` | unverändert |
 
 ## ✨ Funktionen
 
@@ -174,7 +162,6 @@ Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST 
 ## CLI
 
 ```bash
-# `dsh-grok-build` bleibt ein Befehlsalias
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # neuere Anbieter
@@ -194,10 +181,10 @@ Das Kimi-Code-Abonnement-OAuth nutzt `https://auth.kimi.com`; das Inferencing nu
 
 ## Netzwerk-Proxy
 
-Priorität: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+Priorität: `config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -212,7 +199,7 @@ OAuth-Zugriffstoken werden **fünf Minuten** vor dem gespeicherten Ablauf erneue
 Wiederholungen folgen der Harness-Retry-Policy: transiente Fehler (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **und `AUTH`** werden mit exponentiellem Backoff wiederholt (2 Versuche, 500 ms → 10 s, 10 % Jitter). Quota-Erschöpfung und ein totes Refresh-Token werden **nicht** wiederholt. Überschreiben pro Deployment:
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -225,7 +212,7 @@ Wiederholungen folgen der Harness-Retry-Policy: transiente Fehler (`RATE_LIMIT`/
 
 Nur-Eigentümer `0600`, atomares Schreiben, dateiübergreifende Prozesssperre:
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`

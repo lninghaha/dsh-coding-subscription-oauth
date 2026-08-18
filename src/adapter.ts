@@ -87,7 +87,7 @@ function profile(
 	};
 }
 
-/** Existing Grok-only constructor retained for public API compatibility. */
+/** Dedicated Grok Build adapter for hosts that only compose that route. */
 export function createGrokBuildAdapter(
 	session: GrokBuildSession,
 	resolveAttachments: () => AttachmentStore | undefined,

@@ -10,14 +10,14 @@
 | 规范仓库 | 当前 `dsh-coding-subscription-oauth` checkout（保留完整 Git 历史） |
 | 已提交业务基线 | `fbbcf31`（rename + OAuth harden）· `302eee9`（rename docs） |
 | 包名 / 客户端 `__ModuleLoader__` id | `dsh-coding-subscription-oauth` |
-| Cordis 插件 id | `llm-grok-build-oauth`（未改） |
-| HTTP / 凭据 / CLI 别名 | `/plugins/dsh-grok-build/*`、`$DSH_HOME/.grok-build-auth.json` 等、`dsh-grok-build` CLI 别名（未改） |
+| Cordis 插件 id | `llm-coding-subscription-oauth` |
+| HTTP / 凭据 / CLI | `/plugins/dsh-coding-subscription-oauth/*`、`$DSH_HOME/.grok-oauth-auth.json` 等、`dsh-coding-oauth` |
 | 测试基线 | 以当前 checkout 的 vitest 套件为准（数量会随功能增长，不要沿用旧稿里的固定数字） |
 | 归档参考 | 早期脚手架试验仅作历史参考，**不再吸收、不再作为规范源** |
 
 早期迁移交接稿里的过时说法不要再沿用：它写的是 63 个测试、客户端 wrapper id `dsh-grok-build`、以及「旧仓库还有未提交业务需要再吸收」。规范仓的业务已落在 Git 历史中，脚手架以当前 checkout 为准。
 
-v0.4 的能力设置是兼容性新增：`coding-subscription-oauth` 设置区默认全部关闭，未配置时不改变已有 OAuth 路由；Cordis id、`/plugins/dsh-grok-build/*`、凭据文件、LLM route 与 CLI 别名均未改，因此无需迁移现有用户数据。
+v0.4 的能力设置是功能新增：`coding-subscription-oauth` 设置区默认全部关闭，未配置时不改变已有 OAuth 路由。包身份现已统一为 `dsh-coding-subscription-oauth` / `llm-coding-subscription-oauth`；升级时请改 profile 中的 Cordis id 与 HTTP 路径，并重新登录 Grok（凭据文件现为 `.grok-oauth-auth.json`）。
 
 ## 验收命令（Docker sandbox 内）
 
@@ -53,7 +53,7 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 | `build/build-server.mjs` | `build/build-server.mjs` | 大改：externals 用插件前缀匹配；加 ts 说明符插件；三入口（index/bin/invariant）；`createRequire` banner |
 | `build/build-client.mjs` | `build/build-client.mjs` | 去 lightningcss 内联（无 CSS）；PLATFORM_MODULES 只留 react；wrapper id 为 `dsh-coding-subscription-oauth` |
 | `build/promote-release.mjs` | `build/promote-release.mjs` | runtimeFiles 扩到 index/bin/invariant/client；拒绝空产物；验证失败时原子恢复旧 `lib/` |
-| `build/verify-release.mjs` | `build/verify-release.mjs` | 断言 `package.json` `name=dsh-coding-subscription-oauth`、Cordis `name=llm-grok-build-oauth`、`inject` 含 `llm`、客户端 wrapper id、undici 内联、`@deepseek-ai/*` 外置、双 CLI、bin shebang |
+| `build/verify-release.mjs` | `build/verify-release.mjs` | 断言 `package.json` `name=dsh-coding-subscription-oauth`、Cordis `name=llm-coding-subscription-oauth`、`inject` 含 `llm`、客户端 wrapper id、undici 内联、`@deepseek-ai/*` 外置、双 CLI、bin shebang |
 | `pnpm-workspace.yaml` | `pnpm-workspace.yaml` | 去 `storeDir`；`allowBuilds` 加 `@google/genai:false`、`protobufjs:false` |
 | `Dockerfile`, `.dockerignore` | 重构项目 sandbox 约定 | 无 bind mount；依赖 stage 后全部 `--network=none`；提供 check/verify/artifacts/package/isolated-install targets |
 

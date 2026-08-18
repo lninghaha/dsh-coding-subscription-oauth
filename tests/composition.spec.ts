@@ -11,7 +11,7 @@ describe("bundle composition", () => {
 		const patch = await readFile(join(root, "cordis.patch.yml"), "utf8");
 		expect(patch).toContain("provider: grok-build");
 		expect(patch).toMatch(/model: grok-4\./);
-		expect(patch).toContain("id: llm-grok-build-oauth");
+		expect(patch).toContain("id: llm-coding-subscription-oauth");
 		expect(patch).toContain("name: dsh-coding-subscription-oauth");
 	});
 
@@ -30,11 +30,11 @@ describe("bundle composition", () => {
 	it("ships a v0.4 host bundle that matches the capability client", async () => {
 		const server = await readFile(join(root, "lib/index.js"), "utf8");
 		for (const marker of [
-			"/plugins/dsh-grok-build/oauth/sources",
-			"/plugins/dsh-grok-build/capabilities",
+			"/plugins/dsh-coding-subscription-oauth/oauth/sources",
+			"/plugins/dsh-coding-subscription-oauth/capabilities",
 			"codex-oauth-fast",
 			"XAI_API_KEY",
-			"/plugins/dsh-grok-build/imagine/media/",
+			"/plugins/dsh-coding-subscription-oauth/imagine/media/",
 		]) {
 			expect(server).toContain(marker);
 		}

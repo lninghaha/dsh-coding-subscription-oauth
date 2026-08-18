@@ -32,7 +32,7 @@ export const GROK_IMAGINE_IMAGE_TOOL = "grok_imagine_image";
 export const GROK_IMAGINE_VIDEO_TOOL = "grok_imagine_video";
 export const GROK_IMAGINE_VIDEO_STATUS_TOOL = "grok_imagine_video_status";
 
-export const IMAGINE_IMAGE_ROUTE_PREFIX = "/plugins/dsh-grok-build/imagine/images/";
+export const IMAGINE_IMAGE_ROUTE_PREFIX = "/plugins/dsh-coding-subscription-oauth/imagine/images/";
 
 /** Frozen xAI output hosts. Callers cannot widen this list. */
 export const XAI_OUTPUT_HOSTS = ["imgen.x.ai", "videogen.x.ai", "vidgen.x.ai"] as const;

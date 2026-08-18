@@ -338,7 +338,7 @@ describe("GrokImagineClient image generation", () => {
 		expect(attachments.saved).toHaveLength(1);
 		expect(attachments.saved[0]?.mediaType).toBe("image/png");
 		expect(result.path).toBe(imagineImagePath(result.attachment.attachmentId));
-		expect(result.path.startsWith("/plugins/dsh-grok-build/imagine/images/")).toBe(true);
+		expect(result.path.startsWith("/plugins/dsh-coding-subscription-oauth/imagine/images/")).toBe(true);
 		expect(JSON.stringify(result)).not.toContain("imgen.x.ai");
 		expect(JSON.stringify(result)).not.toContain("https://");
 		expect(JSON.stringify(result)).not.toMatch(/[a-f0-9]{64}/);
@@ -804,7 +804,9 @@ describe("image route gate", () => {
 		};
 		const path = imagineImagePath(ref.attachmentId);
 		expect(parseImagineImagePath(path)).toBe(ref.attachmentId);
-		expect(parseImagineImagePath("/plugins/dsh-grok-build/imagine/images/../etc/passwd")).toBeUndefined();
+		expect(
+			parseImagineImagePath("/plugins/dsh-coding-subscription-oauth/imagine/images/../etc/passwd"),
+		).toBeUndefined();
 		expect(isSafeImagineAttachmentId("../etc/passwd")).toBe(false);
 		expect(imagineImageDownloadHeaders(ref)["X-Content-Type-Options"]).toBe("nosniff");
 		await expect(openTrustedImagineImageDownload(new MemoryAttachments(), ref, {} as never)).rejects.toMatchObject({

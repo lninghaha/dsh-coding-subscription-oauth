@@ -47,7 +47,7 @@ DSH_PREVIEW_HOST_NETWORK_CONFIRMED=yes \
 
 Even then, the launcher permits only the isolated high-port ranges and refuses occupied preview/backend ports. Stop the preview with the exact `docker rm -f <container>` command printed by the launcher. Remove its named volumes only after confirming they contain no OAuth credentials that need to be retained.
 
-This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-build`), an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
+This repo also ships the `dsh-coding-oauth` CLI, an OAuth settings page, and verification scripts for a live deployment (`verify:deployed` / `smoke:deployed`). Those exercise real providers, so they are meant for maintainer/dev workflows, not for CI.
 
 ## Development flow
 

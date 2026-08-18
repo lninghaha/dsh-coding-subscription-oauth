@@ -20,9 +20,9 @@ import { safeMessage } from "./redact.ts";
 import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
-export const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
-export const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
+export const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-coding-subscription-oauth/capabilities";
+export const CODEX_USAGE_PATH = "/plugins/dsh-coding-subscription-oauth/codex/usage";
+export const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-coding-subscription-oauth/imagine/credential-status";
 
 /** Structural `ctx.webServer` + `ctx.effect` surface used by the registrar. */
 export interface CapabilityRouteContext {

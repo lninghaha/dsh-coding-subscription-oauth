@@ -113,11 +113,11 @@ function leakyImagineImage(): ImagineImageResult {
 		images: [
 			{
 				attachment,
-				path: `/plugins/dsh-grok-build/imagine/images/${attachment.attachmentId}`,
+				path: `/plugins/dsh-coding-subscription-oauth/imagine/images/${attachment.attachmentId}`,
 			},
 		],
 		attachment,
-		path: `/plugins/dsh-grok-build/imagine/images/${attachment.attachmentId}`,
+		path: `/plugins/dsh-coding-subscription-oauth/imagine/images/${attachment.attachmentId}`,
 		url: "https://imgen.x.ai/signed?token=abc",
 		token: "sk-secret",
 	} as ImagineImageResult & { url: string; token: string };
@@ -447,7 +447,7 @@ describe("createCapabilityTools", () => {
 		expect(JSON.stringify(image)).not.toMatch(/imgen\.x\.ai|token|sk-secret/iu);
 		expect(image).toMatchObject({
 			model: GROK_IMAGINE_IMAGE_MODEL,
-			path: "/plugins/dsh-grok-build/imagine/images/img_local",
+			path: "/plugins/dsh-coding-subscription-oauth/imagine/images/img_local",
 			attachment: { attachmentId: "img_local" },
 		});
 

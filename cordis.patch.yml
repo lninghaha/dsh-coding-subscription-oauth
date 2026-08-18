@@ -1,6 +1,6 @@
-# Optional coding-subscription routes over the base composition. Grok Build
-# remains the bundle fallback for backward compatibility; a saved
-# agent-default-model setting still wins over this value.
+# Optional coding-subscription routes over the base composition.
+# Grok Build is the bundle fallback default; a saved agent-default-model
+# setting still wins over this value.
 
 - id: agent-default-model
   config:
@@ -9,5 +9,5 @@
 
 - insert:
     # `id` is the stable Cordis plugin identifier; `name` is the bundle/package display name.
-    - id: llm-grok-build-oauth
+    - id: llm-coding-subscription-oauth
       name: dsh-coding-subscription-oauth

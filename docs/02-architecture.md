@@ -26,7 +26,7 @@ External routes and the pi-ai native ids are separated by `AliasLlmAdapter`. `Pi
 Settings / CLI
   │
   ├─ GrokBuildWebAuth ── Grok custom PKCE/device
-  │                      └─ .grok-build-auth.json
+  │                      └─ .grok-oauth-auth.json
   │
   ├─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
   │         ├─ Codex  ── .codex-oauth-auth.json
@@ -62,7 +62,7 @@ ctx.llm route
 - `oauth-import-routes.ts`: same-origin Pull HTTP API (discover → preview → commit/cancel) into the destination store lock.
 - `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
 - `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes. Optionally wraps `codex-oauth-fast` as **Fast requested**.
-- `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
+- `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-coding-subscription-oauth/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
 - `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
 - `capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
 - `capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
@@ -82,51 +82,51 @@ ctx.llm route
 Unified interface:
 
 ```text
-GET  /plugins/dsh-grok-build/oauth/status
-POST /plugins/dsh-grok-build/oauth/login
-POST /plugins/dsh-grok-build/oauth/code
-POST /plugins/dsh-grok-build/oauth/cancel
-POST /plugins/dsh-grok-build/oauth/logout
-POST /plugins/dsh-grok-build/oauth/models
+GET  /plugins/dsh-coding-subscription-oauth/oauth/status
+POST /plugins/dsh-coding-subscription-oauth/oauth/login
+POST /plugins/dsh-coding-subscription-oauth/oauth/code
+POST /plugins/dsh-coding-subscription-oauth/oauth/cancel
+POST /plugins/dsh-coding-subscription-oauth/oauth/logout
+POST /plugins/dsh-coding-subscription-oauth/oauth/models
 
-GET  /plugins/dsh-grok-build/oauth/sources
-POST /plugins/dsh-grok-build/oauth/sources/preview
-POST /plugins/dsh-grok-build/oauth/sources/commit
-POST /plugins/dsh-grok-build/oauth/sources/cancel
+GET  /plugins/dsh-coding-subscription-oauth/oauth/sources
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/preview
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/commit
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/cancel
 
-GET    /plugins/dsh-grok-build/capabilities
-PATCH  /plugins/dsh-grok-build/capabilities
-PUT    /plugins/dsh-grok-build/capabilities
-GET    /plugins/dsh-grok-build/codex/usage
-GET    /plugins/dsh-grok-build/imagine/credential-status
-GET    /plugins/dsh-grok-build/imagine/images/<id>
-GET    /plugins/dsh-grok-build/imagine/media/<id>
-GET    /plugins/dsh-grok-build/gateway
-PATCH  /plugins/dsh-grok-build/gateway
-POST   /plugins/dsh-grok-build/gateway/rotate
+GET    /plugins/dsh-coding-subscription-oauth/capabilities
+PATCH  /plugins/dsh-coding-subscription-oauth/capabilities
+PUT    /plugins/dsh-coding-subscription-oauth/capabilities
+GET    /plugins/dsh-coding-subscription-oauth/codex/usage
+GET    /plugins/dsh-coding-subscription-oauth/imagine/credential-status
+GET    /plugins/dsh-coding-subscription-oauth/imagine/images/<id>
+GET    /plugins/dsh-coding-subscription-oauth/imagine/media/<id>
+GET    /plugins/dsh-coding-subscription-oauth/gateway
+PATCH  /plugins/dsh-coding-subscription-oauth/gateway
+POST   /plugins/dsh-coding-subscription-oauth/gateway/rotate
 ```
 
 Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.
 
 `/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Seven flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
-The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
+The legacy `/plugins/dsh-coding-subscription-oauth/auth/*` endpoints remain registered and reuse the same Grok controller.
 
 ## 5. Antigravity
 
 This project does not replicate the private Google Antigravity protocol. The profile separately installs `dsh-agy@0.1.2`, which provides the `agy` route. Because the `/agy` dashboard in that version includes an export API with no authentication of its own, trusted-host deployments should disable `dsh-agy-web` in the profile's final `cordis.patch.yml` (see `INSTALL.md`) and keep only the host adapter and CLI. The profile uses a pnpm patch with a lockfile hash: with no Google session, `listModels()` returns empty; after authentication the provider group name is `Google Antigravity (OAuth)`.
 
-## 6. Compatibility
+## 6. Package identity
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub repository `dsh-grok-build` has been removed; install only via the current name (npm or `github:lninghaha/dsh-coding-subscription-oauth`). The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.2`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`). GitHub and local tarball installs of the current repository remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. Install via npm or `github:lninghaha/dsh-coding-subscription-oauth`. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.2`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`).
 
-Stable on-disk / in-process identifiers (do not rename without a migration):
+Stable identifiers:
 
-- Cordis id: `llm-grok-build-oauth`
-- Settings HTTP API: `/plugins/dsh-grok-build/oauth/*`, `/plugins/dsh-grok-build/capabilities`, `/plugins/dsh-grok-build/codex/usage`, `/plugins/dsh-grok-build/imagine/*`, and legacy `/plugins/dsh-grok-build/auth/*`
-- Credential files: `$DSH_HOME/.grok-build-auth.json` and the other `*-oauth-auth.json` files
+- Cordis id: `llm-coding-subscription-oauth`
+- Settings HTTP API: `/plugins/dsh-coding-subscription-oauth/oauth/*`, `/plugins/dsh-coding-subscription-oauth/capabilities`, `/plugins/dsh-coding-subscription-oauth/codex/usage`, `/plugins/dsh-coding-subscription-oauth/imagine/*`, `/plugins/dsh-coding-subscription-oauth/gateway/*`
+- Credential files: `$DSH_HOME/.grok-oauth-auth.json` and the other `*-oauth-auth.json` files
 - Imagine credential: DSH credentials reference `XAI_API_KEY` (never Grok OAuth, never process-env fallback)
-- CLI: `dsh-coding-oauth` (primary) and `dsh-grok-build` (alias)
-- LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`; optional `codex-oauth-fast` (v0.4.0, advertised only when a fresh live catalog lists `priority`)
+- CLI: `dsh-coding-oauth`
+- LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`; optional `codex-oauth-fast` (advertised only when a fresh live catalog lists `priority`)
 
-New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.
+OAuth routes use the `*-oauth` / `grok-build` provider ids and do not occupy `openai`, `xai` or `kimi-coding`. The `grok-build` fallback/default model is `grok-4.6`; saved user defaults still win.

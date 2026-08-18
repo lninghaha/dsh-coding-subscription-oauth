@@ -71,7 +71,7 @@ describe("grokBuildFingerprintHeaders", () => {
 describe("GrokBuildSession.provider", () => {
 	it("registers models under the harness route so the picker can find them", async () => {
 		const { createModels } = await import("@earendil-works/pi-ai");
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-session-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-session-"));
 		const session = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "auth.json")));
 		const provider = session.provider();
 		expect(provider.id).toBe(GROK_BUILD_ROUTE);
@@ -83,7 +83,7 @@ describe("GrokBuildSession.provider", () => {
 	});
 
 	it("notifies model discovery after login even when the live catalog fails", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-notify-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-notify-"));
 		const store = new GrokBuildCredentialStore(join(dir, "auth.json"));
 		await store.modify(XAI_PI_PROVIDER, async () => ({
 			type: "oauth",
@@ -103,7 +103,7 @@ describe("GrokBuildSession.provider", () => {
 	});
 
 	it("contains token-refresh failures and exposes only a redacted catalog diagnostic", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "dsh-grok-build-refresh-failure-"));
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-refresh-failure-"));
 		const notify = vi.fn();
 		const session = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "auth.json")), notify);
 		vi.spyOn(session.models, "getAuth").mockRejectedValue(new Error("Bearer EXAMPLE_ACCESS_TOKEN"));

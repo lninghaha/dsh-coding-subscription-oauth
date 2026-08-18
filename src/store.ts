@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { withFileLock, writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import type { Credential, CredentialInfo, CredentialStore, OAuthCredential } from "@earendil-works/pi-ai";
-import { GROK_BUILD_AUTH_FILENAME, XAI_PI_PROVIDER } from "./ids.ts";
+import { GROK_OAUTH_AUTH_FILENAME, XAI_PI_PROVIDER } from "./ids.ts";
 import { OAuthSourceError, readHardenedOAuthSourceFile } from "./oauth-sources.ts";
 
 /** Current on-disk format; readers reject every other version. */
@@ -85,9 +85,9 @@ export function oauthCredentialPath(basename: string, dshHome?: string): string 
 	return resolve(join(resolveDshHome(dshHome), basename));
 }
 
-/** Resolve the legacy Grok Build OAuth document path. */
+/** Resolve the Grok OAuth credential document path. */
 export function grokBuildAuthPath(dshHome?: string): string {
-	return oauthCredentialPath(GROK_BUILD_AUTH_FILENAME, dshHome);
+	return oauthCredentialPath(GROK_OAUTH_AUTH_FILENAME, dshHome);
 }
 
 /**
@@ -209,7 +209,7 @@ export class OAuthCredentialFileStore implements CredentialStore {
 	}
 }
 
-/** Legacy-named store retained for existing imports and credential migration. */
+/** Grok Build credential store used by the dedicated Grok session. */
 export class GrokBuildCredentialStore extends OAuthCredentialFileStore {
 	constructor(filename: string = grokBuildAuthPath()) {
 		super(XAI_PI_PROVIDER, filename, "grok-build");

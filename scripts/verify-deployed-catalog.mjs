@@ -32,7 +32,7 @@ async function rpc(method, payload = {}) {
 	return envelope.result.value;
 }
 
-const status = await jsonFetch("/plugins/dsh-grok-build/oauth/status");
+const status = await jsonFetch("/plugins/dsh-coding-subscription-oauth/oauth/status");
 const catalog = await rpc("llm.models");
 const registered = await rpc("llm.providers");
 const groups = new Map(catalog.groups.map((group) => [group.id, group]));

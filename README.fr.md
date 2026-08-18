@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2 · anciennement `dsh-grok-build`
+**v0.5.2**
 
 **Plugin OAuth pour abonnements de codage de [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Connectez-vous une fois avec les abonnements que vous payez déjà, puis utilisez leurs modèles depuis la page de configuration ou la CLI dsh. **Aucun token collé dans le chat.**
 
@@ -17,18 +17,6 @@
 
 ---
 
-## Changement de nom
-
-Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre maintenant SuperGrok / Codex / Kimi / Claude / Antigravity.
-
-| | Utiliser | Toujours valable |
-|---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Ancien dépôt GitHub `dsh-grok-build` supprimé |
-| npm | `dsh-coding-subscription-oauth@0.5.2` (version actuelle) | Aucun ancien paquet npm n'a été publié |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis plugin id | `llm-grok-build-oauth` | inchangé |
-| API HTTP des réglages | `/plugins/dsh-grok-build/*` | inchangé |
-| Fichiers d'identifiants | `$DSH_HOME/.grok-build-auth.json` et les autres `*-oauth-auth.json` | inchangé |
 
 ## ✨ Fonctionnalités
 
@@ -174,7 +162,6 @@ Endpoints : `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST
 ## CLI
 
 ```bash
-# `dsh-grok-build` reste un alias de commande
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # fournisseurs plus récents
@@ -194,10 +181,10 @@ L'OAuth de l'abonnement Kimi Code utilise `https://auth.kimi.com` ; l'inférence
 
 ## Proxy réseau
 
-Priorité : `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
+Priorité : `config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`.
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -212,7 +199,7 @@ Les jetons d'accès OAuth sont renouvelés **cinq minutes** avant l'expiration e
 Les nouvelles tentatives suivent la politique du harness : les pannes transitoires (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **et `AUTH`** sont relancées avec un backoff exponentiel (2 essais, 500 ms → 10 s, jitter 10 %). L'épuisement de quota et un refresh token mort **ne** sont **pas** relancés. Surcharge par déploiement :
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -225,7 +212,7 @@ Les nouvelles tentatives suivent la politique du harness : les pannes transitoir
 
 Propriétaire-seul `0600`, écriture atomique, verrou de fichier inter-processus :
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`

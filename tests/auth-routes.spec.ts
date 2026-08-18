@@ -5,17 +5,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import type { Context } from "@deepseek-ai/cordis";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	CODING_OAUTH_LOGIN_PATH,
-	CODING_OAUTH_STATUS_PATH,
-	GROK_BUILD_AUTH_IMPORT_PATH,
-	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
-	GROK_BUILD_AUTH_LOGIN_PATH,
-	GROK_BUILD_AUTH_STATUS_PATH,
-	type GrokBuildWebAuth,
-	registerCodingOAuthRoutes,
-	registerGrokBuildAuthRoutes,
-} from "../src/auth-routes.ts";
+import { CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_STATUS_PATH, registerCodingOAuthRoutes } from "../src/auth-routes.ts";
 import { OAUTH_PROVIDER_DEFINITIONS } from "../src/oauth-providers.ts";
 import { OAuthProviderSession } from "../src/oauth-session.ts";
 import { GrokBuildSession } from "../src/session.ts";
@@ -217,59 +207,6 @@ function unusedSession(): GrokBuildSession {
 }
 
 describe("OAuth route registrar atomic setup", () => {
-	it("retires the legacy direct Grok import so Pull confirmation cannot be bypassed", async () => {
-		const { routes, context } = createAuthRouteContext();
-		registerGrokBuildAuthRoutes(context, unusedSession());
-		const handler = routes.get(GROK_BUILD_AUTH_IMPORT_PATH);
-		if (handler === undefined) throw new Error("legacy import route was not registered");
-		const response = new TestResponse();
-		await handler(request(""), response as unknown as ServerResponse);
-		expect(response.status).toBe(410);
-		expect(JSON.parse(response.body)).toEqual({
-			error: "legacy import retired; use OAuth Pull preview and confirmation",
-		});
-	});
-
-	it("rolls back earlier Grok routes when a later register throws", () => {
-		const { routes, context } = createAuthRouteContext(GROK_BUILD_AUTH_LOGIN_CODE_PATH);
-		expect(() => registerGrokBuildAuthRoutes(context, unusedSession())).toThrow(
-			`webserver: duplicate exact route "${GROK_BUILD_AUTH_LOGIN_CODE_PATH}"`,
-		);
-		expect(routes.size).toBe(0);
-		expect(routes.has(GROK_BUILD_AUTH_STATUS_PATH)).toBe(false);
-		expect(routes.has(GROK_BUILD_AUTH_LOGIN_PATH)).toBe(false);
-	});
-
-	it("does not let the Grok group own or dispose an injected existingAuth", async () => {
-		const { routes, cleanups, context } = createAuthRouteContext();
-		let disposeCalls = 0;
-		const existingAuth = {
-			dispose: async () => {
-				disposeCalls += 1;
-			},
-		} as unknown as GrokBuildWebAuth;
-		registerGrokBuildAuthRoutes(context, unusedSession(), existingAuth);
-		expect(routes.has(GROK_BUILD_AUTH_STATUS_PATH)).toBe(true);
-		for (const cleanup of cleanups) await cleanup();
-		expect(routes.size).toBe(0);
-		expect(disposeCalls).toBe(0);
-	});
-
-	it("does not dispose existingAuth when Grok setup rolls back", () => {
-		const { routes, context } = createAuthRouteContext(GROK_BUILD_AUTH_LOGIN_CODE_PATH);
-		let disposeCalls = 0;
-		const existingAuth = {
-			dispose: async () => {
-				disposeCalls += 1;
-			},
-		} as unknown as GrokBuildWebAuth;
-		expect(() => registerGrokBuildAuthRoutes(context, unusedSession(), existingAuth)).toThrow(
-			`webserver: duplicate exact route "${GROK_BUILD_AUTH_LOGIN_CODE_PATH}"`,
-		);
-		expect(routes.size).toBe(0);
-		expect(disposeCalls).toBe(0);
-	});
-
 	it("rolls back earlier Coding routes when a later register throws", () => {
 		const { routes, context } = createAuthRouteContext(CODING_OAUTH_LOGIN_PATH);
 		expect(() => registerCodingOAuthRoutes(context, unusedSession(), [])).toThrow(
@@ -277,6 +214,5 @@ describe("OAuth route registrar atomic setup", () => {
 		);
 		expect(routes.has(CODING_OAUTH_STATUS_PATH)).toBe(false);
 		expect(routes.has(CODING_OAUTH_LOGIN_PATH)).toBe(false);
-		expect(routes.has(GROK_BUILD_AUTH_STATUS_PATH)).toBe(true);
 	});
 });

@@ -4,9 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
-### Documentation
+### Changed
 
-- Record that the legacy GitHub repository `dsh-grok-build` has been removed; install only via `dsh-coding-subscription-oauth` (npm or the current GitHub URL). Runtime CLI alias and `/plugins/dsh-grok-build/*` paths stay compatible.
+- Drop all `dsh-grok-build` package-identity compatibility: Cordis id is now `llm-coding-subscription-oauth`, HTTP paths are `/plugins/dsh-coding-subscription-oauth/*`, CLI is only `dsh-coding-oauth`, Grok credential files are `.grok-oauth-auth.json` / `.grok-oauth-models.json`, and the legacy `/auth/*` Settings routes plus `GROK_BUILD_PROXY` / `ensureGrokBuildProxy` aliases are removed.
+- Make `build/promote-release.mjs` fall back to copy+remove when `rename` fails with `EXDEV` (cross-device workspaces).
 
 ## v0.5.2 - 2026-08-18
 
@@ -74,7 +75,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 - Advertise `codex-oauth-fast` only after a fresh live catalog lists at least one `priority`-eligible model. Requests send `service_tier: priority` and a routing hint. The UI says **Fast requested** and does not guarantee latency or upstream honor.
 - Add opt-in Codex private `chatgpt.com/backend-api` endpoints. Image generation uses the fixed model `gpt-image-2`. Image edit requires current-session top-level attachment ownership.
 - Add Grok Imagine against official `https://api.x.ai` with `grok-imagine-image-2.0` and `grok-imagine-video-1.5`, using a separate DSH credential reference `XAI_API_KEY` (never Grok OAuth, never a process-env fallback).
-- Serve generated outputs on same-origin loopback routes under `/plugins/dsh-grok-build/imagine/*`. Remote downloads apply MIME / size / time / redirect / DNS controls from frozen hosts `imgen.x.ai`, `videogen.x.ai`, and `vidgen.x.ai`. The private artifact store hard-caps both one object and aggregate unique object bytes at 256 MiB, with retention capped at seven days.
+- Serve generated outputs on same-origin loopback routes under `/plugins/dsh-coding-subscription-oauth/imagine/*`. Remote downloads apply MIME / size / time / redirect / DNS controls from frozen hosts `imgen.x.ai`, `videogen.x.ai`, and `vidgen.x.ai`. The private artifact store hard-caps both one object and aggregate unique object bytes at 256 MiB, with retention capped at seven days.
 
 ### Changed
 
@@ -108,7 +109,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 - Translate a rejected token refresh (revoked refresh token / dead grant) into `MISSING_CREDENTIAL` with a sign-in prompt rather than surfacing a bare upstream 401, and never retry it.
 - Quota exhaustion stays outside the retryable set so a billing-limit response fails fast with its real message instead of the generic "API key is invalid".
 - Expand README (all languages) with a searchable “problems this plugin solves” table covering SuperGrok vs `api.x.ai`, AUTH/`API key is invalid`, `INVALID_REPLAY_STATE`, grok-4.6 `xhigh`, Kimi Bearer vs `x-api-key`, remote device login and China-direct Kimi.
-- Rename the published project to **`dsh-coding-subscription-oauth`**. The old `dsh-grok-build` name only covered the first provider. Cordis id, HTTP `/plugins/dsh-grok-build/*` paths, credential files and the `dsh-grok-build` CLI alias stay compatible.
+- Rename the published project to **`dsh-coding-subscription-oauth`**. The old `dsh-grok-build` name only covered the first provider. Cordis id, HTTP `/plugins/dsh-coding-subscription-oauth/*` paths, credential files and the `dsh-grok-build` CLI alias stay compatible.
 
 ### Fixed
 
@@ -122,7 +123,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Added
 
-- Add unified `/plugins/dsh-grok-build/oauth/*` API across Grok, Codex, Kimi and Claude.
+- Add unified `/plugins/dsh-coding-subscription-oauth/oauth/*` API across Grok, Codex, Kimi and Claude.
 - Add `codex-oauth`, `kimi-code-oauth` and `claude-code-oauth` routes alongside the preserved Grok Build and native API-key routes.
 - Add the Coding OAuth settings page with per-provider sign-in, model selection and status cards.
 - Add pinned `dsh-agy@0.1.2` integration for Google Antigravity and a safe patch that hides unauthenticated models and labels the provider `(OAuth)`.

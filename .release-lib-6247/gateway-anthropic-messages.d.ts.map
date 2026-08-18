@@ -1,0 +1,1 @@
+{"version":3,"file":"gateway-anthropic-messages.d.ts","sourceRoot":"","sources":["../../src/gateway-anthropic-messages.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,OAAO,KAAK,EAAE,eAAe,EAAE,cAAc,EAAE,MAAM,WAAW,CAAC;AACjE,OAAO,EAAE,KAAK,cAAc,EAAwB,MAAM,sBAAsB,CAAC;AAIjF,wBAAsB,uBAAuB,CAC5C,GAAG,EAAE,eAAe,EACpB,GAAG,EAAE,cAAc,EACnB,OAAO,EAAE,cAAc,GACrB,OAAO,CAAC,IAAI,CAAC,CAqEf"}

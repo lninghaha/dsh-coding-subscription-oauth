@@ -64,9 +64,7 @@ export interface CodingOAuthProxyOptions {
 /** Install one process-wide dispatcher that proxies only the audited host list. */
 export function ensureCodingOAuthProxy(explicit?: string, options: CodingOAuthProxyOptions = {}): string | undefined {
 	if (installed) return installedProxy;
-	const url =
-		explicit ??
-		firstEnv(["CODING_OAUTH_PROXY", "GROK_BUILD_PROXY", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"]);
+	const url = explicit ?? firstEnv(["CODING_OAUTH_PROXY", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"]);
 	if (url === undefined) return undefined;
 	const hosts = new Set<string>(DEFAULT_PROXIED_HOSTS);
 	if (options.proxyKimi === true) {
@@ -79,11 +77,6 @@ export function ensureCodingOAuthProxy(explicit?: string, options: CodingOAuthPr
 	return url;
 }
 
-/** Backward-compatible name retained for existing callers. */
-export function ensureGrokBuildProxy(explicit?: string): string | undefined {
-	return ensureCodingOAuthProxy(explicit);
-}
-
 export function codingOAuthProxyInEffect(): string | undefined {
 	return installedProxy;
 }
@@ -91,9 +84,4 @@ export function codingOAuthProxyInEffect(): string | undefined {
 /** Appended to Grok discovery/token/catalog transport errors when a scoped proxy is installed. */
 export function codingOAuthProxyUnreachableHint(): string {
 	return installedProxy === undefined ? "" : "; check that CODING_OAUTH_PROXY is reachable";
-}
-
-/** Backward-compatible status accessor. */
-export function grokBuildProxyInEffect(): string | undefined {
-	return codingOAuthProxyInEffect();
 }

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.2** · 原名 `dsh-grok-build`
+**v0.5.2**
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -17,18 +17,6 @@
 
 ---
 
-## 项目更名
-
-最初只做 Grok Build，仓库名是 **`dsh-grok-build`**。现在覆盖 SuperGrok / Grok Build、ChatGPT Plus Codex、Kimi Code、Claude Code 和 Google Antigravity，因此改为现名。
-
-| | 请用这个 | 仍然可用 |
-|---|---|---|
-| npm（推荐） | 当前版本是 `0.5.2`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2` | 没有发布过旧 npm 包 |
-| GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
-| CLI | `dsh-coding-oauth` | `dsh-grok-build` |
-| Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
-| 设置页 HTTP API | `/plugins/dsh-grok-build/*` | 不变 |
-| 凭据文件 | `$DSH_HOME/.grok-build-auth.json` 及其他 `*-oauth-auth.json` | 不变 |
 
 ## ✨ 特性
 
@@ -185,7 +173,6 @@ gateway:
 ## CLI
 
 ```bash
-# `dsh-grok-build` 仍是同一命令的别名
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # 新供应商
@@ -205,10 +192,10 @@ Kimi Code 订阅 OAuth 使用 `https://auth.kimi.com`；推理使用 `https://ap
 
 ## 网络代理
 
-优先级：`config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`。
+优先级：`config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY`/`HTTP_PROXY`。
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
@@ -223,7 +210,7 @@ OAuth access token 会在本地记录过期时间前 **5 分钟**主动刷新（
 请求重试走 harness 的 retry 策略：瞬时故障（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**以及 `AUTH`** 会按指数逆避重试（默认 2 次，500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效**不**重试——会立刻给出真实错误和重新登录提示。部署级覆盖：
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -236,7 +223,7 @@ OAuth access token 会在本地记录过期时间前 **5 分钟**主动刷新（
 
 owner-only `0600`、原子写、跨进程文件锁：
 
-- `$DSH_HOME/.grok-build-auth.json`
+- `$DSH_HOME/.grok-oauth-auth.json`
 - `$DSH_HOME/.codex-oauth-auth.json`
 - `$DSH_HOME/.kimi-code-oauth-auth.json`
 - `$DSH_HOME/.claude-code-oauth-auth.json`
@@ -265,7 +252,7 @@ flowchart LR
 - **Codex/Kimi/Claude**：pi-ai 原生 provider 负责 OAuth 与刷新；路由别名适配器映射到原生 id，避免多轮 `INVALID_REPLAY_STATE`。
 - Kimi access token 显式转为 `Authorization: Bearer`——绝不会误发成 Anthropic `x-api-key`。
 - **Codex Fast / 私有端点**：`codex-oauth-fast` 需显式打开，目录过期则失败关闭；搜索、用量和 `gpt-image-2` 图像默认关闭。
-- **Grok Imagine**：只走官方 `api.x.ai`，`XAI_API_KEY` 通过 DSH 凭据解析，下载路由为同源 `/plugins/dsh-grok-build/imagine/*`。
+- **Grok Imagine**：只走官方 `api.x.ai`，`XAI_API_KEY` 通过 DSH 凭据解析，下载路由为同源 `/plugins/dsh-coding-subscription-oauth/imagine/*`。
 - Google Antigravity **不**在本项目逆向，使用固定版本的专用 DSH 插件。
 
 ## 合规

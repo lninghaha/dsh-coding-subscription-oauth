@@ -11,9 +11,9 @@ import { safeMessage } from "./redact.ts";
 import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const GATEWAY_SETTINGS_PATH = "/plugins/dsh-grok-build/gateway";
-export const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
-export const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
+export const GATEWAY_SETTINGS_PATH = "/plugins/dsh-coding-subscription-oauth/gateway";
+export const GATEWAY_REVEAL_PATH = "/plugins/dsh-coding-subscription-oauth/gateway/reveal";
+export const GATEWAY_ROTATE_PATH = "/plugins/dsh-coding-subscription-oauth/gateway/rotate";
 
 export interface GatewayRouteContext {
 	readonly webServer: {

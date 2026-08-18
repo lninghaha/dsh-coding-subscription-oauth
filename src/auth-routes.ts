@@ -18,20 +18,12 @@ import type { GrokBuildSession } from "./session.ts";
 import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const GROK_BUILD_AUTH_STATUS_PATH = "/plugins/dsh-grok-build/auth/status";
-export const GROK_BUILD_AUTH_LOGIN_PATH = "/plugins/dsh-grok-build/auth/login";
-export const GROK_BUILD_AUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/auth/login/code";
-export const GROK_BUILD_AUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/auth/login/cancel";
-export const GROK_BUILD_AUTH_IMPORT_PATH = "/plugins/dsh-grok-build/auth/import";
-export const GROK_BUILD_AUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/auth/logout";
-export const GROK_BUILD_AUTH_MODELS_PATH = "/plugins/dsh-grok-build/auth/models";
-
-export const CODING_OAUTH_STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
-export const CODING_OAUTH_LOGIN_PATH = "/plugins/dsh-grok-build/oauth/login";
-export const CODING_OAUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
-export const CODING_OAUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
-export const CODING_OAUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
-export const CODING_OAUTH_MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
+export const CODING_OAUTH_STATUS_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/status";
+export const CODING_OAUTH_LOGIN_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/login";
+export const CODING_OAUTH_LOGIN_CODE_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/code";
+export const CODING_OAUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/cancel";
+export const CODING_OAUTH_LOGOUT_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/logout";
+export const CODING_OAUTH_MODELS_PATH = "/plugins/dsh-coding-subscription-oauth/oauth/models";
 
 export type GrokBuildLoginMethod = "pkce" | "device";
 
@@ -556,119 +548,6 @@ function json(res: ServerResponse, status: number, value: unknown): void {
 	res.end(JSON.stringify(value));
 }
 
-function readLoginMethod(body: unknown): GrokBuildLoginMethod {
-	if (typeof body === "object" && body !== null && "method" in body && body.method === "device") return "device";
-	return "pkce";
-}
-
-/** Register the plugin-owned OAuth routes when the Web server is composed. */
-export function registerGrokBuildAuthRoutes(
-	ctx: Context,
-	session: GrokBuildSession,
-	existingAuth?: GrokBuildWebAuth,
-): void {
-	const auth = existingAuth ?? new GrokBuildWebAuth(session);
-	const ownsAuth = existingAuth === undefined;
-	if (ownsAuth) {
-		ctx.effect(() => () => auth.dispose(), "dsh-coding-subscription-oauth: Grok OAuth auth lifetime");
-	}
-	ctx.effect(() => {
-		const releaseRoutes = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => [
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_STATUS_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					json(res, 200, await auth.status());
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_LOGIN_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					try {
-						json(res, 200, await auth.signIn(readLoginMethod(await readJsonRequest(req))));
-					} catch (error: unknown) {
-						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
-					}
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_LOGIN_CODE_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					try {
-						const body = await readJsonRequest(req);
-						const code = typeof body === "object" && body !== null && "code" in body ? body.code : undefined;
-						if (typeof code !== "string" || code.trim().length === 0) {
-							return json(res, 400, { error: "code must be a non-empty string" });
-						}
-						await auth.submitCode(code);
-						json(res, 200, { ok: true });
-					} catch (error: unknown) {
-						json(res, requestErrorStatus(error, 409), { error: safeMessage(error) });
-					}
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					await auth.cancel();
-					json(res, 200, await auth.status());
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_IMPORT_PATH,
-				handler: (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					json(res, 410, { error: "legacy import retired; use OAuth Pull preview and confirmation" });
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_MODELS_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					try {
-						const body = await readJsonRequest(req);
-						const selected =
-							typeof body === "object" && body !== null && "selected" in body ? body.selected : undefined;
-						if (!Array.isArray(selected) || selected.some((id) => typeof id !== "string")) {
-							return json(res, 400, { error: "selected must be an array of model ids" });
-						}
-						await auth.setModels(selected);
-						json(res, 200, await auth.status());
-					} catch (error: unknown) {
-						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
-					}
-				},
-			}),
-			webServer.register({
-				kind: "exact",
-				path: GROK_BUILD_AUTH_LOGOUT_PATH,
-				handler: async (req, res) => {
-					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
-					await auth.signOut();
-					json(res, 200, { ok: true });
-				},
-			}),
-		]);
-		return releaseRoutes;
-	}, "dsh-coding-subscription-oauth: Web OAuth routes");
-}
-
 export interface CodingOAuthWebStatus {
 	providers: {
 		grok: GrokBuildWebAuthStatus;
@@ -696,7 +575,7 @@ function providerSlug(body: unknown): CodingOAuthProviderSlug {
 	throw new Error("provider must be one of grok, codex, kimi, or claude");
 }
 
-/** Register the unified Coding OAuth API plus the compatibility Grok routes. */
+/** Register the unified Coding OAuth API. */
 export function registerCodingOAuthRoutes(
 	ctx: Context,
 	grokSession: GrokBuildSession,
@@ -716,8 +595,6 @@ export function registerCodingOAuthRoutes(
 			Promise.all([grok.dispose(), ...[...subscriptions.values()].map((auth) => auth.dispose())]).then(() => undefined),
 		"dsh-coding-subscription-oauth: Coding OAuth auth lifetime",
 	);
-
-	registerGrokBuildAuthRoutes(ctx, grokSession, grok);
 
 	const allStatus = async (): Promise<CodingOAuthWebStatus> => {
 		const [grokStatus, codex, kimi, claude] = await Promise.all([

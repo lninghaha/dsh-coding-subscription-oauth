@@ -26,7 +26,7 @@ agy                     dsh-agy external      dsh-agy 自有账号池
 Settings / CLI
   │
   ├─ GrokBuildWebAuth ── Grok custom PKCE/device
-  │                      └─ .grok-build-auth.json
+  │                      └─ .grok-oauth-auth.json
   │
   ├─ SubscriptionWebAuth ── pi-ai OAuth login/refresh
   │         ├─ Codex  ── .codex-oauth-auth.json
@@ -62,7 +62,7 @@ ctx.llm route
 - `oauth-import-routes.ts`：同源拉取 HTTP API（发现 → 预览 → 提交/取消），写入发生在目标 store 锁内。
 - `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。
 - `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。可选包装 `codex-oauth-fast`，显示为 **已请求 Fast**。
-- `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
+- `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-coding-subscription-oauth/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
 - `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
 - `capability-routes.ts`：无密钥的能力快照，以及可选的 Codex 用量和 Imagine 凭据状态路由。
 - `capability-runtime.ts`：按 live 开关绑定/解绑搜索、工具，以及仅在最新 priority catalog 后发布 Fast 路由。
@@ -82,51 +82,52 @@ ctx.llm route
 统一接口：
 
 ```text
-GET  /plugins/dsh-grok-build/oauth/status
-POST /plugins/dsh-grok-build/oauth/login
-POST /plugins/dsh-grok-build/oauth/code
-POST /plugins/dsh-grok-build/oauth/cancel
-POST /plugins/dsh-grok-build/oauth/logout
-POST /plugins/dsh-grok-build/oauth/models
+GET  /plugins/dsh-coding-subscription-oauth/oauth/status
+POST /plugins/dsh-coding-subscription-oauth/oauth/login
+POST /plugins/dsh-coding-subscription-oauth/oauth/code
+POST /plugins/dsh-coding-subscription-oauth/oauth/cancel
+POST /plugins/dsh-coding-subscription-oauth/oauth/logout
+POST /plugins/dsh-coding-subscription-oauth/oauth/models
 
-GET  /plugins/dsh-grok-build/oauth/sources
-POST /plugins/dsh-grok-build/oauth/sources/preview
-POST /plugins/dsh-grok-build/oauth/sources/commit
-POST /plugins/dsh-grok-build/oauth/sources/cancel
+GET  /plugins/dsh-coding-subscription-oauth/oauth/sources
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/preview
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/commit
+POST /plugins/dsh-coding-subscription-oauth/oauth/sources/cancel
 
-GET    /plugins/dsh-grok-build/capabilities
-PATCH  /plugins/dsh-grok-build/capabilities
-PUT    /plugins/dsh-grok-build/capabilities
-GET    /plugins/dsh-grok-build/codex/usage
-GET    /plugins/dsh-grok-build/imagine/credential-status
-GET    /plugins/dsh-grok-build/imagine/images/<id>
-GET    /plugins/dsh-grok-build/imagine/media/<id>
-GET    /plugins/dsh-grok-build/gateway
-PATCH  /plugins/dsh-grok-build/gateway
-POST   /plugins/dsh-grok-build/gateway/rotate
+GET    /plugins/dsh-coding-subscription-oauth/capabilities
+PATCH  /plugins/dsh-coding-subscription-oauth/capabilities
+PUT    /plugins/dsh-coding-subscription-oauth/capabilities
+GET    /plugins/dsh-coding-subscription-oauth/codex/usage
+GET    /plugins/dsh-coding-subscription-oauth/imagine/credential-status
+GET    /plugins/dsh-coding-subscription-oauth/imagine/images/<id>
+GET    /plugins/dsh-coding-subscription-oauth/imagine/media/<id>
+GET    /plugins/dsh-coding-subscription-oauth/gateway
+PATCH  /plugins/dsh-coding-subscription-oauth/gateway
+POST   /plugins/dsh-coding-subscription-oauth/gateway/rotate
 ```
 
 写接口请求体带 `provider: grok|codex|kimi|claude`。响应只包含状态、授权 URL、device user code、模型 id 和非敏感 expiry；绝不包含 access/refresh token。JSON 请求体在解析前限制为 64 KiB。
 
 `/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入位于 `coding-subscription-oauth` 设置区，是无密钥的 compare-and-swap 快照并立即生效。七项开关默认关闭；`searchResults` 为 1–20（默认 5），`imageCount` 为 1–4（默认 1），`videoArtifactTtlMs` 为 1 小时–7 天（默认 7 天；界面显示 1–168 小时）；降低时立即改写/清理已有 expiry，提高只影响新产物。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
 
-旧 `/plugins/dsh-grok-build/auth/*` 继续注册并复用同一个 Grok 控制器。
+旧 `/plugins/dsh-coding-subscription-oauth/auth/*` 继续注册并复用同一个 Grok 控制器。
 
 ## 5. Antigravity
 
 本项目不复制 Google Antigravity 私有协议。profile 单独安装 `dsh-agy@0.1.2`，提供 `agy` route。由于该版本的 `/agy` dashboard 含无自身认证的 export API，trusted-host 部署应在 profile 最终 `cordis.patch.yml` 中禁用 `dsh-agy-web`（见 `INSTALL.md`），只保留 host adapter 和 CLI。profile 使用带 lockfile hash 的 pnpm patch：无 Google session 时 `listModels()` 返回空，认证后 provider group 名为 `Google Antigravity (OAuth)`。
 
-## 6. 兼容性
+## 6. 包身份
 
-正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 仓库 `dsh-grok-build` 已删除；请只通过现名安装（npm 或 `github:lninghaha/dsh-coding-subscription-oauth`）。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.5.2`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`）。当前仓库的 GitHub 与本地 tarball 安装仍然有效。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。通过 npm 或 `github:lninghaha/dsh-coding-subscription-oauth` 安装。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.5.2`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`）。
 
-以下标识保持稳定（无迁移方案前不要改名）：
+稳定标识：
 
-- Cordis id：`llm-grok-build-oauth`
-- 设置页 HTTP API：`/plugins/dsh-grok-build/oauth/*`、`/plugins/dsh-grok-build/capabilities`、`/plugins/dsh-grok-build/codex/usage`、`/plugins/dsh-grok-build/imagine/*`，以及旧的 `/plugins/dsh-grok-build/auth/*`
-- 凭据文件：`$DSH_HOME/.grok-build-auth.json` 及其他 `*-oauth-auth.json`
-- Imagine 凭据：DSH 凭据引用 `XAI_API_KEY`（不用 Grok OAuth，不回退进程环境变量）
-- CLI：`dsh-coding-oauth`（主命令）与 `dsh-grok-build`（别名）
-- LLM 路由：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`；可选 `codex-oauth-fast`（v0.4.0，仅在最新 live catalog 列出 `priority` 后发布）
+- Cordis id：`llm-coding-subscription-oauth`
+- 设置页 HTTP API：`/plugins/dsh-coding-subscription-oauth/oauth/*`、`/plugins/dsh-coding-subscription-oauth/capabilities`、`/plugins/dsh-coding-subscription-oauth/codex/usage`、`/plugins/dsh-coding-subscription-oauth/imagine/*`、`/plugins/dsh-coding-subscription-oauth/gateway/*`
+- 凭据文件：`$DSH_HOME/.grok-oauth-auth.json` 及其他 `*-oauth-auth.json`
+- Imagine 凭据：DSH credentials 引用 `XAI_API_KEY`（不用 Grok OAuth，也不回退进程环境变量）
+- CLI：`dsh-coding-oauth`
+- LLM routes：`grok-build`、`codex-oauth`、`kimi-code-oauth`、`claude-code-oauth`；可选 `codex-oauth-fast`（仅在实时目录列出 `priority` 时对外展示）
 
-新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。v0.3.0 将 `grok-build` fallback/default 更新为 `grok-4.6`，已有用户默认设置仍优先。
+OAuth 路由使用 `*-oauth` / `grok-build` 提供商 id，不占用 `openai`、`xai` 或 `kimi-coding`。`grok-build` 的回退/默认模型是 `grok-4.6`；用户已保存的默认值仍然优先。
+

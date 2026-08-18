@@ -36,8 +36,7 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
-    "dsh-coding-oauth": "lib/bin.js",
-    "dsh-grok-build": "lib/bin.js"
+    "dsh-coding-oauth": "lib/bin.js"
   },
   "scripts": {
     "clean": "node build/clean.mjs",

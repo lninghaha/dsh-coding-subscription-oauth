@@ -1,12 +1,12 @@
 # 安装与使用 · dsh-coding-subscription-oauth
 
-本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
+普通用户请使用已发布的 npm 版本：
 
 ```bash
 dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 ```
 
-CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
+CLI 命令是 `dsh-coding-oauth`。Cordis 插件 id 是 `llm-coding-subscription-oauth`，设置页 HTTP 路径是 `/plugins/dsh-coding-subscription-oauth/*`。
 
 第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.2`**：
 
@@ -77,13 +77,13 @@ dsh plugin --profile web exec dsh-agy login --headless
 推荐在 profile 的最终 patch 里配置常驻服务：
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     proxy: http://127.0.0.1:7890
     proxyKimi: false
 ```
 
-解析优先级：`config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY` / `HTTP_PROXY`。
+解析优先级：`config.proxy` → `CODING_OAUTH_PROXY` → `HTTPS_PROXY` / `HTTP_PROXY`。
 
 默认进入代理的域名组：
 
@@ -101,7 +101,7 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
 部署级覆盖（可选）：
 
 ```yaml
-- id: llm-grok-build-oauth
+- id: llm-coding-subscription-oauth
   config:
     retryPolicy:
       mode: normal
@@ -138,7 +138,7 @@ Grok Imagine 只走官方 `https://api.x.ai`（`grok-imagine-image-2.0` / `grok-
 ### CLI
 
 ```bash
-# Grok（`dsh-grok-build` 仍是同一条命令的别名）
+# Grok
 dsh-coding-oauth login
 dsh-coding-oauth login --pkce
 dsh-coding-oauth import
@@ -170,7 +170,7 @@ dsh-coding-oauth logout kimi
 OAuth 凭据：
 
 ```text
-$DSH_HOME/.grok-build-auth.json
+$DSH_HOME/.grok-oauth-auth.json
 $DSH_HOME/.codex-oauth-auth.json
 $DSH_HOME/.kimi-code-oauth-auth.json
 $DSH_HOME/.claude-code-oauth-auth.json
@@ -182,9 +182,9 @@ $DSH_HOME/.claude-code-oauth-auth.json
 
 ```bash
 dsh plugin --profile web remove dsh-agy dsh-coding-subscription-oauth
-rm -f ~/.dsh/.grok-build-auth.json ~/.dsh/.codex-oauth-auth.json \
+rm -f ~/.dsh/.grok-oauth-auth.json ~/.dsh/.codex-oauth-auth.json \
   ~/.dsh/.kimi-code-oauth-auth.json ~/.dsh/.claude-code-oauth-auth.json
-rm -f ~/.dsh/.grok-build-models.json ~/.dsh/.codex-oauth-models.json \
+rm -f ~/.dsh/.grok-oauth-models.json ~/.dsh/.codex-oauth-models.json \
   ~/.dsh/.kimi-code-oauth-models.json ~/.dsh/.claude-code-oauth-models.json
 ```
 
@@ -209,7 +209,6 @@ pnpm run smoke:deployed
 
 | 现象 | 处理 |
 |---|---|
-| 还在搜 / 装着 `dsh-grok-build` | 仓库已更名为 `dsh-coding-subscription-oauth`；旧 GitHub 仓库已删除。请改用 npm 包或 `github:lninghaha/dsh-coding-subscription-oauth` |
 | Codex localhost callback 打不开 | 改用设备码，或把完整 redirect URL 粘贴回设置页 |
 | Claude localhost callback 在远端浏览器 | 把完整 redirect URL 粘贴回设置页 |
 | Kimi 401/403 | 重新登录并确认 Kimi Code 会员有效；不要改成 moonshot.cn OAuth |

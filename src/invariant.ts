@@ -8,7 +8,7 @@ import type { InvariantInstaller } from "@deepseek-ai/dsh-invariants";
 
 const PACKAGE_NAME = "dsh-coding-subscription-oauth";
 
-export const name = "grok-build-invariant";
+export const name = "coding-subscription-oauth-invariant";
 export const inject = ["invariants"];
 
 const install: InvariantInstaller = () => {};

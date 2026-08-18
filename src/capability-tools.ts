@@ -65,8 +65,8 @@ export {
 
 const IMAGE_COUNT_VALUES = [1, 2, 3, 4] as const;
 const VIDEO_DURATION_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
-const IMAGINE_IMAGE_PREFIX = "/plugins/dsh-grok-build/imagine/images/";
-const IMAGINE_MEDIA_PREFIX = "/plugins/dsh-grok-build/imagine/media/";
+const IMAGINE_IMAGE_PREFIX = "/plugins/dsh-coding-subscription-oauth/imagine/images/";
+const IMAGINE_MEDIA_PREFIX = "/plugins/dsh-coding-subscription-oauth/imagine/media/";
 
 /** Shared client surface; production passes one `GrokImagineClient` so video status can see started jobs. */
 export type CapabilityImagineClient = Pick<GrokImagineClient, "generateImage" | "startVideo" | "videoStatus">;
