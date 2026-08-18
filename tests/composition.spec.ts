@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { CLAUDE_CODE_OAUTH_ROUTE, CODEX_OAUTH_ROUTE, GROK_BUILD_ROUTE, KIMI_CODE_OAUTH_ROUTE } from "../src/ids.ts";
+import {
+	CLAUDE_CODE_OAUTH_ROUTE,
+	CODEX_OAUTH_ROUTE,
+	GROK_BUILD_ROUTE,
+	KIMI_CODE_OAUTH_ROUTE,
+} from "../src/core/ids.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 

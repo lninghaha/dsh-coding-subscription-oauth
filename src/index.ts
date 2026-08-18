@@ -12,9 +12,7 @@ import type {} from "@deepseek-ai/dsh-host-webserver";
 import { assertUsableApiKey, type RetryPolicyConfig, RetryPolicySchema } from "@deepseek-ai/dsh-llm";
 import z from "@deepseek-ai/schemastery";
 import type { Credential, OAuthCredential } from "@earendil-works/pi-ai";
-import { createCodingOAuthAdapter } from "./adapter.ts";
-import { registerCodingOAuthRoutes } from "./auth-routes.ts";
-import { registerCapabilityRoutes } from "./capability-routes.ts";
+import { registerCapabilityRoutes } from "./capability/capability-routes.ts";
 import {
 	bindCapabilitySearch,
 	bindCapabilityTools,
@@ -22,28 +20,21 @@ import {
 	CapabilityRuntimeState,
 	type CapabilitySearchRegistry,
 	type CapabilityToolRegistry,
-} from "./capability-runtime.ts";
+} from "./capability/capability-runtime.ts";
 import {
 	type CapabilitySettingsPatch,
 	CapabilitySettingsSchema,
 	type CapabilitySettingsService,
 	createCapabilitySettingsController,
 	resolveCapabilitySettings,
-} from "./capability-settings.ts";
+} from "./capability/capability-settings.ts";
 import {
 	CODEX_IMAGE_EDIT_TOOL,
 	CODEX_IMAGE_GENERATE_TOOL,
 	createCapabilityTools,
 	type ResolveCodexImageRoute,
 	resolveCodexImageRouteFromLlm,
-} from "./capability-tools.ts";
-import { codexAuthFromSession } from "./codex-http.ts";
-import { createCodexModelCapabilities } from "./codex-model-capabilities.ts";
-import { createCodexSearchProvider } from "./codex-search.ts";
-import { createCodexUsageReader } from "./codex-usage.ts";
-import { createCodingOAuthGatewayController } from "./gateway.ts";
-import { type GatewayConfig, GatewayConfigSchema } from "./gateway-config.ts";
-import { registerGatewayRoutes } from "./gateway-routes.ts";
+} from "./capability/capability-tools.ts";
 import {
 	createGrokImagineClient,
 	GROK_IMAGINE_IMAGE_TOOL,
@@ -51,68 +42,41 @@ import {
 	GROK_IMAGINE_VIDEO_TOOL,
 	GrokImagineError,
 	type ImagineOperation,
-} from "./grok-imagine.ts";
+} from "./capability/grok-imagine.ts";
+import { registerImagineRoutes } from "./capability/imagine-routes.ts";
+import { MediaStore } from "./capability/media-store.ts";
+import { codexAuthFromSession } from "./codex/codex-http.ts";
+import { createCodexModelCapabilities } from "./codex/codex-model-capabilities.ts";
+import { createCodexSearchProvider } from "./codex/codex-search.ts";
+import { createCodexUsageReader } from "./codex/codex-usage.ts";
+import { createCodingOAuthAdapter } from "./core/adapter.ts";
 import {
 	CLAUDE_PI_PROVIDER,
 	CODEX_PI_PROVIDER,
 	CODING_OAUTH_ROUTES,
 	KIMI_PI_PROVIDER,
 	XAI_PI_PROVIDER,
-} from "./ids.ts";
-import { registerImagineRoutes } from "./imagine-routes.ts";
-import { MediaStore } from "./media-store.ts";
+} from "./core/ids.ts";
+import { ensureCodingOAuthProxy } from "./core/proxy.ts";
+import { createCodingOAuthGatewayController } from "./gateway/gateway.ts";
+import { type GatewayConfig, GatewayConfigSchema } from "./gateway/gateway-config.ts";
+import { registerGatewayRoutes } from "./gateway/gateway-routes.ts";
+import { registerCodingOAuthRoutes } from "./oauth/auth-routes.ts";
 import {
 	type OAuthImportDestinationStore,
 	type OAuthImportDestinations,
 	registerOAuthImportRoutes,
-} from "./oauth-import-routes.ts";
-import { OAUTH_PROVIDER_DEFINITIONS } from "./oauth-providers.ts";
-import { OAuthProviderSession } from "./oauth-session.ts";
-import type { OAuthSourceCredential } from "./oauth-sources.ts";
-import { ensureCodingOAuthProxy } from "./proxy.ts";
-import { GrokBuildSession } from "./session.ts";
-import { GrokBuildCredentialStore, type OAuthCredentialFileStore } from "./store.ts";
+} from "./oauth/oauth-import-routes.ts";
+import { OAUTH_PROVIDER_DEFINITIONS } from "./oauth/oauth-providers.ts";
+import { OAuthProviderSession } from "./oauth/oauth-session.ts";
+import type { OAuthSourceCredential } from "./oauth/oauth-sources.ts";
+import { GrokBuildSession } from "./oauth/session.ts";
+import { GrokBuildCredentialStore, type OAuthCredentialFileStore } from "./oauth/store.ts";
 
-export { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "./adapter.ts";
-export type { AliasLlmRoutePolicy } from "./alias-adapter.ts";
-export { AliasLlmAdapter } from "./alias-adapter.ts";
-export type { GrokBuildAuthStatus } from "./auth.ts";
-export {
-	grokBuildAuthStatus,
-	importGrokBuildFromGrok,
-	importGrokBuildSession,
-	loginGrokBuild,
-	loginGrokBuildSession,
-	logoutGrokBuild,
-} from "./auth.ts";
-export type {
-	CodingOAuthWebStatus,
-	GrokBuildLoginMethod,
-	GrokBuildWebAuthStatus,
-	LoginChallenge,
-	SubscriptionLoginChallenge,
-	SubscriptionWebAuthStatus,
-} from "./auth-routes.ts";
-export {
-	CODING_OAUTH_LOGIN_CANCEL_PATH,
-	CODING_OAUTH_LOGIN_CODE_PATH,
-	CODING_OAUTH_LOGIN_PATH,
-	CODING_OAUTH_LOGOUT_PATH,
-	CODING_OAUTH_MODELS_PATH,
-	CODING_OAUTH_STATUS_PATH,
-	GROK_BUILD_AUTH_IMPORT_PATH,
-	GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
-	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
-	GROK_BUILD_AUTH_LOGIN_PATH,
-	GROK_BUILD_AUTH_LOGOUT_PATH,
-	GROK_BUILD_AUTH_MODELS_PATH,
-	GROK_BUILD_AUTH_STATUS_PATH,
-	GrokBuildWebAuth,
-	registerCodingOAuthRoutes,
-	registerGrokBuildAuthRoutes,
-	SubscriptionWebAuth,
-} from "./auth-routes.ts";
-export type { CatalogSource, LiveModelDescriptor } from "./catalog.ts";
+export { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "./core/adapter.ts";
+export type { AliasLlmRoutePolicy } from "./core/alias-adapter.ts";
+export { AliasLlmAdapter } from "./core/alias-adapter.ts";
+export type { CatalogSource, LiveModelDescriptor } from "./core/catalog.ts";
 export {
 	extractLiveModels,
 	extractModelIds,
@@ -122,10 +86,8 @@ export {
 	mergeLiveCatalog,
 	preferredGrokBuildModelFrom,
 	thinkingLevelMapFromLiveEfforts,
-} from "./catalog.ts";
-export type { GrokImportProbe } from "./grok-import.ts";
-export { grokAuthPath, importGrokAuth, parseGrokAuthDocument, probeGrokAuth } from "./grok-import.ts";
-export type { CodingOAuthProviderSlug, CodingOAuthRoute } from "./ids.ts";
+} from "./core/catalog.ts";
+export type { CodingOAuthProviderSlug, CodingOAuthRoute } from "./core/ids.ts";
 export {
 	ANTIGRAVITY_ROUTE,
 	CLAUDE_CODE_OAUTH_AUTH_FILENAME,
@@ -147,8 +109,55 @@ export {
 	KIMI_CODE_OAUTH_ROUTE,
 	KIMI_PI_PROVIDER,
 	XAI_PI_PROVIDER,
-} from "./ids.ts";
-export type { GrokBuildOAuthErrorCode, GrokBuildOAuthParams, PkceLoginCallbacks } from "./oauth.ts";
+} from "./core/ids.ts";
+export type { CodingOAuthProxyOptions } from "./core/proxy.ts";
+export {
+	codingOAuthProxyInEffect,
+	codingOAuthProxyUnreachableHint,
+	ensureCodingOAuthProxy,
+	ensureGrokBuildProxy,
+	grokBuildProxyInEffect,
+} from "./core/proxy.ts";
+export { redactProxyUrl, safeMessage } from "./core/redact.ts";
+export type { GrokBuildAuthStatus } from "./oauth/auth.ts";
+export {
+	grokBuildAuthStatus,
+	importGrokBuildFromGrok,
+	importGrokBuildSession,
+	loginGrokBuild,
+	loginGrokBuildSession,
+	logoutGrokBuild,
+} from "./oauth/auth.ts";
+export type {
+	CodingOAuthWebStatus,
+	GrokBuildLoginMethod,
+	GrokBuildWebAuthStatus,
+	LoginChallenge,
+	SubscriptionLoginChallenge,
+	SubscriptionWebAuthStatus,
+} from "./oauth/auth-routes.ts";
+export {
+	CODING_OAUTH_LOGIN_CANCEL_PATH,
+	CODING_OAUTH_LOGIN_CODE_PATH,
+	CODING_OAUTH_LOGIN_PATH,
+	CODING_OAUTH_LOGOUT_PATH,
+	CODING_OAUTH_MODELS_PATH,
+	CODING_OAUTH_STATUS_PATH,
+	GROK_BUILD_AUTH_IMPORT_PATH,
+	GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
+	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
+	GROK_BUILD_AUTH_LOGIN_PATH,
+	GROK_BUILD_AUTH_LOGOUT_PATH,
+	GROK_BUILD_AUTH_MODELS_PATH,
+	GROK_BUILD_AUTH_STATUS_PATH,
+	GrokBuildWebAuth,
+	registerCodingOAuthRoutes,
+	registerGrokBuildAuthRoutes,
+	SubscriptionWebAuth,
+} from "./oauth/auth-routes.ts";
+export type { GrokImportProbe } from "./oauth/grok-import.ts";
+export { grokAuthPath, importGrokAuth, parseGrokAuthDocument, probeGrokAuth } from "./oauth/grok-import.ts";
+export type { GrokBuildOAuthErrorCode, GrokBuildOAuthParams, PkceLoginCallbacks } from "./oauth/oauth.ts";
 export {
 	buildAuthorizeUrl,
 	discoverOAuthEndpoints,
@@ -162,17 +171,21 @@ export {
 	loginGrokBuildPkce,
 	refreshGrokBuildToken,
 	resolveOAuthParams,
-} from "./oauth.ts";
-export type { OAuthProviderDefinition, SubscriptionLoginMethod, SubscriptionProviderSlug } from "./oauth-providers.ts";
+} from "./oauth/oauth.ts";
+export type {
+	OAuthProviderDefinition,
+	SubscriptionLoginMethod,
+	SubscriptionProviderSlug,
+} from "./oauth/oauth-providers.ts";
 export {
 	CLAUDE_CODE_OAUTH_PROVIDER,
 	CODEX_OAUTH_PROVIDER,
 	KIMI_CODE_OAUTH_PROVIDER,
 	OAUTH_PROVIDER_DEFINITIONS,
 	oauthProviderDefinition,
-} from "./oauth-providers.ts";
-export type { OAuthProviderStatus } from "./oauth-session.ts";
-export { OAuthProviderSession, oauthModelsCachePath } from "./oauth-session.ts";
+} from "./oauth/oauth-providers.ts";
+export type { OAuthProviderStatus } from "./oauth/oauth-session.ts";
+export { OAuthProviderSession, oauthModelsCachePath } from "./oauth/oauth-session.ts";
 export {
 	GROK_BUILD_BASE_URL,
 	GROK_BUILD_MODELS_URL,
@@ -181,23 +194,14 @@ export {
 	grokBuildFingerprintHeaders,
 	grokBuildProvider,
 	grokBuildReasoningMap,
-} from "./provider.ts";
-export type { CodingOAuthProxyOptions } from "./proxy.ts";
-export {
-	codingOAuthProxyInEffect,
-	codingOAuthProxyUnreachableHint,
-	ensureCodingOAuthProxy,
-	ensureGrokBuildProxy,
-	grokBuildProxyInEffect,
-} from "./proxy.ts";
-export { redactProxyUrl, safeMessage } from "./redact.ts";
-export { GrokBuildSession } from "./session.ts";
+} from "./oauth/provider.ts";
+export { GrokBuildSession } from "./oauth/session.ts";
 export {
 	GrokBuildCredentialStore,
 	grokBuildAuthPath,
 	OAuthCredentialFileStore,
 	oauthCredentialPath,
-} from "./store.ts";
+} from "./oauth/store.ts";
 
 /** Stable Cordis plugin name. */
 export const name = "llm-grok-build-oauth";

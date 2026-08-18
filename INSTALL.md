@@ -1,48 +1,56 @@
-# 安装与使用 · dsh-coding-subscription-oauth
+# Install & usage · dsh-coding-subscription-oauth
 
-本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
+> [**中文版**](INSTALL.zh-CN.md) · English
+
+This repository was formerly **`dsh-grok-build`**. End users should install the published npm package (latest):
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+# Recommended: latest from npm into the web profile
+dsh plugin --profile web add dsh-coding-subscription-oauth
+
+# Or install the latest package with npm, then attach it to your DSH profile
+npm install dsh-coding-subscription-oauth
 ```
 
-CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
+These commands install the **latest** release from the registry. Pin a version only when you need a specific tag — see [CHANGELOG.md](CHANGELOG.md) / npm version history. The current documented release line is **0.5.x**.
 
-第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.2`**：
+CLI primary command: `dsh-coding-oauth` (legacy `dsh-grok-build` still works). For existing profiles the Cordis id stays `llm-grok-build-oauth`, Settings HTTP paths stay `/plugins/dsh-grok-build/*`, and credential filenames are unchanged.
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
-旧 GitHub 地址会解析到同一条 `main`。
+The old GitHub URL still resolves to the same `main`.
 
-## 前置条件
+## Prerequisites
 
 - DeepSeek Harness 0.1.0-rc.6+
 - Node.js 22.19+
-- 需要使用的个人编码订阅；没有 Claude/Google 账号也可以先安装路由
-- 部分网络需要 HTTP/HTTPS 代理
+- Your own coding subscription(s); Claude/Google accounts are optional if you only need other routes
+- Some networks need an HTTP/HTTPS proxy
 
-## 安装
+## Install
 
 ```bash
-# 普通用户：当前 npm 发布版
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+# Recommended: latest npm release via DSH plugin manager
+dsh plugin --profile web add dsh-coding-subscription-oauth
 
-# 开发 / 备用：从 GitHub
+# Explicit npm install of the latest package
+npm install dsh-coding-subscription-oauth
+
+# Development / alternate: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
-# 本地开发目录（备用）
+# Local development checkout (alternate)
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 
-# Google Antigravity 可选依赖，固定版本
+# Optional Google Antigravity dependency (pinned, reviewed)
 dsh plugin --profile web add dsh-agy@0.1.2
 ```
 
-安装后重启现有 dsh web 进程；不要另起一个端口相同的服务器。
+Restart the existing `dsh web` process after install; do not start a second server on the same port.
 
-本地 API 网关默认关闭。需要时在 profile 里打开（只绑 loopback）：
+The local API gateway is **off** by default. Enable it in the profile (loopback only):
 
 ```yaml
 gateway:
@@ -51,20 +59,18 @@ gateway:
   port: 18080
 ```
 
-或在 Settings → Coding OAuth → Gateway 标签页打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
+Or open **Settings → Coding OAuth → Gateway**. The Bearer key lives at `$DSH_HOME/.coding-oauth-gateway.json`. Do not bind `0.0.0.0`.
 
-## Antigravity 安全配置
+## Antigravity safety
 
-`dsh-agy@0.1.2` 的 `/agy` standalone dashboard 没有自己的认证，并包含凭据导出接口。Web 服务带 trusted-host 或反向代理时，建议在 profile 最终 `cordis.patch.yml` 禁用该 dashboard：
+The `/agy` standalone dashboard in `dsh-agy@0.1.2` has no auth of its own and exposes credential export. On trusted-host or reverse-proxied web deployments, disable that dashboard in the profile's final `cordis.patch.yml`:
 
 ```yaml
 - id: dsh-agy-web
   disabled: true
 ```
 
-这不会禁用 `agy` LLM route 或 profile 内的 `dsh-agy` CLI。
-
-Google OAuth 后续可用：
+This does not disable the `agy` LLM route or the profile-local `dsh-agy` CLI.
 
 ```bash
 NODE_USE_ENV_PROXY=1 \
@@ -72,11 +78,11 @@ HTTPS_PROXY=http://127.0.0.1:7890 \
 dsh plugin --profile web exec dsh-agy login --headless
 ```
 
-仅在当前网络确实需要代理时设置 `NODE_USE_ENV_PROXY` / `HTTPS_PROXY`；其他环境直接执行最后一行即可。不要把 Google credential export 粘贴到聊天或日志。
+Set `NODE_USE_ENV_PROXY` / `HTTPS_PROXY` only when your network needs a proxy. Never paste Google credential exports into chat or logs.
 
-## 代理配置
+## Proxy
 
-推荐在 profile 的最终 patch 里配置常驻服务：
+Preferred: configure the resident service in the profile's final patch:
 
 ```yaml
 - id: llm-grok-build-oauth
@@ -85,22 +91,13 @@ dsh plugin --profile web exec dsh-agy login --headless
     proxyKimi: false
 ```
 
-解析优先级：`config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY` / `HTTP_PROXY`。
+Priority: `config.proxy` → `CODING_OAUTH_PROXY` → `GROK_BUILD_PROXY` → `HTTPS_PROXY` / `HTTP_PROXY`.
 
-默认进入代理的域名组：
+Default proxied domain groups: xAI/Grok Build, OpenAI Codex, Claude/Anthropic, Google OAuth/Cloud Code. Kimi Code China traffic stays direct unless `proxyKimi: true`.
 
-- xAI/Grok Build
-- OpenAI Codex
-- Claude/Anthropic
-- Google OAuth/Cloud Code
+## Resilience
 
-Kimi Code 中国流量默认直连；只有 `proxyKimi: true` 才代理。
-
-## 弹性重试
-
-OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服务端若仍以 401/403 拒绝一个本地尚未过期的令牌，插件会把凭据 `expires` 回写到过去，重试的 step 先刷新再发请求。瞬时故障（429/5xx/超时/网络）和 AUTH 默认最多重试 2 次（500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效不重试。
-
-部署级覆盖（可选）：
+OAuth access tokens refresh **five minutes** before stored expiry. If upstream still rejects a locally-valid token with 401/403, the plugin backdates `expires` and the retried step refreshes first. Transient failures (429/5xx/timeout/network) and `AUTH` retry up to 2 times by default (500 ms → 10 s, 10% jitter). Quota exhaustion and a dead refresh token do not retry.
 
 ```yaml
 - id: llm-grok-build-oauth
@@ -112,35 +109,35 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
       backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
 ```
 
-## 登录
+## Sign-in
 
-### 设置页
+### Settings
 
-打开 **设置 → 编码 OAuth**：
+Open **Settings → Coding OAuth** (tabs: Accounts, Gateway, Capabilities, About):
 
-- **Grok Build**：授权码或设备码
-- **OpenAI Codex**：远程部署推荐设备码；浏览器 PKCE 支持粘贴 redirect URL
-- **Kimi Code**：设备码
-- **Claude Code**：浏览器 PKCE，远程访问时粘贴完整 localhost redirect URL
+- **Grok Build**: authorization code or device code
+- **OpenAI Codex**: device code recommended on remote DSH; browser PKCE can paste the redirect URL
+- **Kimi Code**: device code
+- **Claude Code**: browser PKCE; on remote access paste the full localhost redirect URL
 
-设置页会**只读发现**白名单内的官方 Grok / Codex / Kimi / Claude CLI OAuth 文件。同步是显式的单向**拉取**（不是自动导入）：发现 → 预览 → 冲突/指纹核对 → 确认覆盖。官方 CLI 文件从不被写入。读取会拒绝符号链接、非普通文件、非属主文件、组/其他人可读，以及超大文档（`O_NOFOLLOW`）。预览票据一次性、五分钟过期、最多 32 张。CLI 的 `dsh-coding-oauth import` 仍只支持 Grok。
+Settings **discovers** allowlisted official Grok / Codex / Kimi / Claude CLI OAuth files (read-only). Sync is an explicit one-way **Pull** (not auto-import): discover → preview → conflict/fingerprint check → confirm overwrite. Official CLI files are never written. Reads refuse symlinks, non-regular files, non-owner files, group/other access, and oversized documents (`O_NOFOLLOW`). Preview tickets are one-use, expire in five minutes, and are capped at 32. CLI `dsh-coding-oauth import` still covers Grok only.
 
-登录过程只交换授权 code；状态接口不返回 access/refresh token。
+Login only exchanges authorization codes; status APIs never return access/refresh tokens.
 
-### 可选能力
+### Optional capabilities
 
-设置页的七项订阅能力开关默认全部关闭，打开后立即生效（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。
+Seven subscription capability switches default **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage`, `grokImagineVideo`.
 
-数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖该 base，省略时所有开关仍默认关闭。
+Numeric controls: `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), `videoArtifactTtlMs` (1 hour–7 days, default 7 days; UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may set secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` section override that base.
 
-`codex-oauth-fast` 仅在最新一次 live catalog 标明至少有一个 `priority` 可用模型后才会出现。请求发送 `service_tier: priority` 和路由提示；界面写 **已请求 Fast**，不保证延迟或上游兑现。Codex 搜索/用量/图像是需打开的私有 `chatgpt.com/backend-api` 端点；图像固定 `gpt-image-2`；编辑只接受当前会话顶层、本会话持有的附件。
+`codex-oauth-fast` appears only after a fresh live catalog lists at least one `priority`-eligible model. Requests send `service_tier: priority` plus a routing hint; the UI says **Fast requested** and never guarantees latency. Codex search/usage/images are opt-in private `chatgpt.com/backend-api` endpoints; images use fixed `gpt-image-2`; edits accept only current-session top-level attachments this session owns.
 
-Grok Imagine 只走官方 `https://api.x.ai`（`grok-imagine-image-2.0` / `grok-imagine-video-1.5`），凭据是独立的 DSH 引用 `XAI_API_KEY`——不用 Grok OAuth，也不回退进程环境变量。下载受 MIME / 大小 / 超时 / 重定向 / DNS 控制，冻结主机为 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai`；私有产物库的单件与唯一对象总量均硬限 256 MiB、最长七天；只通过同源 loopback 路由提供。
+Grok Imagine uses official `https://api.x.ai` (`grok-imagine-image-2.0` / `grok-imagine-video-1.5`) with a separate DSH credential reference `XAI_API_KEY` — never Grok OAuth, never process-env fallback. Downloads are MIME/size/time/redirect/DNS controlled from frozen hosts `imgen.x.ai`, `videogen.x.ai`, `vidgen.x.ai`; private store hard-caps 256 MiB per object and aggregate unique bytes, seven days max; served only on same-origin loopback routes.
 
 ### CLI
 
 ```bash
-# Grok（`dsh-grok-build` 仍是同一条命令的别名）
+# Grok (`dsh-grok-build` remains an alias)
 dsh-coding-oauth login
 dsh-coding-oauth login --pkce
 dsh-coding-oauth import
@@ -151,25 +148,26 @@ dsh-coding-oauth login codex --browser
 dsh-coding-oauth login kimi
 dsh-coding-oauth login claude
 
-# 状态/登出
 dsh-coding-oauth status all
 dsh-coding-oauth logout kimi
 ```
 
-## 模型路由
+## Model routes
 
 - `grok-build/<model>`
 - `codex-oauth/<model>`
-- `codex-oauth-fast/<model>`（可选；仅在最新 live catalog 标明 `priority` 可用后出现，界面为 已请求 Fast）
+- `codex-oauth-fast/<model>` (optional; only after a fresh live `priority` catalog)
 - `kimi-code-oauth/<model>`
 - `claude-code-oauth/<model>`
-- `agy/<model>`（安装 dsh-agy 后）
+- `agy/<model>` (after installing `dsh-agy`)
 
-这些别名专门避免与已有的 `xai`、`openai`、`kimi-coding` API-key routes 冲突。插件不会修改现有默认模型设置。未认证的 OAuth route 不向模型选择器返回任何模型；认证后供应商名显示为 `(OAuth)`，登录/登出会立即触发目录刷新。
+These aliases avoid colliding with existing `xai`, `openai`, and `kimi-coding` API-key routes. Unauthenticated OAuth routes return an empty model list; after sign-in provider names show `(OAuth)`.
 
-## 凭据与缓存
+## Kimi in China
 
-OAuth 凭据：
+Kimi Code subscription OAuth uses `https://auth.kimi.com`; inference uses `https://api.kimi.com/coding`. `https://api.moonshot.cn/v1` is the pay-as-you-go **Moonshot Open Platform** API-key channel — there is no switchable "China OAuth endpoint". This plugin uses a separate `kimi-code-oauth` route and does not affect an existing `kimi-coding` API-key config.
+
+## Credentials & cache
 
 ```text
 $DSH_HOME/.grok-build-auth.json
@@ -178,9 +176,9 @@ $DSH_HOME/.kimi-code-oauth-auth.json
 $DSH_HOME/.claude-code-oauth-auth.json
 ```
 
-均为 `0600`、原子写、文件锁保护。模型缓存为对应的 `*-models.json`，不含 token。Grok Imagine 使用 DSH 凭据引用 `XAI_API_KEY`，与上述 OAuth 文件分离；视频产物存入 `$DSH_HOME/.dsh-coding-subscription-oauth-media/`（目录 `0700`、文件 `0600`），按保留设置自动清理。
+All are `0600`, atomically written, file-lock protected. Model caches are matching `*-models.json` files (no tokens). Grok Imagine uses DSH credential `XAI_API_KEY`. Video artifacts live under `$DSH_HOME/.dsh-coding-subscription-oauth-media/` (dir `0700`, files `0600`). **No HTTP status, log, or UI may ever return a token.**
 
-## 卸载
+## Uninstall
 
 ```bash
 dsh plugin --profile web remove dsh-agy dsh-coding-subscription-oauth
@@ -190,11 +188,11 @@ rm -f ~/.dsh/.grok-build-models.json ~/.dsh/.codex-oauth-models.json \
   ~/.dsh/.kimi-code-oauth-models.json ~/.dsh/.claude-code-oauth-models.json
 ```
 
-只有在确认不再需要账号后才删除凭据文件。
+Delete credential files only after you confirm you no longer need those accounts.
 
-## 部署验收
+## Maintainer verification
 
-以下命令面向维护者，需要在源码 checkout 中运行；通过 npm 安装的用户无需执行。
+These commands are for maintainers from a source checkout; npm installs do not include them. See also [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 pnpm run verify:deployed
@@ -205,21 +203,21 @@ DSH_RESTORE_REASONING=max \
 pnpm run smoke:deployed
 ```
 
-第一条命令验证真实模型目录的认证门禁和 `(OAuth)` 标签。第二条会通过运行中的 DSH 分别执行 Codex/Kimi 的 tool-call 与第二个用户 turn（覆盖 `INVALID_REPLAY_STATE` 回归），随后恢复显式指定的默认模型并归档测试会话；为避免覆盖现有默认设置，不提供 `DSH_RESTORE_*` 时脚本拒绝运行。
+`verify:deployed` checks the live model catalog auth gate and `(OAuth)` labels. `smoke:deployed` runs Codex/Kimi tool-calls plus a second user turn (covers `INVALID_REPLAY_STATE`), then restores the declared default model and archives sessions. The smoke script refuses to run without `DSH_RESTORE_*`.
 
-## 故障排查
+## Troubleshooting
 
-| 现象 | 处理 |
+| Symptom | Action |
 |---|---|
-| 还在搜 / 装着 `dsh-grok-build` | 仓库已更名为 `dsh-coding-subscription-oauth`；旧 GitHub 地址仍跟踪同一条 `main`。新安装请用新名 |
-| Codex localhost callback 打不开 | 改用设备码，或把完整 redirect URL 粘贴回设置页 |
-| Claude localhost callback 在远端浏览器 | 把完整 redirect URL 粘贴回设置页 |
-| Kimi 401/403 | 重新登录并确认 Kimi Code 会员有效；不要改成 moonshot.cn OAuth |
-| OAuth refresh failed | 对应账号重新登录；插件不会回退到其他账号或 API key |
-| 模型 route 重复 | 保留本插件的 `*-oauth` alias，移除冲突的第三方 OAuth 插件 |
-| Antigravity 页面 404 | 安全配置默认禁用了 `dsh-agy-web`；使用 CLI |
-| Google/Claude/OpenAI 网络不可达 | 检查插件 scoped proxy；不要重启或修改系统网络服务 |
+| Still searching for / installing `dsh-grok-build` | Repo renamed to `dsh-coding-subscription-oauth`; old GitHub URL tracks the same `main`. New installs use the new name |
+| Codex localhost callback unreachable | Use device code, or paste the full redirect URL into Settings |
+| Claude localhost callback on a remote browser | Paste the full redirect URL into Settings |
+| Kimi 401/403 | Re-sign-in and confirm Kimi Code membership; do not switch to moonshot.cn OAuth |
+| OAuth refresh failed | Re-sign-in that account; the plugin does not fall back to another account or API key |
+| Duplicate model routes | Keep this plugin's `*-oauth` aliases; remove conflicting third-party OAuth plugins |
+| Antigravity page 404 | Safety config disables `dsh-agy-web`; use the CLI |
+| Google/Claude/OpenAI unreachable | Check the plugin scoped proxy; do not restart or rewrite system networking |
 
-## 合规提示
+## Compliance
 
-订阅 OAuth 接入第三方 harness 可能违反或触及供应商服务条款。仅供个人账号使用，自行承担配额和账号风险；商用请使用官方 API-key 通道。
+Using coding subscriptions through a third-party harness may sit in a gray area of each vendor's terms. Use **only your own accounts**; this project does not support bulk accounts, quota resale, remote relay, paywall bypass, or client impersonation. For commercial use, prefer the vendors' official API-key channels.

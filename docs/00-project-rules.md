@@ -48,7 +48,7 @@ Every document in the repo belongs to one of two layers, and the two never mix:
 
 | Layer | Location | In git / npm? | Examples | Requirements |
 |---|---|---|---|---|
-| **Publishable (public)** | Repo root: `README.md` + `README.zh-CN.md` + other community-language READMEs, `CONTRIBUTING.md`, `INSTALL.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, and explicitly promoted generic `docs/` files (this rules doc, `docs/02-architecture.md` + `docs/02-architecture.zh-CN.md`) | ✅ git, shipped via `files` | architecture, install/usage, route table, compliance notes, contribution & release rules | privacy-free: no host aliases, accounts, credentials, absolute paths; external-facing tone |
+| **Publishable (public)** | Repo root: `README.md` + `README.zh-CN.md`, `CONTRIBUTING.md`, `INSTALL.md` + `INSTALL.zh-CN.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`; community-language READMEs under `docs/i18n/`; and explicitly promoted generic `docs/` files (this rules doc, `docs/02-architecture.md` + `docs/02-architecture.zh-CN.md`) | ✅ git, shipped via `files` | architecture, install/usage, route table, compliance notes, contribution & release rules | privacy-free: no host aliases, accounts, credentials, absolute paths; external-facing tone |
 | **Local-only (personal)** | `docs/local/` — investigation, risk and fault-analysis notes (e.g. `docs/local/01-research.md`, `docs/local/05-INVALID_REPLAY_STATE-调查.md`); `reference/` (vendored third-party source) | ❌ in `.gitignore`, never in `files` | concrete fault debugging, internal details, account-risk analysis | reference only; ignored by git by default |
 
 **Hard constraints**
@@ -70,9 +70,11 @@ Every document in the repo belongs to one of two layers, and the two never mix:
 
 ### Language policy
 
-- **`README.md` is English-first.** It also ships community translations selected for the widest open-source reach: `README.zh-CN.md` (简体中文), `README.ja.md` (日本語), `README.ko.md` (한국어), `README.pt-BR.md` (Português do Brasil), `README.es.md` (Español), `README.fr.md` (Français), `README.de.md` (Deutsch) and `README.ru.md` (Русский). All 9 files carry an identical language-switch line at the top so readers can jump between them, and every translation must be kept in sync with `README.md` (same sections, same version references).
-- Any user-facing change to `README.md` implies updating **all** translations. If that is not feasible for a very-large change, translators can open follow-up PRs, but the language switch line must never be broken.
-- Publishable docs under `docs/` are written English-first as well, to match the general-OSS publishing style. `docs/local/` may stay in whatever language the author prefers, since it is never published.
+- **Primary bilingual pair is English + 简体中文.** Root ships `README.md` (English-first) and `README.zh-CN.md`, plus `INSTALL.md` (English) and `INSTALL.zh-CN.md`. Both README and INSTALL pairs must stay in sync (same sections, same install commands, same version references in prose).
+- **Additional community READMEs** live under `docs/i18n/` (`README.ja.md`, `README.ko.md`, `README.pt-BR.md`, `README.es.md`, `README.fr.md`, `README.de.md`, `README.ru.md`). Root and i18n READMEs share a language-switch line so readers can jump between them.
+- Any user-facing change to `README.md` / `INSTALL.md` **must** update the zh-CN counterpart in the same change. Other `docs/i18n/` translations may follow in later PRs, but the language-switch line must never be broken.
+- Publishable docs under `docs/` are English-first with zh-CN companions where they exist (e.g. architecture). `docs/local/` may stay in whatever language the author prefers, since it is never published.
+- Settings UI copy stays bilingual `en` / `zh` via `src/client/locales.ts` and `@deepseek-ai/dsh-client-locale`.
 
 ---
 

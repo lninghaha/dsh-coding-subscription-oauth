@@ -55,27 +55,29 @@ ctx.llm route
 
 ## 3. Module responsibilities
 
-- `store.ts`: one file owns one provider credential; keeps the legacy Grok store API; `invalidate()` backdates `expires` after an upstream AUTH rejection.
-- `oauth-providers.ts`: Codex/Kimi/Claude definitions, route metadata, request token bridge.
-- `oauth-session.ts`: login, refresh, static model catalog and model-selection cache.
-- `oauth-sources.ts`: allowlisted official Grok/Codex/Kimi/Claude CLI discovery; hardened lstat/`O_NOFOLLOW`/owner/mode/regular-file/size reads; one-use preview tickets (five minutes, max 32); never writes official CLI files.
-- `oauth-import-routes.ts`: same-origin Pull HTTP API (discover → preview → commit/cancel) into the destination store lock.
-- `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
-- `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes. Optionally wraps `codex-oauth-fast` as **Fast requested**.
-- `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
-- `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
-- `capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
-- `capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
-- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time.
-- `codex-http.ts`: opt-in private `chatgpt.com/backend-api` client (HTTPS-only, first-party host).
-- `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`: opt-in search, quota, and fixed `gpt-image-2` generate/edit (edits require current-session top-level attachment ownership).
-- `codex-model-capabilities.ts`: live Codex service-tier cache; fail-closed Fast eligibility; injects `service_tier: priority` and the routing hint.
-- `grok-imagine.ts`: official `api.x.ai` Imagine client (`grok-imagine-image-2.0` / `grok-imagine-video-1.5`); `XAI_API_KEY` via DSH credentials only; MIME/size/time/redirect/DNS download controls; frozen hosts `imgen.x.ai`, `videogen.x.ai`, `vidgen.x.ai`.
-- `imagine-routes.ts`: same-origin loopback GET routes for generated images and video artifacts.
-- `media-store.ts`: owner-private artifact store (256 MiB per-object and aggregate unique-byte hard caps, seven days).
-- `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card.
-- `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
-- `gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
+Source lives under domain folders (`src/oauth/`, `src/gateway/`, `src/capability/`, `src/codex/`, `src/core/`, `src/client/`). Package entry points stay at `src/index.ts`, `src/bin.ts`, and `src/invariant.ts`.
+
+- `oauth/store.ts`: one file owns one provider credential; keeps the legacy Grok store API; `invalidate()` backdates `expires` after an upstream AUTH rejection.
+- `oauth/oauth-providers.ts`: Codex/Kimi/Claude definitions, route metadata, request token bridge.
+- `oauth/oauth-session.ts`: login, refresh, static model catalog and model-selection cache.
+- `oauth/oauth-sources.ts`: allowlisted official Grok/Codex/Kimi/Claude CLI discovery; hardened lstat/`O_NOFOLLOW`/owner/mode/regular-file/size reads; one-use preview tickets (five minutes, max 32); never writes official CLI files.
+- `oauth/oauth-import-routes.ts`: same-origin Pull HTTP API (discover → preview → commit/cancel) into the destination store lock.
+- `core/alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first.
+- `core/adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes. Optionally wraps `codex-oauth-fast` as **Fast requested**.
+- `oauth/auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
+- `capability/capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
+- `capability/capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
+- `capability/capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
+- `capability/capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time.
+- `codex/codex-http.ts`: opt-in private `chatgpt.com/backend-api` client (HTTPS-only, first-party host).
+- `codex/codex-search.ts` / `codex/codex-usage.ts` / `codex/codex-images.ts`: opt-in search, quota, and fixed `gpt-image-2` generate/edit (edits require current-session top-level attachment ownership).
+- `codex/codex-model-capabilities.ts`: live Codex service-tier cache; fail-closed Fast eligibility; injects `service_tier: priority` and the routing hint.
+- `capability/grok-imagine.ts`: official `api.x.ai` Imagine client (`grok-imagine-image-2.0` / `grok-imagine-video-1.5`); `XAI_API_KEY` via DSH credentials only; MIME/size/time/redirect/DNS download controls; frozen hosts `imgen.x.ai`, `videogen.x.ai`, `vidgen.x.ai`.
+- `capability/imagine-routes.ts`: same-origin loopback GET routes for generated images and video artifacts.
+- `capability/media-store.ts`: owner-private artifact store (256 MiB per-object and aggregate unique-byte hard caps, seven days).
+- `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card (`en` / `zh` via `locales.ts`).
+- `core/proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
+- `gateway/gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
 
 ## 4. Web API
 
@@ -118,7 +120,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.2`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`). GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. Install the latest published release with `dsh plugin --profile web add dsh-coding-subscription-oauth` or `npm install dsh-coding-subscription-oauth` (see `INSTALL.md`). GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 

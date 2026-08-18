@@ -4,12 +4,12 @@ import type {
 	CapabilitySettingsPatch,
 	CapabilitySettingsScope,
 	CapabilitySettingsService,
-} from "../src/capability-settings.ts";
-import { GrokImagineClient } from "../src/grok-imagine.ts";
+} from "../src/capability/capability-settings.ts";
+import { GrokImagineClient } from "../src/capability/grok-imagine.ts";
+import { MediaStore } from "../src/capability/media-store.ts";
 import { apply } from "../src/index.ts";
-import { MediaStore } from "../src/media-store.ts";
-import { OAuthProviderSession } from "../src/oauth-session.ts";
-import { GrokBuildSession } from "../src/session.ts";
+import { OAuthProviderSession } from "../src/oauth/oauth-session.ts";
+import { GrokBuildSession } from "../src/oauth/session.ts";
 
 afterEach(() => {
 	vi.restoreAllMocks();

@@ -19,12 +19,16 @@ docs/*
 !docs/02-architecture.md
 !docs/02-architecture.zh-CN.md
 !docs/MIGRATION.md
+!docs/i18n/
+!docs/i18n/**
 reference/
 
 *.tgz
 .npm-cache/
 .pnpm-store/
 .npm-logs/
+.release-lib-*/
+.release-lib-backup-*/
 .cfresearch/
 .research/
 ccr/

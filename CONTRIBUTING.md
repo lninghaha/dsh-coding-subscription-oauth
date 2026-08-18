@@ -53,9 +53,25 @@ This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-buil
 
 1. Open an issue describing the change (or link an existing one) so scope is agreed first.
 2. Branch from the default branch. Keep commits atomic and conventional — see **Commits & pushes** below.
-3. When you change a capability or add a doc, update `README.md` (and the community translations added in `docs/00-project-rules.md` §2 if user-facing) and the relevant entries in `docs/` (public layer), **and** add a changelog entry under `Unreleased` in `CHANGELOG.md`.
+3. When you change a capability or add a user-facing doc, update **both** `README.md` and `README.zh-CN.md` (and `INSTALL.md` / `INSTALL.zh-CN.md` when install/usage details change). Other community READMEs under `docs/i18n/` may follow in later PRs, but keep the language-switch line working. Also update the relevant entries in `docs/` (public layer) **and** add a changelog entry under `Unreleased` in `CHANGELOG.md`.
 4. Build the Docker `check` and `verify` targets until green, then commit that passing slice promptly (do not stack later work on an uncommitted green tree).
 5. Push the branch as a version/milestone checkpoint and open a PR. Describe what changed and how it was verified. Keep the scope of local-only docs (`docs/local/`) out of the PR unless you are a maintainer doing internal investigation.
+
+### Maintainer live verification
+
+From a source checkout (not an npm install), after a real DSH deployment is running:
+
+```bash
+pnpm run verify:deployed            # live /api/llm.models + OAuth state
+DSH_EXPECT_AGY_AUTH=signed-in pnpm run verify:deployed   # if Google is signed in
+
+DSH_RESTORE_PROVIDER=openai \
+DSH_RESTORE_MODEL=gpt-5.6-sol \
+DSH_RESTORE_REASONING=max \
+pnpm run smoke:deployed             # Codex/Kimi tool-calls + second-turn replay
+```
+
+Full install/usage detail for end users is in `INSTALL.md` / `INSTALL.zh-CN.md`.
 
 ## Commits & pushes
 

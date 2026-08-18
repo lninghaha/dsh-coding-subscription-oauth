@@ -4,6 +4,14 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Changed
+
+- Make English + 简体中文 the primary bilingual pair (`README` / `INSTALL`); move other community READMEs to `docs/i18n/`.
+- Reorganize the repo layout: domain folders under `src/` (`oauth`, `gateway`, `capability`, `codex`, `core`, `client`), mirrored `tests/`, and TypeScript configs under `config/`.
+- Document end-user install with unversioned latest commands: `dsh plugin --profile web add dsh-coding-subscription-oauth` and `npm install dsh-coding-subscription-oauth` (keep `dsh-agy@0.1.2` pinned).
+- Trim the root READMEs; move detailed install, proxy, resilience, credentials, and maintainer verification notes into `INSTALL.md` / `INSTALL.zh-CN.md`.
+- Make `build/promote-release.mjs` fall back to copy+remove when `rename` fails with `EXDEV` (cross-device mounts).
+
 ## v0.5.2 - 2026-08-18
 
 ### Documentation
