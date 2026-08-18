@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Changed
+
+- Make native `pnpm` checks the default development verification path (including cloud agent environments). Docker sandbox targets remain optional for CI and shared-host isolation.
+
 ## v0.5.2 - 2026-08-18
 
 ### Documentation

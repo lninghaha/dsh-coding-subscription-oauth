@@ -9,7 +9,19 @@ Welcome! `dsh-coding-subscription-oauth` is an open-source coding-subscription O
 
 ## Getting started
 
-Development verification for this plugin runs only in an isolated Docker build sandbox; do not run installs, builds, tests, typechecks, linters or package checks directly on a shared developer host. The tracked `Dockerfile` copies the filtered source into the image (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use privileged mode, credential or host-directory bind mounts, or the Docker socket. Tests use no published ports. The narrowly controlled interactive Web preview below is the only port-publishing exception; host networking remains prohibited unless its documented fallback conditions are all met.
+**Default development path:** run installs and checks **directly** in your development environment (local checkout, Cursor Cloud Agent, or other isolated cloud workspace). An extra Docker sandbox is not required for day-to-day verification.
+
+```bash
+pnpm install
+pnpm run check:next   # lint + typecheck + tests (fast gate)
+pnpm run check        # full release gate (lint + release build + tests)
+```
+
+Use a Node version that matches `package.json` `engines` (currently `^22.19.0 || >=24.0.0`) and the repo's `packageManager` (`pnpm@11.21.0`). Do not install into, modify, or validate against a DSH instance already running on a shared host unless a maintainer explicitly asks for that operation.
+
+### Optional Docker sandbox
+
+The tracked `Dockerfile` remains available for CI and for contributors who want an offline sandbox on a shared physical host. When you use it: the image copies filtered source (never credentials), downloads dependencies in a dedicated stage, then runs project code with `--network=none`. Do not use privileged mode, credential or host-directory bind mounts, or the Docker socket.
 
 ```bash
 docker build --target check --build-arg NODE_VERSION=22.19.0 \
@@ -23,9 +35,9 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 
 The `artifacts`, `package`, `inspect`, and `isolated-install` targets cover generated `lib/`, the candidate tarball, release inspection, and a script-disabled consumer install.
 
-### Isolated Web preview
+### Optional isolated Web preview
 
-`docker/run-preview.sh` is the only supported interactive preview launcher. It builds `web-preview` offline from two auditable inputs: this checkout's committed `lib/` and a BuildKit named context containing an installed `@deepseek-ai/dsh@0.1.0-rc.6` **program package**. Point `DSH_INSTALL_DIR` at that package directory, never at a DSH home/profile or any credential directory:
+`docker/run-preview.sh` is the supported interactive preview launcher when you need a dedicated Docker DSH instance. It builds `web-preview` offline from two auditable inputs: this checkout's committed `lib/` and a BuildKit named context containing an installed `@deepseek-ai/dsh@0.1.0-rc.6` **program package**. Point `DSH_INSTALL_DIR` at that package directory, never at a DSH home/profile or any credential directory:
 
 ```bash
 export DSH_INSTALL_DIR=/path/to/node_modules/@deepseek-ai/dsh
@@ -54,7 +66,7 @@ This repo also ships a Grok Build CLI (`dsh-coding-oauth`, legacy `dsh-grok-buil
 1. Open an issue describing the change (or link an existing one) so scope is agreed first.
 2. Branch from the default branch. Keep commits atomic and conventional — see **Commits & pushes** below.
 3. When you change a capability or add a doc, update `README.md` (and the community translations added in `docs/00-project-rules.md` §2 if user-facing) and the relevant entries in `docs/` (public layer), **and** add a changelog entry under `Unreleased` in `CHANGELOG.md`.
-4. Build the Docker `check` and `verify` targets until green, then commit that passing slice promptly (do not stack later work on an uncommitted green tree).
+4. Run `pnpm run check:next` (and `pnpm run check` when the change touches the release build) until green, then commit that passing slice promptly (do not stack later work on an uncommitted green tree). Docker targets remain optional — see **Getting started**.
 5. Push the branch as a version/milestone checkpoint and open a PR. Describe what changed and how it was verified. Keep the scope of local-only docs (`docs/local/`) out of the PR unless you are a maintainer doing internal investigation.
 
 ## Commits & pushes
@@ -79,7 +91,7 @@ History is part of the review. The maintainer counterpart — tags, clean-tree r
 
 ### Before you commit
 
-- Build the relevant Docker targets (`check`, then `verify`) and wait until green. Do not commit a failing tree.
+- Run `pnpm run check:next` (and `pnpm run check` for release-build changes) until green. Do not commit a failing tree. Docker `check` / `verify` targets are optional.
 - Commit promptly once checks pass — do not leave a finished, verified change sitting uncommitted next to later work.
 - Generated `lib/` is a committed release artifact (git installs + the CI `git diff --exit-code -- lib` drift gate). Rebuild it and include it in the **same** commit as the source or build-script change that produced it. Do not land stale `lib/` against newer `src/`, and do not land a `lib/`-only commit unless the only change is a verified rebuild with no source delta.
 - Never commit secrets, tokens, credentials, private keys, `.env` files, host-specific paths, or local-only notes (`docs/local/`, `reference/`). See `docs/00-project-rules.md` §0.3.

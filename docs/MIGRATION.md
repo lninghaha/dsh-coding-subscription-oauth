@@ -19,9 +19,17 @@
 
 v0.4 的能力设置是兼容性新增：`coding-subscription-oauth` 设置区默认全部关闭，未配置时不改变已有 OAuth 路由；Cordis id、`/plugins/dsh-grok-build/*`、凭据文件、LLM route 与 CLI 别名均未改，因此无需迁移现有用户数据。
 
-## 验收命令（Docker sandbox 内）
+## 验收命令（默认：开发环境内直接运行）
 
-共享开发主机只负责启动隔离构建；不要直接在宿主机运行安装、检查或构建命令，也不要 bind mount 源码、凭据、Docker socket 或其他项目目录。使用仓库跟踪的多阶段 Dockerfile：
+默认在隔离的开发环境（含 Cursor Cloud Agent）内直接安装与验收，**不再强制**额外套一层 Docker：
+
+```bash
+pnpm install
+pnpm run check:next   # lint + typecheck + tests
+pnpm run check        # 完整发布门禁
+```
+
+可选：若需要在共享物理机上做离线 sandbox，或对齐 CI，仍可使用仓库跟踪的多阶段 Dockerfile：
 
 ```bash
 docker build --target check-next --build-arg NODE_VERSION=22.19.0 \
@@ -35,7 +43,7 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
   --tag test-dsh-coding-oauth:verify .
 ```
 
-依赖下载只发生在 `dependencies` stage；后续 lint、typecheck、测试、构建、打包和隔离安装都使用 `RUN --network=none`。
+在 Docker 路径下：依赖下载只发生在 `dependencies` stage；后续 lint、typecheck、测试、构建、打包和隔离安装都使用 `RUN --network=none`；不要 bind mount 源码、凭据、Docker socket 或其他项目目录。
 
 ## 从模板（dsh-usage-stats）复制/改编的文件 —— 重构落定后需 diff 再同步
 
@@ -55,7 +63,7 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 | `build/promote-release.mjs` | `build/promote-release.mjs` | runtimeFiles 扩到 index/bin/invariant/client；拒绝空产物；验证失败时原子恢复旧 `lib/` |
 | `build/verify-release.mjs` | `build/verify-release.mjs` | 断言 `package.json` `name=dsh-coding-subscription-oauth`、Cordis `name=llm-grok-build-oauth`、`inject` 含 `llm`、客户端 wrapper id、undici 内联、`@deepseek-ai/*` 外置、双 CLI、bin shebang |
 | `pnpm-workspace.yaml` | `pnpm-workspace.yaml` | 去 `storeDir`；`allowBuilds` 加 `@google/genai:false`、`protobufjs:false` |
-| `Dockerfile`, `.dockerignore` | 重构项目 sandbox 约定 | 无 bind mount；依赖 stage 后全部 `--network=none`；提供 check/verify/artifacts/package/isolated-install targets |
+| `Dockerfile`, `.dockerignore` | 重构项目可选 sandbox / CI 约定 | 日常开发默认直接 `pnpm`；Docker 可选。无 bind mount；依赖 stage 后全部 `--network=none`；提供 check/verify/artifacts/package/isolated-install targets |
 
 ## 关键决策
 
