@@ -1,33 +1,32 @@
-node_modules/
-dist/
-.next/
-output/
-*.tsbuildinfo
-*.log
-.env
-.env.*
-.DS_Store
-coverage/
-.turbo/
 
-# local-only design docs, fault investigation & reference materials (not published)
-# docs/00-project-rules.md and docs/02-architecture*.md are explicitly published
-# (see package.json files) — negated below.
-# docs/MIGRATION.md is git-tracked but not listed in package.json files.
+ccr/
+.cfresearch/
+coverage/
+dist/
 docs/*
 !docs/00-project-rules.md
+# docs/00-project-rules.md and docs/02-architecture*.md are explicitly published
 !docs/02-architecture.md
 !docs/02-architecture.zh-CN.md
 !docs/MIGRATION.md
-reference/
-
-*.tgz
-.npm-cache/
-.pnpm-store/
-.npm-logs/
-.cfresearch/
-.research/
-ccr/
-
+# docs/MIGRATION.md is git-tracked but not listed in package.json files.
+.DS_Store
+.env
+.env.*
+# local-only design docs, fault investigation & reference materials (not published)
 # local-only fault-investigation probe (never commit)
+*.log
+.next/
+node_modules/
+.npm-cache/
+.npm-logs/
+output/
+.pnpm-store/
+reference/
+.release-lib-*/
+.research/
 scripts/probe-proxy-interception.mjs
+# (see package.json files) — negated below.
+*.tgz
+*.tsbuildinfo
+.turbo/
