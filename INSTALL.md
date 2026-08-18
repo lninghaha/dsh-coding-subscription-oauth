@@ -26,16 +26,16 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 
 ```bash
 # 普通用户：当前 npm 发布版
- dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2
 
 # 开发 / 备用：从 GitHub
- dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
+dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 
 # 本地开发目录（备用）
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 
 # Google Antigravity 可选依赖，固定版本
- dsh plugin --profile web add dsh-agy@0.1.2
+dsh plugin --profile web add dsh-agy@0.1.2
 ```
 
 安装后重启现有 dsh web 进程；不要另起一个端口相同的服务器。
