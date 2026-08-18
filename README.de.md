@@ -23,7 +23,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Altes GitHub-Repo `dsh-grok-build` entfernt |
 | npm | `dsh-coding-subscription-oauth@0.5.2` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |

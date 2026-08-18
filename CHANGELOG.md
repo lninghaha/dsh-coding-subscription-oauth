@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Documentation
+
+- Record that the legacy GitHub repository `dsh-grok-build` has been removed; install only via `dsh-coding-subscription-oauth` (npm or the current GitHub URL). Runtime CLI alias and `/plugins/dsh-grok-build/*` paths stay compatible.
+
 ## v0.5.2 - 2026-08-18
 
 ### Documentation

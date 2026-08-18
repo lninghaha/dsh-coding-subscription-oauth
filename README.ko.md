@@ -23,7 +23,7 @@
 
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 이전 GitHub 저장소 `dsh-grok-build` 는 삭제됨 |
 | npm | `dsh-coding-subscription-oauth@0.5.2`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |

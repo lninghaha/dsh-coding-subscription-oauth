@@ -23,7 +23,7 @@
 
 | | Используйте | По-прежнему работает |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Старый GitHub-репозиторий `dsh-grok-build` удалён |
 | npm | `dsh-coding-subscription-oauth@0.5.2` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |

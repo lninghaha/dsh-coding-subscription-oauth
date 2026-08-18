@@ -23,7 +23,7 @@ Empezó como **`dsh-grok-build`** (solo Grok Build). Ahora cubre SuperGrok / Cod
 
 | | Usa esto | Sigue funcionando |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (el mismo `main`) |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | El repo GitHub antiguo `dsh-grok-build` fue eliminado |
 | npm | `dsh-coding-subscription-oauth@0.5.2` (versión actual) | No se publicó un paquete npm legado |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | sin cambios |

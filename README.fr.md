@@ -23,7 +23,7 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 
 | | Utiliser | Toujours valable |
 |---|---|---|
-| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (même `main`) |
+| GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Ancien dépôt GitHub `dsh-grok-build` supprimé |
 | npm | `dsh-coding-subscription-oauth@0.5.2` (version actuelle) | Aucun ancien paquet npm n'a été publié |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inchangé |
