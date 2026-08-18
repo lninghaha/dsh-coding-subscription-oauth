@@ -27,6 +27,17 @@ async function collectFiles(from, relative = "") {
 	return out;
 }
 
+/** Atomic when possible; fall back to copy+remove across devices (EXDEV / overlayfs). */
+async function movePath(from, to) {
+	try {
+		await rename(from, to);
+	} catch (error) {
+		if (error?.code !== "EXDEV") throw error;
+		await cp(from, to, { recursive: true, force: true });
+		await rm(from, { recursive: true, force: true });
+	}
+}
+
 // Keep bundled runtime files plus every .d.ts/.d.ts.map emitted by tsc; skip
 // intermediate .js/.js.map from the declaration step and esbuild intermediates.
 const wanted = [];
@@ -58,22 +69,22 @@ for (const name of wanted) {
 
 let replacedExisting = false;
 try {
-	await rename(target, backup);
+	await movePath(target, backup);
 	replacedExisting = true;
 } catch (error) {
 	if (error?.code !== "ENOENT") throw error;
 }
 try {
-	await rename(staging, target);
+	await movePath(staging, target);
 } catch (error) {
-	if (replacedExisting) await rename(backup, target);
+	if (replacedExisting) await movePath(backup, target);
 	throw error;
 }
 try {
 	await import(`./verify-release.mjs?promotion=${Date.now()}`);
 } catch (error) {
 	await rm(target, { recursive: true, force: true });
-	if (replacedExisting) await rename(backup, target);
+	if (replacedExisting) await movePath(backup, target);
 	throw error;
 }
 await rm(backup, { recursive: true, force: true });
