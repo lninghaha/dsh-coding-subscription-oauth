@@ -4,6 +4,11 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Changed
+
+- Raise the default OAuth route retry policy to 5 stacked exponential delays (5 s → 10 s → 20 s → 40 s → 80 s, ~155 s total, 10% jitter).
+- Remap xAI “at capacity / high demand / priority processing / overloaded” finish messages to `RATE_LIMIT` so harness retries run instead of failing as `PI_AI_ERROR` when upstream `error.code` is null.
+
 ## v0.5.2 - 2026-08-18
 
 ### Documentation

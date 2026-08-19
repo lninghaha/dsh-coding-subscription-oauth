@@ -220,16 +220,16 @@ Kimi Code 订阅 OAuth 使用 `https://auth.kimi.com`；推理使用 `https://ap
 
 OAuth access token 会在本地记录过期时间前 **5 分钟**主动刷新（pi-ai 0.84+），避免请求踩到令牌寿命的最后几秒。若服务端仍以 401/403 拒绝一个本地尚未过期的令牌（服务端提前吊销或时钟偏差），插件会把凭据的 `expires` 回写到过去，重试的 step 会先刷新再发请求——用户无感知自愈，而不是本轮直接失败。
 
-请求重试走 harness 的 retry 策略：瞬时故障（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**以及 `AUTH`** 会按指数逆避重试（默认 2 次，500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效**不**重试——会立刻给出真实错误和重新登录提示。部署级覆盖：
+请求重试走 harness 的 retry 策略：瞬时故障（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**以及 `AUTH`** 会按指数退避重试（默认 5 次，5 s → 10 s → 20 s → 40 s → 80 s，约 155 s 叠加时常，10% jitter）。xAI「at capacity / high demand / priority processing」等文案会在 finish 管道重映射为 `RATE_LIMIT`，从而进入该策略（上游 `error.code: null` 时 pi-ai 会标成 `PI_AI_ERROR`）。配额耗尽和 refresh token 失效**不**重试——会立刻给出真实错误和重新登录提示。部署级覆盖：
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## 凭据

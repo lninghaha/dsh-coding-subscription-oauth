@@ -96,7 +96,7 @@ Kimi Code 中国流量默认直连；只有 `proxyKimi: true` 才代理。
 
 ## 弹性重试
 
-OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服务端若仍以 401/403 拒绝一个本地尚未过期的令牌，插件会把凭据 `expires` 回写到过去，重试的 step 先刷新再发请求。瞬时故障（429/5xx/超时/网络）和 AUTH 默认最多重试 2 次（500 ms → 10 s，10% jitter）。配额耗尽和 refresh token 失效不重试。
+OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服务端若仍以 401/403 拒绝一个本地尚未过期的令牌，插件会把凭据 `expires` 回写到过去，重试的 step 先刷新再发请求。瞬时故障（429/5xx/超时/网络）和 AUTH 默认最多重试 5 次（5 s → 10 s → 20 s → 40 s → 80 s，约 155 s 叠加时常，10% jitter）。xAI「at capacity」等文案会重映射为 `RATE_LIMIT` 后再退避。配额耗尽和 refresh token 失效不重试。
 
 部署级覆盖（可选）：
 
@@ -105,9 +105,9 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## 登录

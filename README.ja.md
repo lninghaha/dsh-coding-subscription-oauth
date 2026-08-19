@@ -209,16 +209,16 @@ Kimi Code サブスクリプション OAuth は `https://auth.kimi.com` を、�
 
 OAuth アクセストークンは記録された有効期限の **5 分前**に先行リフレッシュされます（pi-ai 0.84+）。上流がまだローカルでは有効なトークンを 401/403 で拒否した場合、プラグインは保存済み `expires` を過去に戻し、再試行ステップが先にリフレッシュしてから再送します。
 
-リクエスト再試行は harness の retry ポリシーです。一時障害（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**および `AUTH`** は指数バックオフで再試行します（既定 2 回、500 ms → 10 s、10% jitter）。クォータ枯渇と無効な refresh token は再試行しません。上書き例：
+リクエスト再試行は harness の retry ポリシーです。一時障害（`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`）**および `AUTH`** は指数バックオフで再試行します（既定 5 回、5 s → 10 s → 20 s → 40 s → 80 s（約 155 s 累積）、10% jitter）。クォータ枯渇と無効な refresh token は再試行しません。上書き例：
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## 認証情報

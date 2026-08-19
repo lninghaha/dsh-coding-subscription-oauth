@@ -209,16 +209,16 @@ Seuls les domaines d'abonnement examinés sont proxifiés (xAI/Grok, OpenAI Code
 
 Les jetons d'accès OAuth sont renouvelés **cinq minutes** avant l'expiration enregistrée (pi-ai 0.84+). Si l'amont refuse encore un jeton localement valide avec 401/403, le plugin recule le `expires` stocké et l'étape relancée rafraîchit le jeton avant de renvoyer.
 
-Les nouvelles tentatives suivent la politique du harness : les pannes transitoires (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **et `AUTH`** sont relancées avec un backoff exponentiel (2 essais, 500 ms → 10 s, jitter 10 %). L'épuisement de quota et un refresh token mort **ne** sont **pas** relancés. Surcharge par déploiement :
+Les nouvelles tentatives suivent la politique du harness : les pannes transitoires (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **et `AUTH`** sont relancées avec un backoff exponentiel (5 essais, 5 s → 10 s → 20 s → 40 s → 80 s (~155 s cumulés), jitter 10 %). L'épuisement de quota et un refresh token mort **ne** sont **pas** relancés. Surcharge par déploiement :
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## Identifiants

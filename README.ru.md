@@ -209,16 +209,16 @@ OAuth подписки Kimi Code использует `https://auth.kimi.com`; �
 
 OAuth access token обновляется **за пять минут** до сохранённого срока (pi-ai 0.84+). Если апстрим всё же отклоняет локально ещё живой токен кодом 401/403, плагин сдвигает сохранённый `expires` в прошлое, и повторный шаг сначала обновляет токен, затем повторяет запрос.
 
-Повторы идут по политике harness: временные сбои (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **и `AUTH`** повторяются с экспоненциальной задержкой (2 попытки, 500 мс → 10 с, 10% jitter). Исчерпание квоты и мёртвый refresh token **не** повторяются. Переопределение для развёртывания:
+Повторы идут по политике harness: временные сбои (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **и `AUTH`** повторяются с экспоненциальной задержкой (5 попыток, 5 с → 10 с → 20 с → 40 с → 80 с (~155 с суммарно), 10% jitter). Исчерпание квоты и мёртвый refresh token **не** повторяются. Переопределение для развёртывания:
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## Учётные данные

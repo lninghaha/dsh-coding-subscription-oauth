@@ -209,16 +209,16 @@ Apenas domínios de assinatura revisados são usados via proxy (xAI/Grok, OpenAI
 
 Os tokens de acesso OAuth são renovados **cinco minutos** antes do vencimento armazenado (pi-ai 0.84+). Se o upstream ainda rejeitar um token localmente válido com 401/403, o plugin retrocede o `expires` gravado e o step repetido renova o token antes de reenviar.
 
-As novas tentativas seguem a política do harness: falhas transitórias (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **e `AUTH`** repetem com backoff exponencial (padrão: 2 tentativas, 500 ms → 10 s, 10% de jitter). Esgotamento de cota e refresh token morto **não** são repetidos. Sobrescrita por implantação:
+As novas tentativas seguem a política do harness: falhas transitórias (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **e `AUTH`** repetem com backoff exponencial (padrão: 5 tentativas, 5 s → 10 s → 20 s → 40 s → 80 s (~155 s acumulados), 10% de jitter). Esgotamento de cota e refresh token morto **não** são repetidos. Sobrescrita por implantação:
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## Credenciais
