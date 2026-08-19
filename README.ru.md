@@ -46,7 +46,6 @@
 ## Какие проблемы подключения закрывает этот плагин
 
 Обычно сюда приходят по этим поисковым запросам и ошибкам DSH.
-
 | Искали / увидели | Что на самом деле сломано | Что делает плагин |
 |---|---|---|
 | SuperGrok / X Premium в DSH, Grok Build vs `api.x.ai` | Встроенный маршрут `xai` — это pay-as-you-go API. Подписка ходит на `cli-chat-proxy.grok.com` | Маршрут `grok-build` + отпечаток CLI (`X-XAI-Token-Auth` и др.), чтобы не ловить тихий 403 |
@@ -141,6 +140,20 @@ pnpm run smoke:deployed             # реальные вызовы Codex/Kimi +
 ## Страница настроек
 
 Откройте **Settings → Coding OAuth**:
+
+
+
+<p align="center">
+  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
+</p>
 
 | Провайдер | Методы |
 |---|---|

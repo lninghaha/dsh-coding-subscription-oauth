@@ -46,7 +46,6 @@ Empezó como **`dsh-grok-build`** (solo Grok Build). Ahora cubre SuperGrok / Cod
 ## Problemas de integración que resuelve este plugin
 
 Estas búsquedas y errores de DSH suelen traer a la gente hasta aquí.
-
 | Buscaste / viste | Qué estaba roto | Qué hace el plugin |
 |---|---|---|
 | SuperGrok / X Premium en DSH, Grok Build vs `api.x.ai` | La ruta `xai` es la API de pago por uso. La suscripción de coding va a `cli-chat-proxy.grok.com` | Ruta `grok-build` + cabeceras fingerprint de la CLI (`X-XAI-Token-Auth`, etc.) para evitar un 403 silencioso |
@@ -141,6 +140,20 @@ pnpm run smoke:deployed             # llamadas reales Codex/Kimi + replay del se
 ## Página de configuración
 
 Abre **Settings → Coding OAuth**:
+
+
+
+<p align="center">
+  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
+</p>
 
 | Proveedor | Métodos |
 |---|---|

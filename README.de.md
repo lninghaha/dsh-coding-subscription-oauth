@@ -20,7 +20,6 @@
 ## Namensänderung
 
 Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / Claude / Antigravity.
-
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
@@ -141,6 +140,19 @@ pnpm run smoke:deployed             # echte Codex/Kimi-Tool-Calls + Replay des z
 ## Einstellungsseite
 
 **Settings → Coding OAuth** öffnen:
+
+
+<p align="center">
+  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
+</p>
 
 | Anbieter | Methoden |
 |---|---|
