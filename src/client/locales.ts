@@ -15,6 +15,7 @@ export const en = {
 	working: "Working…",
 	cancelLogin: "Cancel sign-in",
 	deviceLogin: "Sign in with device code",
+	deviceLoginRemote: "Sign in with device code (best for remote)",
 	browserLogin: "Sign in in browser",
 	pkceLogin: "Sign in with authorization code",
 	userCode: "Enter this code when the provider asks:",
@@ -60,7 +61,14 @@ export const en = {
 	sourcesCheckAgain: "Check again",
 	sourcesAvailable: "A readable copy is available",
 	sourcesUnavailable: "No usable copy found",
+	sourcesAllMissingHint:
+		"No official CLI login files were found on this host. That is normal on a remote DSH machine — use device-code sign-in instead, or check again after logging in on this same host.",
+	sourcesAvailableHint:
+		"An official CLI login was found on this host. You can pull a one-way copy into dsh from a provider card.",
 	sourcesPullCopy: "Pull a copy",
+	remoteAccountsTip:
+		"This Settings page looks remote (not loopback). Prefer device-code sign-in; browser pop-ups and local PKCE callbacks often fail from another machine.",
+	remoteTipDismiss: "Dismiss",
 	sourcesPreviewTitle: "Review this copy before saving it in dsh",
 	sourcesPreviewExpires: "CLI credential expiry: {time}",
 	sourcesTicketExpires: "This preview expires at {time}",
@@ -184,6 +192,11 @@ export const en = {
 	gatewayTitle: "Local API gateway",
 	gatewayIntro: "Loopback OpenAI/Anthropic-compatible server for your own tools. Off until you enable it.",
 	gatewayWarning: "Exposes signed-in subscriptions as a local API. Can violate provider terms and uses quota.",
+	gatewayLoopbackHint: "Binds to loopback only. Do not port-forward or expose this gateway on a public interface.",
+	gatewayEnableConfirm:
+		"Enable the local API gateway? It exposes your signed-in subscriptions to tools on this host and consumes provider quota.",
+	gatewayEnableConfirmAction: "Confirm",
+	gatewayEnableCancel: "Cancel",
 	gatewayEnabled: "Enable local gateway",
 	gatewayBind: "Bind",
 	gatewayPort: "Port",
@@ -211,6 +224,11 @@ export const en = {
 	gatewayLoadFailed: "Could not load gateway settings.",
 	gatewaySaveFailed: "Could not update the gateway.",
 	gatewayLoading: "Loading gateway settings…",
+	remoteLoginHelp:
+		"On a remote DSH host, open Settings here and use device-code sign-in for each provider. Complete the code on any browser that can reach the provider, then return to chat and pick the provider route model.",
+	pluginVersion: "Plugin version {version}",
+	aboutDocsHint:
+		"See the plugin README and INSTALL docs in the repository for setup, supported providers, and gateway safety notes.",
 };
 
 export type GrokBuildSettingsKey = keyof typeof en;
@@ -230,6 +248,7 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	working: "处理中…",
 	cancelLogin: "取消登录",
 	deviceLogin: "使用设备码登录",
+	deviceLoginRemote: "使用设备码登录（适合远程）",
 	browserLogin: "在浏览器中登录",
 	pkceLogin: "使用授权码登录",
 	userCode: "供应商要求输入代码时，请输入：",
@@ -271,7 +290,13 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	sourcesCheckAgain: "再检查一次",
 	sourcesAvailable: "可以读取一份副本",
 	sourcesUnavailable: "没有可用的副本",
+	sourcesAllMissingHint:
+		"这台主机上没有找到官方 CLI 登录文件。远程 DSH 上这很常见——请改用设备码登录；若已在本机 CLI 登录，可再检查一次。",
+	sourcesAvailableHint: "本机发现了官方 CLI 登录。可在对应账户卡片里单向拉取一份副本到 dsh。",
 	sourcesPullCopy: "拉取副本",
+	remoteAccountsTip:
+		"当前 Settings 页面看起来是远程访问（非本机回环）。请优先使用设备码登录；从另一台机器打开时，浏览器弹窗和本地 PKCE 回调经常会失败。",
+	remoteTipDismiss: "知道了",
 	sourcesPreviewTitle: "先核对这份副本，再写入 dsh",
 	sourcesPreviewExpires: "CLI 凭据到期时间：{time}",
 	sourcesTicketExpires: "此次预览将于 {time} 失效",
@@ -391,6 +416,10 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	gatewayTitle: "本地 API 网关",
 	gatewayIntro: "本机 loopback 上的 OpenAI/Anthropic 兼容服务，供你自己的工具使用。默认关闭。",
 	gatewayWarning: "打开后会把已登录订阅暴露成本地 API。可能违反供应商条款并消耗配额。",
+	gatewayLoopbackHint: "仅绑定本机回环地址。请勿做端口转发，也不要把它暴露到公网。",
+	gatewayEnableConfirm: "要启用本地 API 网关吗？它会把已登录的订阅暴露给本机工具，并消耗供应商配额。",
+	gatewayEnableConfirmAction: "确认启用",
+	gatewayEnableCancel: "取消",
 	gatewayEnabled: "启用本地网关",
 	gatewayBind: "绑定地址",
 	gatewayPort: "端口",
@@ -418,4 +447,8 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	gatewayLoadFailed: "无法加载网关设置。",
 	gatewaySaveFailed: "无法更新网关。",
 	gatewayLoading: "正在加载网关设置…",
+	remoteLoginHelp:
+		"在远程 DSH 主机上，打开此处 Settings，对每个供应商使用设备码登录。在能访问供应商的任意浏览器完成验证码，再回到聊天选择对应路由模型。",
+	pluginVersion: "插件版本 {version}",
+	aboutDocsHint: "仓库中的 README 与 INSTALL 文档介绍了安装步骤、支持的供应商以及网关安全注意事项。",
 };
