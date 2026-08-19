@@ -14,7 +14,11 @@ export function isLikelyRemoteHost(hostname: string): boolean {
 }
 
 export function preferredLoginMethod(definition: ProviderCardDefinition, remote: boolean): LoginMethod {
-	if (remote && definition.remoteRecommended !== undefined && definition.methods.includes(definition.remoteRecommended)) {
+	if (
+		remote &&
+		definition.remoteRecommended !== undefined &&
+		definition.methods.includes(definition.remoteRecommended)
+	) {
 		return definition.remoteRecommended;
 	}
 	return definition.recommended;
