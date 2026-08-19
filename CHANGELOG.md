@@ -15,8 +15,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 ### Documentation
 
 - Refresh Settings product screenshots under `media/` for the remote-host Accounts tip, device-code-first CTAs, quieter CLI-missing banner, Gateway loopback hint, and shortened Capabilities copy; keep the three-column README gallery (Accounts / Gateway / Capabilities).
-- Add product screenshots of Settings → Coding OAuth (Accounts, Gateway, Capabilities) under `media/`, linked from the README family.
-- Tighten Settings screenshot framing and show Accounts / Gateway / Capabilities as a three-column README gallery instead of stacked full-width images.
+- Record previously unreleased screenshot gallery work (Accounts / Gateway / Capabilities under `media/`, three-column README layout) in this release.
 
 ## v0.5.3 - 2026-08-19
 
