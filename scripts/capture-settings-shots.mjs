@@ -20,41 +20,42 @@ const page = await browser.newPage({
 });
 
 const url = `${base}/?preview_token=${encodeURIComponent(token)}`;
-await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-await page.waitForLoadState("load");
-await page.waitForTimeout(2500);
+await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
+await page.waitForTimeout(1500);
 
-// Dismiss internal testing notice if present
-for (const label of ["我知道了", "I understand", "Got it", "OK", "确定", "知道了"]) {
-	const btn = page.getByRole("button", { name: label });
-	if (await btn.count()) {
-		await btn
+async function dismissOverlays() {
+	const continueBtn = page.getByRole("button", { name: /^Continue$/i });
+	if (await continueBtn.count()) {
+		await continueBtn
 			.first()
-			.click({ timeout: 2000 })
+			.click({ force: true, timeout: 2000 })
 			.catch(() => undefined);
-		break;
+		await page.waitForTimeout(600);
 	}
+	for (const label of ["我知道了", "I understand", "Got it", "OK", "确定", "知道了"]) {
+		const btn = page.getByRole("button", { name: label });
+		if (await btn.count()) {
+			await btn
+				.first()
+				.click({ force: true, timeout: 2000 })
+				.catch(() => undefined);
+			await page.waitForTimeout(600);
+			break;
+		}
+	}
+	await page.keyboard.press("Escape");
+	await page.waitForTimeout(400);
 }
-await page.waitForTimeout(800);
+
+await dismissOverlays();
 
 async function openSettings() {
-	const candidates = [
-		page.getByRole("button", { name: /设置|Settings/i }),
-		page.getByText(/^设置$/),
-		page.getByText(/^Settings$/),
-		page.locator('[aria-label*="设置"], [aria-label*="Settings"], [data-testid*="settings"]'),
-		page.locator("button").filter({ hasText: /设置|Settings/ }),
-	];
-	for (const loc of candidates) {
-		if ((await loc.count()) > 0) {
-			await loc
-				.first()
-				.click({ timeout: 3000 })
-				.catch(() => undefined);
-			await page.waitForTimeout(500);
-			if (await page.getByText(/Coding OAuth|编码 OAuth|Coding subscriptions|编码订阅/).count()) return true;
-			if (await page.getByText(/General|通用|Models|模型|Plugins|插件/).count()) return true;
-		}
+	await dismissOverlays();
+	const settings = page.getByRole("button", { name: /设置|Settings/i }).first();
+	if (await settings.count()) {
+		await settings.click({ timeout: 5000 });
+		await page.waitForTimeout(800);
+		if (await page.getByText(/Coding OAuth|编码 OAuth|General|通用|Models|模型|Plugins|插件/).count()) return true;
 	}
 	// Keyboard / programmatic fallbacks
 	await page.keyboard.press("Control+,");
@@ -85,8 +86,13 @@ if (!opened) {
 }
 
 async function goCodingOauth() {
-	const nav = page.getByText(/Coding OAuth|编码 OAuth/).first();
-	await nav.click({ timeout: 5000 });
+	const nav = page.getByRole("button", { name: /Coding OAuth|编码 OAuth/i }).first();
+	if (await nav.count()) await nav.click({ timeout: 5000 });
+	else
+		await page
+			.getByText(/Coding OAuth|编码 OAuth/)
+			.first()
+			.click({ timeout: 5000 });
 	await page.waitForTimeout(800);
 	await page
 		.getByText(/Coding subscriptions|编码订阅账户|编码订阅/)

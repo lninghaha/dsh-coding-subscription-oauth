@@ -39,7 +39,7 @@ async function ensureLink(target, path) {
 }
 
 const dsh = await assertPackage(DSH_ROOT, "@deepseek-ai/dsh", "0.1.0-rc.6");
-const plugin = await assertPackage(PLUGIN_ROOT, PLUGIN_NAME, "0.5.4");
+const plugin = await assertPackage(PLUGIN_ROOT, PLUGIN_NAME);
 if (dsh.engines?.node !== undefined && typeof dsh.engines.node !== "string") {
 	throw new Error("invalid @deepseek-ai/dsh engines.node metadata");
 }
@@ -47,8 +47,7 @@ if (dsh.engines?.node !== undefined && typeof dsh.engines.node !== "string") {
 await mkdir(join(PLUGIN_ROOT, "node_modules"), { recursive: true });
 for (const [peer, range] of Object.entries(plugin.peerDependencies ?? {})) {
 	const peerRoot = join(DSH_ROOT, "node_modules", peer);
-	const exactVersion = typeof range === "string" && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(range) ? range : undefined;
-	await assertPackage(peerRoot, peer, exactVersion);
+	await assertPackage(peerRoot, peer);
 	await ensureLink(peerRoot, join(PLUGIN_ROOT, "node_modules", peer));
 }
 
