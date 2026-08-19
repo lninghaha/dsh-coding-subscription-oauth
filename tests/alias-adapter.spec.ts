@@ -323,6 +323,90 @@ describe("AliasLlmAdapter", () => {
 		]);
 	});
 
+	it("remaps xAI at-capacity finish errors to RATE_LIMIT and does not invalidate the token", async () => {
+		const message =
+			"Error Code null: The model is currently at capacity due to high demand. Please try again in a few minutes, or use a higher service tier for priority processing";
+		const inner = new FakeAdapter([
+			{
+				type: "finish",
+				reason: {
+					kind: "error",
+					failure: { message, code: "PI_AI_ERROR" },
+				},
+			},
+		]);
+		let calls = 0;
+		const adapter = new AliasLlmAdapter(
+			inner,
+			new Map([["grok-build", "xai"]]),
+			new Map([
+				[
+					"grok-build",
+					{
+						onAuthFailure: async () => {
+							calls += 1;
+						},
+					},
+				],
+			]),
+		);
+		const seen: StreamChunk[] = [];
+		for await (const chunk of adapter.stream({
+			provider: "grok-build",
+			model: "grok-4.6",
+			messages: [],
+		} as unknown as GenerateOptions)) {
+			seen.push(chunk);
+		}
+		expect(calls).toBe(0);
+		expect(seen).toMatchObject([
+			{
+				type: "finish",
+				reason: { kind: "error", failure: { message, code: "RATE_LIMIT" } },
+			},
+		]);
+	});
+
+	it("does not invoke onAuthFailure when capacity was misclassified as AUTH", async () => {
+		const message = "The model is currently at capacity due to high demand.";
+		const inner = new FakeAdapter([
+			{
+				type: "finish",
+				reason: { kind: "error", failure: { message, code: "AUTH" } },
+			},
+		]);
+		let calls = 0;
+		const adapter = new AliasLlmAdapter(
+			inner,
+			new Map([["grok-build", "xai"]]),
+			new Map([
+				[
+					"grok-build",
+					{
+						onAuthFailure: async () => {
+							calls += 1;
+						},
+					},
+				],
+			]),
+		);
+		const seen: StreamChunk[] = [];
+		for await (const chunk of adapter.stream({
+			provider: "grok-build",
+			model: "grok-4.6",
+			messages: [],
+		} as unknown as GenerateOptions)) {
+			seen.push(chunk);
+		}
+		expect(calls).toBe(0);
+		expect(seen).toMatchObject([
+			{
+				type: "finish",
+				reason: { kind: "error", failure: { code: "RATE_LIMIT" } },
+			},
+		]);
+	});
+
 	it("does not invoke onAuthFailure for non-AUTH finishes or other routes", async () => {
 		const inner = new FakeAdapter([
 			{ type: "finish", reason: { kind: "error", failure: { message: "429 slow down", code: "RATE_LIMIT" } } },

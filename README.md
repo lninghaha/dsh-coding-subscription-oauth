@@ -222,16 +222,16 @@ Only reviewed subscription domains are proxied (xAI/Grok, OpenAI Codex, Claude/A
 
 OAuth access tokens refresh proactively **five minutes** before their stored expiry (pi-ai 0.84+), so a request never rides a token into its final seconds. If an upstream still rejects a locally-valid token with 401/403 — server-side revocation or clock skew — the plugin backdates the stored credential and the retried step refreshes before reuse, recovering transparently instead of failing the turn.
 
-Request retries use the harness retry policy: transient failures (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **and `AUTH`** retry with exponential backoff (default 2 retries, 500 ms → 10 s, 10% jitter). Quota exhaustion and a dead refresh token are **not** retried — they fail fast with the real message and a sign-in prompt. Override per deployment:
+Request retries use the harness retry policy: transient failures (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **and `AUTH`** retry with exponential backoff (default 5 retries, 5 s → 10 s → 20 s → 40 s → 80 s, ~155 s stacked, 10% jitter). xAI “at capacity / high demand / priority processing” finish messages are remapped to `RATE_LIMIT` so they enter this policy (pi-ai would otherwise label them `PI_AI_ERROR` when upstream `error.code` is null). Quota exhaustion and a dead refresh token are **not** retried — they fail fast with the real message and a sign-in prompt. Override per deployment:
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## Credentials

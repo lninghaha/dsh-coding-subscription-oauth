@@ -209,16 +209,16 @@ Kimi Code 구독 OAuth는 `https://auth.kimi.com`, 추론은 `https://api.kimi.c
 
 OAuth 액세스 토큰은 저장된 만료 시각 **5분 전**에 선제적으로 갱신됩니다(pi-ai 0.84+). 업스트림이 로컬에서는 아직 유효한 토큰을 401/403으로 거절하면, 플러그인이 저장된 `expires`를 과거로 되돌리고 재시도 단계에서 먼저 갱신한 뒤 다시 요청합니다.
 
-요청 재시도는 harness retry 정책을 따릅니다. 일시 오류(`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`)와 **`AUTH`**는 지수 백오프로 재시도합니다(기본 2회, 500 ms → 10 s, 10% jitter). 쿼터 소진과 죽은 refresh token은 재시도하지 않습니다. 배포별 재정의:
+요청 재시도는 harness retry 정책을 따릅니다. 일시 오류(`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`)와 **`AUTH`**는 지수 백오프로 재시도합니다(기본 5회, 5 s → 10 s → 20 s → 40 s → 80 s (~155 s 누적), 10% jitter). 쿼터 소진과 죽은 refresh token은 재시도하지 않습니다. 배포별 재정의:
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## 자격 증명

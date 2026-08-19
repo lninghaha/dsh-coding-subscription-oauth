@@ -60,8 +60,9 @@ ctx.llm route
 - `oauth-session.ts`：登录、刷新、静态模型目录和模型选择缓存。
 - `oauth-sources.ts`：白名单官方 Grok/Codex/Kimi/Claude CLI 发现；加固的 lstat/`O_NOFOLLOW`/属主/权限/普通文件/大小读取；一次性预览票据（五分钟、最多 32 张）；从不写入官方 CLI 文件。
 - `oauth-import-routes.ts`：同源拉取 HTTP API（发现 → 预览 → 提交/取消），写入发生在目标 store 锁内。
-- `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。
-- `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy。可选包装 `codex-oauth-fast`，显示为 **已请求 Fast**。
+- `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。finish 管道还会重映射 Kimi 误标 AUTH 的上下文溢出，以及 xAI capacity 文案 → `RATE_LIMIT`。
+- `grok-errors.ts`：识别 xAI「at capacity / high demand / priority processing / overloaded」并改为 `RATE_LIMIT`，避免 `PI_AI_ERROR` 跳过退避。
+- `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy（默认 5 次，5 s → 80 s 指数叠加）。可选包装 `codex-oauth-fast`，显示为 **已请求 Fast**。
 - `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
 - `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
 - `capability-routes.ts`：无密钥的能力快照，以及可选的 Codex 用量和 Imagine 凭据状态路由。

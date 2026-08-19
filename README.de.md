@@ -209,16 +209,16 @@ Nur geprüfte Abonnement-Domänen werden proxied (xAI/Grok, OpenAI Codex, Claude
 
 OAuth-Zugriffstoken werden **fünf Minuten** vor dem gespeicherten Ablauf erneuert (pi-ai 0.84+). Lehnt der Upstream ein lokal noch gültiges Token mit 401/403 ab, setzt das Plugin das gespeicherte `expires` in die Vergangenheit; der wiederholte Step refresht zuerst und sendet dann erneut.
 
-Wiederholungen folgen der Harness-Retry-Policy: transiente Fehler (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **und `AUTH`** werden mit exponentiellem Backoff wiederholt (2 Versuche, 500 ms → 10 s, 10 % Jitter). Quota-Erschöpfung und ein totes Refresh-Token werden **nicht** wiederholt. Überschreiben pro Deployment:
+Wiederholungen folgen der Harness-Retry-Policy: transiente Fehler (`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`/`EMPTY_RESPONSE`) **und `AUTH`** werden mit exponentiellem Backoff wiederholt (5 Versuche, 5 s → 10 s → 20 s → 40 s → 80 s (~155 s gestapelt), 10 % Jitter). Quota-Erschöpfung und ein totes Refresh-Token werden **nicht** wiederholt. Überschreiben pro Deployment:
 
 ```yaml
 - id: llm-grok-build-oauth
   config:
     retryPolicy:
       mode: normal
-      maxRetries: 2
+      maxRetries: 5
       retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, AUTH]
-      backoff: { initialDelayMs: 500, maxDelayMs: 10000, jitterRatio: 0.1 }
+      backoff: { initialDelayMs: 5000, maxDelayMs: 80000, jitterRatio: 0.1 }
 ```
 
 ## Zugangsdaten

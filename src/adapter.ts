@@ -58,12 +58,17 @@ const MIN_OAUTH_VALIDITY_MS = 60_000;
  * set: retrying a billing-limit 403 cannot succeed and only delays the real
  * message. Genuine credential death is converted to MISSING_CREDENTIAL (not
  * retryable) by the resolver below, so it cannot loop either.
+ *
+ * Five stacked exponential delays (5s → 10s → 20s → 40s → 80s, ~155s total)
+ * pair with the xAI capacity remap in {@link AliasLlmAdapter}: "at capacity"
+ * finish errors become RATE_LIMIT so they enter this policy instead of failing
+ * as PI_AI_ERROR.
  */
 const CODING_OAUTH_RETRY_POLICY = {
 	mode: "normal" as const,
-	maxRetries: 2,
+	maxRetries: 5,
 	retryableCodes: ["EMPTY_RESPONSE", "RATE_LIMIT", "SERVER", "TIMEOUT", "TRANSPORT", "AUTH"],
-	backoff: { initialDelayMs: 500, maxDelayMs: 10_000, jitterRatio: 0.1 },
+	backoff: { initialDelayMs: 5_000, maxDelayMs: 80_000, jitterRatio: 0.1 },
 };
 
 function profile(
