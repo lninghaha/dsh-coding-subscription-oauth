@@ -56,24 +56,35 @@ for (const name of wanted) {
 	}
 }
 
+async function moveDir(from, to) {
+	try {
+		await rename(from, to);
+	} catch (error) {
+		if (error?.code !== "EXDEV") throw error;
+		await rm(to, { recursive: true, force: true });
+		await cp(from, to, { recursive: true });
+		await rm(from, { recursive: true, force: true });
+	}
+}
+
 let replacedExisting = false;
 try {
-	await rename(target, backup);
+	await moveDir(target, backup);
 	replacedExisting = true;
 } catch (error) {
 	if (error?.code !== "ENOENT") throw error;
 }
 try {
-	await rename(staging, target);
+	await moveDir(staging, target);
 } catch (error) {
-	if (replacedExisting) await rename(backup, target);
+	if (replacedExisting) await moveDir(backup, target);
 	throw error;
 }
 try {
 	await import(`./verify-release.mjs?promotion=${Date.now()}`);
 } catch (error) {
 	await rm(target, { recursive: true, force: true });
-	if (replacedExisting) await rename(backup, target);
+	if (replacedExisting) await moveDir(backup, target);
 	throw error;
 }
 await rm(backup, { recursive: true, force: true });

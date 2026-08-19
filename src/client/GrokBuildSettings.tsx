@@ -1,971 +1,81 @@
 /** Plugin-owned coding subscription account section inside the dsh Settings shell. */
 
-import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GrokBuildSettingsKey } from "./locales.ts";
-
-const STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
-const LOGIN_PATH = "/plugins/dsh-grok-build/oauth/login";
-const LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
-const LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
-const LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
-const MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
-const SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
-const SOURCES_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
-const SOURCES_COMMIT_PATH = "/plugins/dsh-grok-build/oauth/sources/commit";
-const SOURCES_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
-const CAPABILITIES_PATH = "/plugins/dsh-grok-build/capabilities";
-const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
-const IMAGINE_CREDENTIAL_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
-const GATEWAY_PATH = "/plugins/dsh-grok-build/gateway";
-const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
-const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
-const POLL_INTERVAL_MS = 1_000;
-
-type ProviderSlug = "grok" | "codex" | "kimi" | "claude";
-type LoginMethod = "pkce" | "device" | "browser";
-type CatalogSource = "live" | "cache" | "fallback";
-type SourceKind = ProviderSlug;
-type SourceReason = "missing" | "unsafe" | "invalid" | "too_large";
-type SourceConflict =
-	| "none"
-	| "same_credential"
-	| "same_account"
-	| "different_account"
-	| "unknown_account"
-	| "unreadable_destination"
-	| "unsafe_destination";
-type SourcePreviewAction = "import" | "reuse" | "overwrite" | "blocked";
-type SourceCommitAction = "imported" | "unchanged" | "overwritten";
-type CapabilityFlagKey =
-	| "codexSearch"
-	| "codexImages"
-	| "codexImageEdits"
-	| "codexUsage"
-	| "codexFast"
-	| "grokImagineImage"
-	| "grokImagineVideo";
-type CapabilityLimitKey = "searchResults" | "imageCount" | "videoArtifactTtlMs";
-type CapabilitySettingKey = CapabilityFlagKey | CapabilityLimitKey;
-
-type GrokStatus =
-	| { status: "signed-out"; grokImportAvailable: boolean }
-	| { status: "signing-in"; method: "pkce" | "device"; url?: string; userCode?: string; grokImportAvailable: boolean }
-	| {
-			status: "signed-in";
-			models: string[];
-			available: string[];
-			selected: string[];
-			catalogSource: CatalogSource;
-			catalogError?: string;
-			grokImportAvailable: boolean;
-	  }
-	| { status: "error"; message: string; grokImportAvailable: boolean };
-
-type SubscriptionStatus = {
-	provider: Exclude<ProviderSlug, "grok">;
-	route: string;
-	displayName: string;
-	loginMethods: readonly ("browser" | "device")[];
-	recommendedLoginMethod: "browser" | "device";
-	models: string[];
-	available: string[];
-	selected: string[];
-} & (
-	| { status: "signed-out" }
-	| { status: "signing-in"; method: "browser" | "device"; url?: string; userCode?: string }
-	| { status: "signed-in"; expiresAt?: number }
-	| { status: "error"; message: string }
-);
-
-type ProviderStatus = GrokStatus | SubscriptionStatus;
-
-interface CodingOAuthStatus {
-	providers: {
-		grok: GrokStatus;
-		codex: SubscriptionStatus;
-		kimi: SubscriptionStatus;
-		claude: SubscriptionStatus;
-	};
-	antigravity: { installed: boolean; route: "agy"; management: "cli" };
-}
-
-interface LoginChallenge {
-	method: LoginMethod;
-	url: string;
-	userCode?: string;
-}
-
-interface ProviderCardDefinition {
-	slug: ProviderSlug;
-	route: string;
-	titleKey: GrokBuildSettingsKey;
-	descriptionKey: GrokBuildSettingsKey;
-	methods: readonly LoginMethod[];
-	recommended: LoginMethod;
-}
-
-interface SourceStatus {
-	kind: SourceKind;
-	displayPath: string;
-	available: boolean;
-	expiresAt?: number;
-	reason?: SourceReason;
-}
-
-interface SourcePreview {
-	previewId: string;
-	kind: SourceKind;
-	displayPath: string;
-	expiresAt?: number;
-	ticketExpiresAt?: number;
-	conflict?: SourceConflict;
-	action?: SourcePreviewAction;
-	warnings: string[];
-	confirmOverwriteRequired: boolean;
-}
-
-interface CapabilityFlags {
-	codexSearch: boolean;
-	codexImages: boolean;
-	codexImageEdits: boolean;
-	codexUsage: boolean;
-	codexFast: boolean;
-	grokImagineImage: boolean;
-	grokImagineVideo: boolean;
-}
-
-interface CapabilitySettingsView extends CapabilityFlags {
-	searchResults: number;
-	imageCount: number;
-	videoArtifactTtlMs: number;
-}
-
-interface CapabilitySnapshot {
-	value: CapabilitySettingsView;
-	revision: number;
-	writable: boolean;
-}
-
-interface UsageWindowView {
-	usedPercent?: number;
-	remainingPercent?: number;
-	windowSeconds?: number;
-	resetsAt?: number;
-}
-
-interface UsageLimitView {
-	id: string;
-	name?: string;
-	windows: UsageWindowView[];
-}
-
-interface UsageView {
-	rateLimits: UsageLimitView[];
-	creditsUnlimited?: boolean;
-	creditsBalance?: string;
-	individualLimit?: string;
-	individualUsed?: string;
-	individualRemaining?: string;
-	individualRemainingPercent?: number;
-	individualResetsAt?: number;
-	spendControlReached?: boolean;
-	resetCredits?: number;
-	fetchedAt?: number;
-}
-
-interface ImagineCredentialView {
-	configured: boolean;
-	source?: string;
-	writable?: boolean;
-}
-
-interface PluginRequestError extends Error {
-	status: number;
-	code?: string;
-}
-
-const SOURCE_KINDS: readonly SourceKind[] = ["grok", "codex", "kimi", "claude"];
-const SOURCE_REASONS: readonly SourceReason[] = ["missing", "unsafe", "invalid", "too_large"];
-const SOURCE_CONFLICTS: readonly SourceConflict[] = [
-	"none",
-	"same_credential",
-	"same_account",
-	"different_account",
-	"unknown_account",
-	"unreadable_destination",
-	"unsafe_destination",
-];
-const SOURCE_PREVIEW_ACTIONS: readonly SourcePreviewAction[] = ["import", "reuse", "overwrite", "blocked"];
-const SOURCE_COMMIT_ACTIONS: readonly SourceCommitAction[] = ["imported", "unchanged", "overwritten"];
-const SOURCE_DEFAULT_PATH: { readonly [K in SourceKind]: string } = {
-	grok: "~/.grok/auth.json",
-	codex: "~/.codex/auth.json",
-	kimi: "~/.kimi/credentials/kimi-code.json",
-	claude: "~/.claude/.credentials.json",
-};
-const SOURCE_KIND_KEY: { readonly [K in SourceKind]: GrokBuildSettingsKey } = {
-	grok: "sourceKindGrok",
-	codex: "sourceKindCodex",
-	kimi: "sourceKindKimi",
-	claude: "sourceKindClaude",
-};
-const SOURCE_REASON_KEY: { readonly [K in SourceReason]: GrokBuildSettingsKey } = {
-	missing: "sourceReasonMissing",
-	unsafe: "sourceReasonUnsafe",
-	invalid: "sourceReasonInvalid",
-	too_large: "sourceReasonTooLarge",
-};
-const SOURCE_CONFLICT_KEY: { readonly [K in SourceConflict]: GrokBuildSettingsKey } = {
-	none: "sourceConflictNone",
-	same_credential: "sourceConflictSameCredential",
-	same_account: "sourceConflictSameAccount",
-	different_account: "sourceConflictDifferentAccount",
-	unknown_account: "sourceConflictUnknownAccount",
-	unreadable_destination: "sourceConflictUnreadableDestination",
-	unsafe_destination: "sourceConflictUnsafeDestination",
-};
-const SOURCE_PREVIEW_ACTION_KEY: { readonly [K in SourcePreviewAction]: GrokBuildSettingsKey } = {
-	import: "sourceActionImport",
-	reuse: "sourceActionReuse",
-	overwrite: "sourceActionOverwrite",
-	blocked: "sourceActionBlocked",
-};
-const SOURCE_COMMIT_ACTION_KEY: { readonly [K in SourceCommitAction]: GrokBuildSettingsKey } = {
-	imported: "sourceCommitImported",
-	unchanged: "sourceCommitUnchanged",
-	overwritten: "sourceCommitOverwritten",
-};
-const CAPABILITY_TOGGLES: readonly {
-	key: CapabilityFlagKey;
-	label: GrokBuildSettingsKey;
-	hint: GrokBuildSettingsKey;
-	requiresImages?: true;
-}[] = [
-	{ key: "codexSearch", label: "capCodexSearch", hint: "capCodexSearchHint" },
-	{ key: "codexImages", label: "capCodexImages", hint: "capCodexImagesHint" },
-	{ key: "codexImageEdits", label: "capCodexImageEdits", hint: "capCodexImageEditsHint", requiresImages: true },
-	{ key: "codexUsage", label: "capCodexUsage", hint: "capCodexUsageHint" },
-	{ key: "codexFast", label: "capCodexFast", hint: "capCodexFastHint" },
-	{ key: "grokImagineImage", label: "capGrokImagineImage", hint: "capGrokImagineImageHint" },
-	{ key: "grokImagineVideo", label: "capGrokImagineVideo", hint: "capGrokImagineVideoHint" },
-];
-const HOUR_MS = 60 * 60 * 1000;
-const CAPABILITY_LIMITS: readonly {
-	key: CapabilityLimitKey;
-	label: GrokBuildSettingsKey;
-	hint: GrokBuildSettingsKey;
-	min: number;
-	max: number;
-	scale: number;
-}[] = [
-	{ key: "searchResults", label: "capSearchResults", hint: "capSearchResultsHint", min: 1, max: 20, scale: 1 },
-	{ key: "imageCount", label: "capImageCount", hint: "capImageCountHint", min: 1, max: 4, scale: 1 },
-	{
-		key: "videoArtifactTtlMs",
-		label: "capVideoTtlHours",
-		hint: "capVideoTtlHoursHint",
-		min: 1,
-		max: 168,
-		scale: HOUR_MS,
-	},
-];
-const IMAGINE_SOURCE_KEY: { readonly [source: string]: GrokBuildSettingsKey } = {
-	none: "imagineSourceNone",
-	env: "imagineSourceEnv",
-	environment: "imagineSourceEnv",
-	"xai-api-key": "imagineSourceEnv",
-	xai_api_key: "imagineSourceEnv",
-	"api-key": "imagineSourceApiKey",
-	api_key: "imagineSourceApiKey",
-	apikey: "imagineSourceApiKey",
-	key: "imagineSourceApiKey",
-	settings: "imagineSourceApiKey",
-	oauth: "imagineSourceOAuth",
-	"oauth-access": "imagineSourceOAuth",
-	"grok-cli-key": "imagineSourceCliKey",
-	"cli-key": "imagineSourceCliKey",
-};
-
-const PROVIDERS: readonly ProviderCardDefinition[] = [
-	{
-		slug: "grok",
-		route: "grok-build",
-		titleKey: "grokTitle",
-		descriptionKey: "grokDescription",
-		methods: ["pkce", "device"],
-		recommended: "pkce",
-	},
-	{
-		slug: "codex",
-		route: "codex-oauth",
-		titleKey: "codexTitle",
-		descriptionKey: "codexDescription",
-		methods: ["device", "browser"],
-		recommended: "device",
-	},
-	{
-		slug: "kimi",
-		route: "kimi-code-oauth",
-		titleKey: "kimiTitle",
-		descriptionKey: "kimiDescription",
-		methods: ["device"],
-		recommended: "device",
-	},
-	{
-		slug: "claude",
-		route: "claude-code-oauth",
-		titleKey: "claudeTitle",
-		descriptionKey: "claudeDescription",
-		methods: ["browser"],
-		recommended: "browser",
-	},
-];
-
-type SettingsTabId = "accounts" | "capabilities" | "gateway" | "about";
-type CopyField = "openai" | "anthropic" | "key";
-
-const SETTINGS_TABS: readonly { id: SettingsTabId; label: GrokBuildSettingsKey }[] = [
-	{ id: "accounts", label: "tabAccounts" },
-	{ id: "gateway", label: "tabGateway" },
-	{ id: "capabilities", label: "tabCapabilities" },
-	{ id: "about", label: "tabAbout" },
-];
-
-export interface GrokBuildSettingsInjected {
-	t: (key: GrokBuildSettingsKey, params?: Record<string, unknown>) => string;
-}
-
-export type GrokBuildSettingsProps = Partial<GrokBuildSettingsInjected>;
-
-const pageStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 16, maxWidth: 780 };
-const titleStyle: CSSProperties = {
-	margin: 0,
-	fontSize: 20,
-	lineHeight: "28px",
-	fontWeight: 600,
-	color: "var(--dsw-alias-label-primary)",
-};
-const bodyStyle: CSSProperties = {
-	margin: 0,
-	fontSize: 14,
-	lineHeight: "22px",
-	color: "var(--dsw-alias-label-secondary)",
-};
-const cardStyle: CSSProperties = {
-	display: "flex",
-	flexDirection: "column",
-	gap: 14,
-	padding: "18px 20px",
-	border: "1px solid var(--dsw-alias-border-l2)",
-	borderRadius: 12,
-	background: "var(--dsw-alias-bg-module-platform)",
-};
-const rowStyle: CSSProperties = {
-	display: "flex",
-	alignItems: "center",
-	justifyContent: "space-between",
-	flexWrap: "wrap",
-	gap: 12,
-};
-const statusStyle: CSSProperties = {
-	display: "flex",
-	alignItems: "center",
-	gap: 9,
-	fontSize: 14,
-	fontWeight: 500,
-	color: "var(--dsw-alias-label-primary)",
-};
-const buttonStyle: CSSProperties = {
-	boxSizing: "border-box",
-	minHeight: 34,
-	padding: "6px 14px",
-	border: "1px solid var(--dsw-alias-border-l4, rgba(127, 127, 127, 0.4))",
-	borderRadius: 18,
-	background: "var(--dsw-alias-button-elevated-fill, var(--dsw-alias-bg-layer-1))",
-	color: "var(--dsw-alias-label-primary)",
-	boxShadow: "0 1px 2px rgba(0, 0, 0, 0.18)",
-	font: "inherit",
-	fontSize: 14,
-	fontWeight: 500,
-	cursor: "pointer",
-};
-const primaryButtonStyle: CSSProperties = {
-	...buttonStyle,
-	borderColor: "#315fc7",
-	background: "#315fc7",
-	color: "#ffffff",
-	boxShadow: "0 1px 3px rgba(0, 0, 0, 0.28)",
-	fontWeight: 600,
-};
-const errorStyle: CSSProperties = { ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" };
-const warningStyle: CSSProperties = {
-	...bodyStyle,
-	padding: "10px 12px",
-	borderRadius: 8,
-	background: "var(--dsw-alias-bg-layer-1)",
-};
-const codeStyle: CSSProperties = {
-	fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-	fontSize: 20,
-	letterSpacing: "0.08em",
-	fontWeight: 600,
-	color: "var(--dsw-alias-label-primary)",
-};
-const monoStyle: CSSProperties = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" };
-const linkStyle: CSSProperties = { color: "var(--dsw-alias-brand-primary)", wordBreak: "break-all" };
-const listStyle: CSSProperties = {
-	display: "flex",
-	flexDirection: "column",
-	gap: 8,
-	margin: 0,
-	padding: 0,
-	listStyle: "none",
-};
-const checkRowStyle: CSSProperties = {
-	display: "flex",
-	alignItems: "flex-start",
-	gap: 8,
-	fontSize: 14,
-	color: "var(--dsw-alias-label-primary)",
-};
-const inputStyle: CSSProperties = {
-	boxSizing: "border-box",
-	width: "100%",
-	minHeight: 34,
-	padding: "6px 12px",
-	border: "1px solid var(--dsw-alias-border-l2)",
-	borderRadius: 8,
-	background: "var(--dsw-alias-bg-layer-1)",
-	color: "var(--dsw-alias-label-primary)",
-	font: "inherit",
-	fontSize: 13,
-};
-const nestedStyle: CSSProperties = {
-	display: "flex",
-	flexDirection: "column",
-	gap: 8,
-	padding: "12px 14px",
-	border: "1px solid var(--dsw-alias-border-l2)",
-	borderRadius: 8,
-	background: "var(--dsw-alias-bg-layer-1)",
-};
-const hintStyle: CSSProperties = { ...bodyStyle, fontSize: 13 };
-const tabNavStyle: CSSProperties = {
-	display: "flex",
-	flexWrap: "wrap",
-	gap: 8,
-};
-const tabButtonStyle: CSSProperties = {
-	...buttonStyle,
-	borderRadius: 10,
-};
-const tabButtonActiveStyle: CSSProperties = {
-	...primaryButtonStyle,
-	borderRadius: 10,
-};
-const panelStyle: CSSProperties = {
-	display: "flex",
-	flexDirection: "column",
-	gap: 14,
-	minWidth: 0,
-};
-const accountGridStyle: CSSProperties = {
-	display: "grid",
-	gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-	gap: 14,
-};
-const copyRowStyle: CSSProperties = {
-	display: "flex",
-	alignItems: "center",
-	justifyContent: "space-between",
-	flexWrap: "wrap",
-	gap: 8,
-};
-
-function dotStyle(
-	status: ProviderStatus["status"] | "loading" | "available" | "unavailable",
-	installed = true,
-): CSSProperties {
-	const color = !installed
-		? "var(--dsw-alias-label-dimmed, #9aa0a6)"
-		: status === "signed-in" || status === "available"
-			? "var(--dsw-alias-state-success-primary, #22a06b)"
-			: status === "error"
-				? "var(--dsw-alias-state-error-primary, #d92d20)"
-				: status === "signing-in" || status === "loading"
-					? "var(--dsw-alias-brand-primary, #1677ff)"
-					: "var(--dsw-alias-label-dimmed, #9aa0a6)";
-	return { width: 9, height: 9, borderRadius: "50%", flex: "0 0 auto", background: color };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function optionalString(value: unknown): string | undefined {
-	return typeof value === "string" && value.length > 0 && value.length < 500 ? value : undefined;
-}
-
-function optionalFiniteNumber(value: unknown): number | undefined {
-	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function optionalBoolean(value: unknown): boolean | undefined {
-	return typeof value === "boolean" ? value : undefined;
-}
-
-function optionalPercent(value: unknown): number | undefined {
-	const numeric = optionalFiniteNumber(value);
-	return numeric !== undefined && numeric >= 0 && numeric <= 100 ? numeric : undefined;
-}
-
-function isSourceKind(value: string): value is SourceKind {
-	return (SOURCE_KINDS as readonly string[]).includes(value);
-}
-
-function isSourceReason(value: string): value is SourceReason {
-	return (SOURCE_REASONS as readonly string[]).includes(value);
-}
-
-function isSourceConflict(value: string): value is SourceConflict {
-	return (SOURCE_CONFLICTS as readonly string[]).includes(value);
-}
-
-function isSourcePreviewAction(value: string): value is SourcePreviewAction {
-	return (SOURCE_PREVIEW_ACTIONS as readonly string[]).includes(value);
-}
-
-function isSourceCommitAction(value: string): value is SourceCommitAction {
-	return (SOURCE_COMMIT_ACTIONS as readonly string[]).includes(value);
-}
-
-function looksSecret(value: string): boolean {
-	return /eyJ[A-Za-z0-9_-]+\.|sk-[A-Za-z0-9_-]{8,}|Bearer\s+\S+/u.test(value);
-}
-
-function safeDisplayPath(value: unknown, kind: SourceKind): string {
-	const text = optionalString(value);
-	if (text === undefined || looksSecret(text) || text.length > 180) return SOURCE_DEFAULT_PATH[kind];
-	return text;
-}
-
-function safeWarning(value: unknown): string | undefined {
-	const text = optionalString(value);
-	if (text === undefined || looksSecret(text)) return undefined;
-	return text;
-}
-
-function formatEpoch(value: number | undefined): string | undefined {
-	if (value === undefined || !Number.isFinite(value) || value <= 0) return undefined;
-	const ms = value > 1e12 ? value : value > 1e9 ? value * 1000 : undefined;
-	if (ms === undefined) return undefined;
-	const formatted = new Date(ms).toLocaleString();
-	return formatted.length > 0 ? formatted : undefined;
-}
-
-function isPluginRequestError(error: unknown): error is PluginRequestError {
-	return error instanceof Error && error.name === "PluginRequestError" && "status" in error;
-}
-
-function isConflictError(error: unknown): boolean {
-	if (!isPluginRequestError(error)) {
-		return (
-			error instanceof Error && /SETTINGS_CONFLICT|settings-conflict|changed since it was read/iu.test(error.message)
-		);
-	}
-	return error.status === 409 || error.code === "SETTINGS_CONFLICT" || /conflict/iu.test(error.message);
-}
-
-const CONSUMED_PREVIEW_CODES = new Set([
-	"preview_invalid",
-	"preview_expired",
-	"source_changed",
-	"destination_changed",
-	"confirm_required",
-	"unsafe_destination",
-]);
-
-function isConsumedPreviewError(error: unknown): boolean {
-	if (!isPluginRequestError(error)) return false;
-	if (error.code !== undefined && CONSUMED_PREVIEW_CODES.has(error.code)) return true;
-	return error.status === 404 || error.status === 410;
-}
-
-function cancelPreviewTicket(previewId: string, keepalive = false): void {
-	void fetch(SOURCES_CANCEL_PATH, {
-		method: "POST",
-		headers: { accept: "application/json", "content-type": "application/json" },
-		credentials: "same-origin",
-		body: JSON.stringify({ previewId }),
-		...(keepalive ? { keepalive: true } : {}),
-	}).catch(() => undefined);
-}
-
-async function jsonRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
-	const response = await fetch(path, {
-		method,
-		headers: { accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
-		credentials: "same-origin",
-		...(body === undefined ? {} : { body: JSON.stringify(body) }),
-	});
-	const value: unknown = await response.json().catch(() => undefined);
-	if (!response.ok) {
-		const record = isRecord(value) ? value : undefined;
-		const message =
-			record !== undefined && typeof record["error"] === "string"
-				? record["error"]
-				: record !== undefined && typeof record["message"] === "string"
-					? record["message"]
-					: `HTTP ${response.status}`;
-		const code = record !== undefined && typeof record["code"] === "string" ? record["code"] : undefined;
-		const error = new Error(message) as PluginRequestError;
-		error.name = "PluginRequestError";
-		error.status = response.status;
-		if (code !== undefined) error.code = code;
-		throw error;
-	}
-	return value as T;
-}
-
-function parseSource(value: unknown): SourceStatus | undefined {
-	if (!isRecord(value) || typeof value["kind"] !== "string" || !isSourceKind(value["kind"])) return undefined;
-	const kind = value["kind"];
-	const reasonRaw = optionalString(value["reason"]);
-	const expiresAt = optionalFiniteNumber(value["expiresAt"]);
-	return {
-		kind,
-		displayPath: safeDisplayPath(value["displayPath"], kind),
-		available: value["available"] === true,
-		...(expiresAt === undefined ? {} : { expiresAt }),
-		...(reasonRaw !== undefined && isSourceReason(reasonRaw) ? { reason: reasonRaw } : {}),
-	};
-}
-
-function mergeSources(discovered: readonly SourceStatus[]): SourceStatus[] {
-	return SOURCE_KINDS.map((kind) => {
-		const found = discovered.find((entry) => entry.kind === kind);
-		return found ?? { kind, displayPath: SOURCE_DEFAULT_PATH[kind], available: false, reason: "missing" };
-	});
-}
-
-function parseSources(value: unknown): SourceStatus[] {
-	const rows = Array.isArray(value)
-		? value
-		: isRecord(value) && Array.isArray(value["sources"])
-			? value["sources"]
-			: [];
-	return mergeSources(rows.map(parseSource).filter((entry): entry is SourceStatus => entry !== undefined));
-}
-
-function parsePreview(value: unknown): SourcePreview | undefined {
-	if (!isRecord(value)) return undefined;
-	const previewId = optionalString(value["previewId"]);
-	const kindRaw = optionalString(value["kind"]);
-	if (previewId === undefined || kindRaw === undefined || !isSourceKind(kindRaw)) return undefined;
-	const conflictRaw = optionalString(value["conflict"]);
-	const actionRaw = optionalString(value["action"]);
-	const expiresAt = optionalFiniteNumber(value["expiresAt"]);
-	const ticketExpiresAt = optionalFiniteNumber(value["ticketExpiresAt"]);
-	const warnings = Array.isArray(value["warnings"])
-		? value["warnings"].map(safeWarning).filter((entry): entry is string => entry !== undefined)
-		: [];
-	return {
-		previewId,
-		kind: kindRaw,
-		displayPath: safeDisplayPath(value["displayPath"], kindRaw),
-		confirmOverwriteRequired: value["confirmOverwriteRequired"] === true,
-		warnings,
-		...(expiresAt === undefined ? {} : { expiresAt }),
-		...(ticketExpiresAt === undefined ? {} : { ticketExpiresAt }),
-		...(conflictRaw !== undefined && isSourceConflict(conflictRaw) ? { conflict: conflictRaw } : {}),
-		...(actionRaw !== undefined && isSourcePreviewAction(actionRaw) ? { action: actionRaw } : {}),
-	};
-}
-
-function parseCommitAction(value: unknown): SourceCommitAction | undefined {
-	if (!isRecord(value)) return undefined;
-	const action = optionalString(value["action"]);
-	return action !== undefined && isSourceCommitAction(action) ? action : undefined;
-}
-
-function boundedInteger(value: unknown, min: number, max: number, fallback: number): number {
-	const numeric = optionalFiniteNumber(value);
-	return numeric !== undefined && Number.isInteger(numeric) && numeric >= min && numeric <= max ? numeric : fallback;
-}
-
-function emptyCapabilitySettings(): CapabilitySettingsView {
-	return {
-		codexSearch: false,
-		codexImages: false,
-		codexImageEdits: false,
-		codexUsage: false,
-		codexFast: false,
-		grokImagineImage: false,
-		grokImagineVideo: false,
-		searchResults: 5,
-		imageCount: 1,
-		videoArtifactTtlMs: 7 * 24 * HOUR_MS,
-	};
-}
-
-function parseCapabilitySettings(value: unknown): CapabilitySettingsView {
-	const source = isRecord(value) ? value : {};
-	return {
-		codexSearch: source["codexSearch"] === true,
-		codexImages: source["codexImages"] === true,
-		codexImageEdits: source["codexImageEdits"] === true,
-		codexUsage: source["codexUsage"] === true,
-		codexFast: source["codexFast"] === true,
-		grokImagineImage: source["grokImagineImage"] === true,
-		grokImagineVideo: source["grokImagineVideo"] === true,
-		searchResults: boundedInteger(source["searchResults"], 1, 20, 5),
-		imageCount: boundedInteger(source["imageCount"], 1, 4, 1),
-		videoArtifactTtlMs: boundedInteger(source["videoArtifactTtlMs"], HOUR_MS, 7 * 24 * HOUR_MS, 7 * 24 * HOUR_MS),
-	};
-}
-
-function parseCapabilities(value: unknown): CapabilitySnapshot | undefined {
-	if (!isRecord(value)) return undefined;
-	const nested = isRecord(value["value"]) ? value["value"] : value;
-	const revision = optionalFiniteNumber(value["revision"]);
-	if (revision === undefined && !isRecord(value["value"]) && value["writable"] === undefined) return undefined;
-	return {
-		value: parseCapabilitySettings(nested),
-		revision: revision ?? 0,
-		writable: value["writable"] === true,
-	};
-}
-
-function parseUsageWindow(value: unknown): UsageWindowView | undefined {
-	if (!isRecord(value)) return undefined;
-	const usedPercent = optionalPercent(value["usedPercent"] ?? value["used_percent"]);
-	const remainingPercent = optionalPercent(value["remainingPercent"] ?? value["remaining_percent"]);
-	const windowSeconds = optionalFiniteNumber(value["windowSeconds"] ?? value["limit_window_seconds"]);
-	const resetsAt = optionalFiniteNumber(value["resetsAt"] ?? value["reset_at"]);
-	if (
-		usedPercent === undefined &&
-		remainingPercent === undefined &&
-		windowSeconds === undefined &&
-		resetsAt === undefined
-	) {
-		return undefined;
-	}
-	return {
-		...(usedPercent === undefined ? {} : { usedPercent }),
-		...(remainingPercent === undefined ? {} : { remainingPercent }),
-		...(windowSeconds !== undefined && windowSeconds > 0 ? { windowSeconds } : {}),
-		...(resetsAt === undefined ? {} : { resetsAt }),
-	};
-}
-
-function parseUsageLimit(value: unknown, fallbackId: string): UsageLimitView | undefined {
-	if (!isRecord(value)) return undefined;
-	const id = optionalString(value["id"]) ?? optionalString(value["metered_feature"]) ?? fallbackId;
-	const name = optionalString(value["name"]) ?? optionalString(value["limit_name"]);
-	const nested = isRecord(value["rate_limit"]) ? value["rate_limit"] : value;
-	const windows = Array.isArray(value["windows"])
-		? value["windows"].map(parseUsageWindow).filter((entry): entry is UsageWindowView => entry !== undefined)
-		: [
-				parseUsageWindow(nested["primary_window"]),
-				parseUsageWindow(nested["secondary_window"]),
-				parseUsageWindow(nested),
-			].filter((entry): entry is UsageWindowView => entry !== undefined);
-	if (windows.length === 0 && name === undefined && optionalString(value["id"]) === undefined) return undefined;
-	return { id, windows, ...(name === undefined ? {} : { name }) };
-}
-
-function parseUsage(value: unknown): UsageView | undefined {
-	if (!isRecord(value)) return undefined;
-	const payload = isRecord(value["usage"]) ? value["usage"] : value;
-	const rateLimits: UsageLimitView[] = [];
-	const seen = new Set<string>();
-	const add = (limit: UsageLimitView | undefined): void => {
-		if (limit === undefined || seen.has(limit.id)) return;
-		seen.add(limit.id);
-		rateLimits.push(limit);
-	};
-	if (Array.isArray(payload["rateLimits"])) {
-		payload["rateLimits"].forEach((entry, index) => add(parseUsageLimit(entry, `limit-${String(index)}`)));
-	} else {
-		add(parseUsageLimit(payload["rate_limit"], "codex"));
-		if (Array.isArray(payload["additional_rate_limits"])) {
-			payload["additional_rate_limits"].forEach((entry, index) =>
-				add(parseUsageLimit(entry, `extra-${String(index)}`)),
-			);
-		}
-		add(parseUsageLimit(payload["code_review_rate_limit"], "code_review"));
-	}
-	const credits = isRecord(payload["credits"]) ? payload["credits"] : undefined;
-	const spend = isRecord(payload["individualLimit"])
-		? payload["individualLimit"]
-		: isRecord(payload["spend_control"])
-			? isRecord(payload["spend_control"]["individual_limit"])
-				? payload["spend_control"]["individual_limit"]
-				: payload["spend_control"]
-			: undefined;
-	const resetRaw = isRecord(payload["resetCredits"])
-		? payload["resetCredits"]["availableCount"]
-		: isRecord(payload["rate_limit_reset_credits"])
-			? payload["rate_limit_reset_credits"]["available_count"]
-			: undefined;
-	const resetCredits = optionalFiniteNumber(resetRaw);
-	const fetchedAt = optionalFiniteNumber(payload["fetchedAt"]);
-	const spendControlReached =
-		optionalBoolean(payload["spendControlReached"]) ??
-		(isRecord(payload["spend_control"]) ? optionalBoolean(payload["spend_control"]["reached"]) : undefined);
-	const creditsBalance = credits === undefined ? undefined : optionalString(credits["balance"]);
-	const individualLimit = spend === undefined ? undefined : optionalString(spend["limit"]);
-	const individualUsed = spend === undefined ? undefined : optionalString(spend["used"]);
-	const individualRemaining = spend === undefined ? undefined : optionalString(spend["remaining"]);
-	const individualRemainingPercent =
-		spend === undefined ? undefined : optionalPercent(spend["remainingPercent"] ?? spend["remaining_percent"]);
-	const individualResetsAt =
-		spend === undefined ? undefined : optionalFiniteNumber(spend["resetsAt"] ?? spend["reset_at"]);
-	return {
-		rateLimits,
-		...(credits !== undefined && typeof credits["unlimited"] === "boolean"
-			? { creditsUnlimited: credits["unlimited"] }
-			: {}),
-		...(creditsBalance === undefined ? {} : { creditsBalance }),
-		...(individualLimit === undefined ? {} : { individualLimit }),
-		...(individualUsed === undefined ? {} : { individualUsed }),
-		...(individualRemaining === undefined ? {} : { individualRemaining }),
-		...(individualRemainingPercent === undefined ? {} : { individualRemainingPercent }),
-		...(individualResetsAt === undefined ? {} : { individualResetsAt }),
-		...(spendControlReached === undefined ? {} : { spendControlReached }),
-		...(resetCredits !== undefined && resetCredits >= 0 && Number.isSafeInteger(resetCredits) ? { resetCredits } : {}),
-		...(fetchedAt === undefined ? {} : { fetchedAt }),
-	};
-}
-
-function usageHasVisibleFields(usage: UsageView): boolean {
-	return (
-		usage.rateLimits.some((limit) => limit.windows.length > 0 || limit.name !== undefined) ||
-		usage.creditsUnlimited !== undefined ||
-		usage.creditsBalance !== undefined ||
-		usage.individualLimit !== undefined ||
-		usage.individualUsed !== undefined ||
-		usage.individualRemaining !== undefined ||
-		usage.individualRemainingPercent !== undefined ||
-		usage.spendControlReached === true ||
-		usage.resetCredits !== undefined
-	);
-}
-
-interface GatewayView {
-	enabled: boolean;
-	running: boolean;
-	bind: string;
-	port: number;
-	keyHint: string;
-	warning: string;
-}
-
-function parseGateway(value: unknown): GatewayView | undefined {
-	if (!isRecord(value)) return undefined;
-	const bind = optionalString(value["bind"]);
-	const port = optionalFiniteNumber(value["port"]);
-	if (bind === undefined || port === undefined) return undefined;
-	return {
-		enabled: value["enabled"] === true,
-		running: value["running"] === true,
-		bind,
-		port,
-		keyHint: optionalString(value["keyHint"]) ?? "",
-		warning: optionalString(value["warning"]) ?? "",
-	};
-}
-
-function formatGatewayBaseUrl(bind: string, port: number): string {
-	const host = bind.includes(":") && !bind.startsWith("[") ? `[${bind}]` : bind;
-	return `http://${host}:${String(port)}`;
-}
-
-const GATEWAY_PORT_MIN = 1024;
-const GATEWAY_PORT_MAX = 65_535;
-const GATEWAY_RANDOM_PORT_MIN = 18_100;
-const GATEWAY_RANDOM_PORT_MAX = 18_999;
-const GATEWAY_RANDOM_RESERVED = new Set([22, 53, 3080, 7890, 9090, 18_080]);
-
-function randomGatewayPort(exclude?: number): number {
-	for (let attempt = 0; attempt < 32; attempt += 1) {
-		const span = GATEWAY_RANDOM_PORT_MAX - GATEWAY_RANDOM_PORT_MIN + 1;
-		const candidate = GATEWAY_RANDOM_PORT_MIN + Math.floor(Math.random() * span);
-		if (candidate !== exclude && !GATEWAY_RANDOM_RESERVED.has(candidate)) return candidate;
-	}
-	return exclude === GATEWAY_RANDOM_PORT_MIN ? GATEWAY_RANDOM_PORT_MIN + 1 : GATEWAY_RANDOM_PORT_MIN;
-}
-
-function parseGatewayPort(value: string): number | undefined {
-	const port = Number(value);
-	if (!Number.isInteger(port) || port < GATEWAY_PORT_MIN || port > GATEWAY_PORT_MAX) return undefined;
-	return port;
-}
-
-async function copyText(text: string): Promise<boolean> {
+import { cancelPreviewTicket, copyText, isConflictError, isConsumedPreviewError, jsonRequest } from "./api.ts";
+import { AboutTab } from "./components/AboutTab.tsx";
+import { AccountsTab } from "./components/AccountsTab.tsx";
+import { CapabilitiesTab } from "./components/CapabilitiesTab.tsx";
+import { GatewayTab } from "./components/GatewayTab.tsx";
+import { SettingsTabs } from "./components/SettingsTabs.tsx";
+import {
+	CAPABILITIES_PATH,
+	CODEX_USAGE_PATH,
+	GATEWAY_PATH,
+	GATEWAY_REVEAL_PATH,
+	GATEWAY_ROTATE_PATH,
+	IMAGINE_CREDENTIAL_PATH,
+	LOGIN_CANCEL_PATH,
+	LOGIN_CODE_PATH,
+	LOGIN_PATH,
+	LOGOUT_PATH,
+	MODELS_PATH,
+	POLL_INTERVAL_MS,
+	SOURCE_COMMIT_ACTION_KEY,
+	SOURCES_CANCEL_PATH,
+	SOURCES_COMMIT_PATH,
+	SOURCES_PATH,
+	SOURCES_PREVIEW_PATH,
+	STATUS_PATH,
+} from "./constants.ts";
+import { isLikelyRemoteHost } from "./display.ts";
+import {
+	emptyCapabilitySettings,
+	mergeSources,
+	parseCapabilities,
+	parseCommitAction,
+	parseGateway,
+	parseGatewayPort,
+	parseImagineCredential,
+	parsePreview,
+	parseSources,
+	parseUsage,
+} from "./parsers.ts";
+import { bodyStyle, errorStyle, pageStyle, panelStyle, titleStyle } from "./styles.ts";
+import type {
+	CapabilitySettingKey,
+	CapabilitySettingsView,
+	CapabilitySnapshot,
+	CodingOAuthStatus,
+	CopyField,
+	GatewayView,
+	GrokBuildSettingsProps,
+	ImagineCredentialView,
+	LoginChallenge,
+	LoginMethod,
+	ProviderSlug,
+	SettingsTabId,
+	SourceKind,
+	SourcePreview,
+	SourceStatus,
+	UsageView,
+} from "./types.ts";
+
+export type { GrokBuildSettingsInjected, GrokBuildSettingsProps } from "./types.ts";
+
+const REMOTE_TIP_STORAGE_KEY = "dsh-coding-oauth-remote-tip-dismissed";
+
+function readRemoteTipDismissed(): boolean {
 	try {
-		if (typeof navigator !== "undefined" && navigator.clipboard?.writeText !== undefined) {
-			await navigator.clipboard.writeText(text);
-			return true;
-		}
-	} catch {
-		// fall through to execCommand
-	}
-	try {
-		const area = document.createElement("textarea");
-		area.value = text;
-		area.setAttribute("readonly", "");
-		area.style.position = "fixed";
-		area.style.left = "-9999px";
-		document.body.appendChild(area);
-		area.select();
-		const ok = document.execCommand("copy");
-		document.body.removeChild(area);
-		return ok;
+		return globalThis.sessionStorage?.getItem(REMOTE_TIP_STORAGE_KEY) === "1";
 	} catch {
 		return false;
 	}
 }
 
-function parseImagineCredential(value: unknown): ImagineCredentialView | undefined {
-	if (!isRecord(value)) return undefined;
-	const configured = optionalBoolean(value["configured"]);
-	if (configured === undefined && value["source"] === undefined && value["writable"] === undefined) return undefined;
-	const source = optionalString(value["source"]);
-	const writable = optionalBoolean(value["writable"]);
-	return {
-		configured: configured === true,
-		...(source === undefined || looksSecret(source) ? {} : { source }),
-		...(writable === undefined ? {} : { writable }),
-	};
-}
-
-function imagineSourceLabel(source: string | undefined, t: GrokBuildSettingsInjected["t"]): string {
-	if (source === undefined) return t("imagineSourceUnknown");
-	const mapped = IMAGINE_SOURCE_KEY[source] ?? IMAGINE_SOURCE_KEY[source.toLowerCase()];
-	if (mapped !== undefined) return t(mapped);
-	if (source.length <= 40 && /^[a-z0-9._-]+$/iu.test(source) && !looksSecret(source)) return source;
-	return t("imagineSourceUnknown");
-}
-
-function methodLabel(method: LoginMethod, t: GrokBuildSettingsInjected["t"]): string {
-	if (method === "device") return t("deviceLogin");
-	if (method === "browser") return t("browserLogin");
-	return t("pkceLogin");
-}
-
-function modelFields(status: ProviderStatus): { available: string[]; selected: string[] } {
-	if (status.status !== "signed-in") return { available: [], selected: [] };
-	return {
-		available: "available" in status ? status.available : [],
-		selected: "selected" in status ? status.selected : [],
-	};
-}
-
 /** Multi-provider coding subscription status and OAuth actions. */
 export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	if (t === undefined) throw new Error("Coding OAuth settings requires its translation function");
+
 	const [status, setStatus] = useState<CodingOAuthStatus | undefined>(undefined);
 	const [requestError, setRequestError] = useState<string | undefined>(undefined);
 	const [busyProvider, setBusyProvider] = useState<ProviderSlug | undefined>(undefined);
@@ -983,6 +93,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [capabilities, setCapabilities] = useState<CapabilitySnapshot | undefined>(undefined);
 	const [capabilitiesError, setCapabilitiesError] = useState<string | undefined>(undefined);
 	const [capabilitiesBusy, setCapabilitiesBusy] = useState(false);
+	const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 	const [usage, setUsage] = useState<UsageView | undefined>(undefined);
 	const [usageError, setUsageError] = useState<string | undefined>(undefined);
 	const [usageLoading, setUsageLoading] = useState(false);
@@ -991,6 +102,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [gateway, setGateway] = useState<GatewayView | undefined>(undefined);
 	const [gatewayError, setGatewayError] = useState<string | undefined>(undefined);
 	const [gatewayBusy, setGatewayBusy] = useState(false);
+	const [gatewayLoaded, setGatewayLoaded] = useState(false);
 	const [gatewayOnceKey, setGatewayOnceKey] = useState<string | undefined>(undefined);
 	const [gatewayKeyVisible, setGatewayKeyVisible] = useState(false);
 	const [gatewayRotateConfirm, setGatewayRotateConfirm] = useState(false);
@@ -1000,7 +112,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [copiedField, setCopiedField] = useState<CopyField | undefined>(undefined);
 	const [copyFailedField, setCopyFailedField] = useState<CopyField | undefined>(undefined);
 	const [expandedProviders, setExpandedProviders] = useState<Partial<Record<ProviderSlug, boolean>>>({});
+	const [remoteTipDismissed, setRemoteTipDismissed] = useState(readRemoteTipDismissed);
 	const copiedTimerRef = useRef<number | undefined>(undefined);
+	const remote = typeof window !== "undefined" ? isLikelyRemoteHost(window.location.hostname) : false;
 
 	const refresh = useCallback(async () => {
 		try {
@@ -1031,6 +145,8 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			setCapabilities({ value: emptyCapabilitySettings(), revision: 0, writable: false });
 			setCapabilitiesError(error instanceof Error ? error.message : t("capabilitiesLoadFailed"));
 			return undefined;
+		} finally {
+			setCapabilitiesLoaded(true);
 		}
 	}, [t]);
 
@@ -1040,6 +156,8 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			setGatewayError(undefined);
 		} catch (error: unknown) {
 			setGatewayError(error instanceof Error ? error.message : t("gatewayLoadFailed"));
+		} finally {
+			setGatewayLoaded(true);
 		}
 	}, [t]);
 
@@ -1065,16 +183,41 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	}, [t]);
 
+	// Accounts: status immediately; sources shortly after (non-blocking for first paint).
 	useEffect(() => {
 		void refresh();
-		void refreshSources();
-		void refreshCapabilities();
+		const timer = window.setTimeout(() => {
+			void refreshSources();
+		}, 0);
+		return () => {
+			window.clearTimeout(timer);
+		};
+	}, [refresh, refreshSources]);
+
+	// Capabilities tab: load settings + Imagine status on first visit.
+	useEffect(() => {
+		if (activeTab !== "capabilities") return;
+		if (!capabilitiesLoaded) void refreshCapabilities();
 		void refreshImagine();
+	}, [activeTab, capabilitiesLoaded, refreshCapabilities, refreshImagine]);
+
+	// Soft-fetch capabilities when Codex is signed in so Accounts can show quota without opening the tab.
+	useEffect(() => {
+		if (capabilitiesLoaded) return;
+		if (status?.providers.codex.status !== "signed-in") return;
+		void refreshCapabilities();
+	}, [capabilitiesLoaded, refreshCapabilities, status?.providers.codex.status]);
+
+	// Gateway: load only when that tab is opened.
+	useEffect(() => {
+		if (activeTab !== "gateway" || gatewayLoaded) return;
 		void refreshGateway();
-	}, [refresh, refreshSources, refreshCapabilities, refreshImagine, refreshGateway]);
+	}, [activeTab, gatewayLoaded, refreshGateway]);
+
 	useEffect(() => {
 		previewRef.current = preview;
 	}, [preview]);
+
 	useEffect(() => {
 		mountedRef.current = true;
 		return () => {
@@ -1085,6 +228,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			if (active !== undefined) cancelPreviewTicket(active.previewId, true);
 		};
 	}, []);
+
 	useEffect(() => {
 		const signingIn =
 			status !== undefined && Object.values(status.providers).some((provider) => provider.status === "signing-in");
@@ -1096,6 +240,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			window.clearInterval(timer);
 		};
 	}, [refresh, status]);
+
 	useEffect(() => {
 		const signedIn = status?.providers.codex.status === "signed-in";
 		if (capabilities?.value.codexUsage === true && signedIn) {
@@ -1106,6 +251,10 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		setUsageError(undefined);
 		setUsageLoading(false);
 	}, [capabilities?.value.codexUsage, refreshUsage, status?.providers.codex.status]);
+
+	useEffect(() => {
+		if (gateway !== undefined) setPortDraft(String(gateway.port));
+	}, [gateway]);
 
 	const signIn = async (provider: ProviderSlug, method: LoginMethod): Promise<void> => {
 		const popup = window.open("about:blank", "_blank");
@@ -1315,12 +464,6 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		setCopyFailedField(field);
 	};
 
-	const copyLabel = (field: CopyField, idle?: string): string => {
-		if (copiedField === field) return t("copied");
-		if (copyFailedField === field) return t("copyFailed");
-		return idle ?? t("copy");
-	};
-
 	const ensureGatewayKey = async (): Promise<string> => {
 		if (gatewayOnceKey !== undefined) return gatewayOnceKey;
 		const value = await jsonRequest<{ apiKey?: string }>(GATEWAY_REVEAL_PATH, "POST");
@@ -1354,10 +497,6 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			setGatewayRevealError(t("gatewayRevealFailed"));
 		}
 	};
-
-	useEffect(() => {
-		if (gateway !== undefined) setPortDraft(String(gateway.port));
-	}, [gateway]);
 
 	const applyGatewayPort = async (): Promise<void> => {
 		const port = parseGatewayPort(portDraft);
@@ -1394,827 +533,163 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
+	const setGatewayEnabled = (enabled: boolean): void => {
+		setGatewayBusy(true);
+		void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { enabled })
+			.then((value) => {
+				setGateway(parseGateway(value) ?? gateway);
+				setGatewayError(undefined);
+			})
+			.catch((error: unknown) => {
+				setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+			})
+			.finally(() => {
+				setGatewayBusy(false);
+			});
+	};
+
+	const dismissRemoteTip = (): void => {
+		setRemoteTipDismissed(true);
+		try {
+			globalThis.sessionStorage?.setItem(REMOTE_TIP_STORAGE_KEY, "1");
+		} catch {
+			// ignore storage failures
+		}
+	};
+
 	return (
 		<section style={pageStyle} aria-labelledby="coding-oauth-settings-title">
 			<div>
 				<h2 id="coding-oauth-settings-title" style={titleStyle}>
 					{t("title")}
 				</h2>
-				<p style={{ ...bodyStyle, marginTop: 6 }}>{t("intro")}</p>
+				{activeTab === "accounts" ? <p style={{ ...bodyStyle, marginTop: 6 }}>{t("intro")}</p> : null}
 			</div>
 			{requestError === undefined ? null : (
 				<p style={errorStyle} role="alert">
 					{requestError}
 				</p>
 			)}
-			<nav style={tabNavStyle} aria-label={t("title")}>
-				{SETTINGS_TABS.map((tab) => (
-					<button
-						key={tab.id}
-						type="button"
-						style={activeTab === tab.id ? tabButtonActiveStyle : tabButtonStyle}
-						aria-current={activeTab === tab.id ? "page" : undefined}
-						onClick={() => {
-							setActiveTab(tab.id);
-						}}
-					>
-						{t(tab.label)}
-					</button>
-				))}
-			</nav>
-			<div style={panelStyle}>
+			<SettingsTabs t={t} activeTab={activeTab} onChange={setActiveTab} />
+			<div
+				id={`coding-oauth-panel-${activeTab}`}
+				role="tabpanel"
+				aria-labelledby={`coding-oauth-tab-${activeTab}`}
+				style={panelStyle}
+			>
 				{activeTab === "accounts" ? (
-					status === undefined ? (
-						<div style={cardStyle}>
-							<div style={statusStyle}>
-								<span aria-hidden="true" style={dotStyle("loading")} />
-								{t("loadingAccount")}
-							</div>
-						</div>
-					) : (
-						<>
-							{sourcesError === undefined ? null : (
-								<p style={errorStyle} role="alert">
-									{sourcesError}
-								</p>
-							)}
-							{sourcesNotice === undefined ? null : (
-								<p style={bodyStyle} role="status">
-									{sourcesNotice}
-								</p>
-							)}
-							<div style={accountGridStyle}>
-								{PROVIDERS.map((definition) => {
-									const providerStatus = status.providers[definition.slug];
-									const grokProviderStatus = definition.slug === "grok" ? (providerStatus as GrokStatus) : undefined;
-									const busy = busyProvider === definition.slug;
-									const statusLabel =
-										providerStatus.status === "signed-in"
-											? t("signedIn")
-											: providerStatus.status === "signing-in"
-												? t("signingIn")
-												: providerStatus.status === "error"
-													? t("requestFailed")
-													: t("signedOut");
-									const activeMethod =
-										providerStatus.status === "signing-in" ? providerStatus.method : definition.recommended;
-									const { available, selected } = modelFields(providerStatus);
-									const localCode = codeInputs[definition.slug] ?? "";
-									const source = sources?.find((entry) => entry.kind === definition.slug);
-									const expanded =
-										providerStatus.status === "signing-in" || expandedProviders[definition.slug] === true;
-									const usagePercent =
-										definition.slug === "codex" && showUsage
-											? usage?.individualRemainingPercent === undefined
-												? usage?.rateLimits[0]?.windows[0]?.usedPercent
-												: 100 - usage.individualRemainingPercent
-											: undefined;
-									return (
-										<div key={definition.slug} style={cardStyle}>
-											<div style={rowStyle}>
-												<div>
-													<h3 style={{ ...titleStyle, fontSize: 16 }}>{t(definition.titleKey)}</h3>
-													{providerStatus.status === "signed-in" && !expanded ? (
-														<p style={{ ...hintStyle, marginTop: 4 }}>
-															{t("modelsSummary", { selected: selected.length, total: available.length })}
-															{usagePercent === undefined
-																? ""
-																: ` · ${t("usageUsedShort", { value: `${String(usagePercent)}%` })}`}
-														</p>
-													) : (
-														<>
-															<p style={{ ...bodyStyle, marginTop: 4 }}>{t(definition.descriptionKey)}</p>
-															<p style={{ ...bodyStyle, marginTop: 4 }}>
-																<span style={monoStyle}>{definition.route}</span>
-															</p>
-														</>
-													)}
-												</div>
-												<div style={statusStyle} role="status">
-													<span aria-hidden="true" style={dotStyle(providerStatus.status)} />
-													<span>{statusLabel}</span>
-												</div>
-											</div>
-											<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-												{providerStatus.status === "signed-in" ? (
-													<>
-														<button
-															type="button"
-															style={buttonStyle}
-															disabled={busy}
-															onClick={() => {
-																void signOut(definition.slug);
-															}}
-														>
-															{busy ? t("working") : t("logout")}
-														</button>
-														<button
-															type="button"
-															style={buttonStyle}
-															onClick={() => {
-																setExpandedProviders((current) => ({
-																	...current,
-																	[definition.slug]: !expanded,
-																}));
-															}}
-														>
-															{expanded ? t("collapseModels") : t("expandModels")}
-														</button>
-														{source?.available === true ? (
-															<button
-																type="button"
-																style={buttonStyle}
-																disabled={sourcesBusy}
-																onClick={() => {
-																	void previewSource(definition.slug);
-																}}
-															>
-																{t("sourcesPullCopy")}
-															</button>
-														) : null}
-													</>
-												) : providerStatus.status === "signing-in" ? (
-													<>
-														{definition.methods
-															.filter((method) => method !== activeMethod)
-															.map((method) => (
-																<button
-																	key={method}
-																	type="button"
-																	style={buttonStyle}
-																	disabled={busy}
-																	onClick={() => {
-																		void signIn(definition.slug, method);
-																	}}
-																>
-																	{methodLabel(method, t)}
-																</button>
-															))}
-														<button
-															type="button"
-															style={buttonStyle}
-															disabled={busy}
-															onClick={() => {
-																void cancelLogin(definition.slug);
-															}}
-														>
-															{t("cancelLogin")}
-														</button>
-													</>
-												) : (
-													<>
-														{definition.methods.map((method, index) => (
-															<button
-																key={method}
-																type="button"
-																style={index === 0 ? primaryButtonStyle : buttonStyle}
-																disabled={busy}
-																onClick={() => {
-																	void signIn(definition.slug, method);
-																}}
-															>
-																{busy ? t("working") : methodLabel(method, t)}
-															</button>
-														))}
-														{source?.available === true ? (
-															<button
-																type="button"
-																style={buttonStyle}
-																disabled={sourcesBusy}
-																onClick={() => {
-																	void previewSource(definition.slug);
-																}}
-															>
-																{t("sourcesPullCopy")}
-															</button>
-														) : source !== undefined && source.reason !== undefined ? (
-															<span style={hintStyle}>{t(SOURCE_REASON_KEY[source.reason])}</span>
-														) : null}
-													</>
-												)}
-											</div>
-											{providerStatus.status === "error" ? <p style={errorStyle}>{providerStatus.message}</p> : null}
-											{providerStatus.status === "signing-in" && providerStatus.userCode !== undefined ? (
-												<p style={bodyStyle}>
-													{t("userCode")} <span style={codeStyle}>{providerStatus.userCode}</span>
-												</p>
-											) : null}
-											{providerStatus.status === "signing-in" && providerStatus.url !== undefined ? (
-												<p style={bodyStyle}>
-													{popupBlocked[definition.slug] === true ? t("popupBlocked") : t("openUrl")}{" "}
-													<a href={providerStatus.url} target="_blank" rel="noreferrer" style={linkStyle}>
-														{providerStatus.url}
-													</a>
-												</p>
-											) : null}
-											{providerStatus.status === "signing-in" && activeMethod !== "device" ? (
-												<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-													<p style={bodyStyle}>
-														{t(activeMethod === "browser" ? "pasteBrowserCodeHint" : "pasteCodeHint")}
-													</p>
-													<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-														<input
-															style={{ ...inputStyle, flex: "1 1 360px" }}
-															value={localCode}
-															placeholder={t("pasteCodePlaceholder")}
-															disabled={busy}
-															onChange={(event) =>
-																setCodeInputs((current) => ({ ...current, [definition.slug]: event.target.value }))
-															}
-															onKeyDown={(event) => {
-																if (event.key === "Enter") {
-																	event.preventDefault();
-																	void submitCode(definition.slug);
-																}
-															}}
-														/>
-														<button
-															type="button"
-															style={primaryButtonStyle}
-															disabled={busy || localCode.trim().length === 0}
-															onClick={() => {
-																void submitCode(definition.slug);
-															}}
-														>
-															{t("submitCode")}
-														</button>
-													</div>
-												</div>
-											) : null}
-											{providerStatus.status === "signed-in" && expanded ? (
-												<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-													<div style={rowStyle}>
-														<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("models")}</h4>
-														<button
-															type="button"
-															style={buttonStyle}
-															disabled={busy}
-															onClick={() => {
-																void saveModels(definition.slug, []);
-															}}
-														>
-															{t("selectAll")}
-														</button>
-													</div>
-													{grokProviderStatus?.status === "signed-in" ? (
-														<p style={bodyStyle}>
-															{grokProviderStatus.catalogSource === "live"
-																? t("catalogLive")
-																: grokProviderStatus.catalogSource === "cache"
-																	? t("catalogCache")
-																	: t("catalogFallback")}
-														</p>
-													) : null}
-													<p style={bodyStyle}>
-														{t("modelHint")} <span style={monoStyle}>{definition.route}/&lt;id&gt;</span>
-													</p>
-													<ul style={listStyle}>
-														{available.map((id) => {
-															const checked = selected.includes(id);
-															return (
-																<li key={id}>
-																	<label style={checkRowStyle}>
-																		<input
-																			type="checkbox"
-																			checked={checked}
-																			disabled={busy}
-																			onChange={() => {
-																				const current = new Set(selected);
-																				if (checked) current.delete(id);
-																				else current.add(id);
-																				void saveModels(definition.slug, [...current]);
-																			}}
-																		/>
-																		<span style={monoStyle}>{id}</span>
-																	</label>
-																</li>
-															);
-														})}
-													</ul>
-													{grokProviderStatus?.status === "signed-in" &&
-													grokProviderStatus.catalogError !== undefined ? (
-														<p style={errorStyle}>{t("catalogError")}</p>
-													) : null}
-													{definition.slug === "codex" && showUsage ? (
-														<div style={nestedStyle}>
-															<p style={{ ...bodyStyle, color: "var(--dsw-alias-label-primary)" }}>{t("usageTitle")}</p>
-															{usageError === undefined ? null : (
-																<p style={errorStyle} role="alert">
-																	{usageError}
-																</p>
-															)}
-															{usageLoading && usage === undefined ? (
-																<p style={hintStyle}>{t("usageLoading")}</p>
-															) : usage === undefined || !usageHasVisibleFields(usage) ? (
-																<p style={hintStyle}>{t("usageEmpty")}</p>
-															) : (
-																<>
-																	{formatEpoch(usage.fetchedAt) === undefined ? null : (
-																		<p style={hintStyle}>
-																			{t("usageFetchedAt", { time: formatEpoch(usage.fetchedAt) })}
-																		</p>
-																	)}
-																	{usage.rateLimits.map((limit) => (
-																		<p key={limit.id} style={hintStyle}>
-																			{limit.name ?? t("usageRateLimit")}
-																			{limit.windows[0]?.usedPercent === undefined
-																				? ""
-																				: ` · ${t("usageUsed", { value: `${String(limit.windows[0].usedPercent)}%` })}`}
-																			{formatEpoch(limit.windows[0]?.resetsAt) === undefined
-																				? ""
-																				: ` · ${t("usageResets", { time: formatEpoch(limit.windows[0]?.resetsAt) })}`}
-																		</p>
-																	))}
-																</>
-															)}
-														</div>
-													) : null}
-												</div>
-											) : null}
-										</div>
-									);
-								})}
-							</div>
-							{preview === undefined ? null : (
-								<div style={cardStyle} aria-live="polite">
-									<p style={bodyStyle}>
-										{t("sourcesPreviewTitle")} · {t(SOURCE_KIND_KEY[preview.kind])}
-									</p>
-									<p style={hintStyle}>
-										<span style={monoStyle}>{preview.displayPath}</span>
-									</p>
-									<p style={bodyStyle}>
-										{t("sourcesConflict", {
-											detail: t(
-												preview.conflict === undefined
-													? "sourceConflictUnrecognized"
-													: SOURCE_CONFLICT_KEY[preview.conflict],
-											),
-										})}
-									</p>
-									<p style={bodyStyle}>
-										{t("sourcesAction", {
-											detail: t(
-												preview.action === undefined
-													? "sourceActionUnrecognized"
-													: SOURCE_PREVIEW_ACTION_KEY[preview.action],
-											),
-										})}
-									</p>
-									{formatEpoch(preview.expiresAt) === undefined ? null : (
-										<p style={hintStyle}>{t("sourcesPreviewExpires", { time: formatEpoch(preview.expiresAt) })}</p>
-									)}
-									{formatEpoch(preview.ticketExpiresAt) === undefined ? null : (
-										<p style={hintStyle}>{t("sourcesTicketExpires", { time: formatEpoch(preview.ticketExpiresAt) })}</p>
-									)}
-									{preview.warnings.length === 0 ? null : (
-										<ul style={{ ...listStyle, gap: 4 }} aria-label={t("sourcesWarnings")}>
-											{preview.warnings.map((warning) => (
-												<li key={warning} style={hintStyle}>
-													{warning}
-												</li>
-											))}
-										</ul>
-									)}
-									{preview.confirmOverwriteRequired ? (
-										<label style={checkRowStyle}>
-											<input
-												type="checkbox"
-												checked={confirmOverwrite}
-												disabled={sourcesBusy || preview.action === "blocked"}
-												onChange={(event) => setConfirmOverwrite(event.target.checked)}
-											/>
-											<span>
-												{t("sourcesConfirmOverwrite")}
-												<span style={{ display: "block", ...hintStyle }}>{t("sourcesConfirmOverwriteHint")}</span>
-											</span>
-										</label>
-									) : null}
-									<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-										<button
-											type="button"
-											style={primaryButtonStyle}
-											disabled={
-												sourcesBusy ||
-												preview.action === "blocked" ||
-												(preview.confirmOverwriteRequired && !confirmOverwrite)
-											}
-											onClick={() => {
-												void commitSource();
-											}}
-										>
-											{t("sourcesCommit")}
-										</button>
-										<button
-											type="button"
-											style={buttonStyle}
-											disabled={sourcesBusy}
-											onClick={() => {
-												void cancelSourcePreview();
-											}}
-										>
-											{t("sourcesCancelPreview")}
-										</button>
-									</div>
-								</div>
-							)}
-						</>
-					)
+					<AccountsTab
+						t={t}
+						status={status}
+						remote={remote}
+						remoteTipDismissed={remoteTipDismissed}
+						onDismissRemoteTip={dismissRemoteTip}
+						sources={sources}
+						sourcesError={sourcesError}
+						sourcesNotice={sourcesNotice}
+						sourcesBusy={sourcesBusy}
+						preview={preview}
+						confirmOverwrite={confirmOverwrite}
+						busyProvider={busyProvider}
+						codeInputs={codeInputs}
+						popupBlocked={popupBlocked}
+						expandedProviders={expandedProviders}
+						showUsage={showUsage === true}
+						usage={usage}
+						usageError={usageError}
+						usageLoading={usageLoading}
+						onSignIn={(slug, method) => {
+							void signIn(slug, method);
+						}}
+						onSignOut={(slug) => {
+							void signOut(slug);
+						}}
+						onCancelLogin={(slug) => {
+							void cancelLogin(slug);
+						}}
+						onSubmitCode={(slug) => {
+							void submitCode(slug);
+						}}
+						onCodeChange={(slug, value) => {
+							setCodeInputs((current) => ({ ...current, [slug]: value }));
+						}}
+						onToggleExpanded={(slug) => {
+							setExpandedProviders((current) => ({
+								...current,
+								[slug]: !(current[slug] === true),
+							}));
+						}}
+						onPreviewSource={(slug) => {
+							void previewSource(slug);
+						}}
+						onSaveModels={(slug, selected) => {
+							void saveModels(slug, selected);
+						}}
+						onConfirmOverwriteChange={setConfirmOverwrite}
+						onCommitSource={() => {
+							void commitSource();
+						}}
+						onCancelSourcePreview={() => {
+							void cancelSourcePreview();
+						}}
+						onRefreshSources={() => {
+							void refreshSources();
+						}}
+					/>
 				) : null}
 				{activeTab === "capabilities" ? (
-					<section style={cardStyle} aria-labelledby="coding-oauth-capabilities-title">
-						<div>
-							<h3 id="coding-oauth-capabilities-title" style={{ ...titleStyle, fontSize: 16 }}>
-								{t("capabilitiesTitle")}
-							</h3>
-							<p style={{ ...bodyStyle, marginTop: 4 }}>{t("capabilitiesIntro")}</p>
-							<p style={{ ...hintStyle, marginTop: 4 }}>{t("capabilitiesQuotaHint")}</p>
-						</div>
-						{imagineError === undefined ? null : (
-							<p style={errorStyle} role="alert">
-								{imagineError}
-							</p>
-						)}
-						{imagine === undefined && imagineError === undefined ? (
-							<div style={statusStyle} role="status">
-								<span aria-hidden="true" style={dotStyle("loading")} />
-								{t("imagineLoading")}
-							</div>
-						) : imagine === undefined ? null : (
-							<div style={nestedStyle}>
-								<p style={statusStyle} role="status">
-									<span aria-hidden="true" style={dotStyle(imagine.configured ? "available" : "unavailable")} />
-									<span>{imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}</span>
-								</p>
-								<p style={hintStyle}>{t("imagineSource", { source: imagineSourceLabel(imagine.source, t) })}</p>
-							</div>
-						)}
-						{capabilitiesError === undefined ? null : (
-							<p style={errorStyle} role="alert">
-								{capabilitiesError}
-							</p>
-						)}
-						{capabilities === undefined ? (
-							<div style={statusStyle} role="status">
-								<span aria-hidden="true" style={dotStyle("loading")} />
-								{t("capabilitiesLoading")}
-							</div>
-						) : (
-							<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-								<legend style={{ ...bodyStyle, position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
-									{t("capabilitiesTitle")}
-								</legend>
-								{capabilities.writable ? null : <p style={hintStyle}>{t("capabilitiesReadOnly")}</p>}
-								<ul style={listStyle}>
-									{CAPABILITY_TOGGLES.filter((item) => !item.key.startsWith("grokImagine")).map((item) => {
-										const checked = capabilities.value[item.key];
-										const imagesOff = item.requiresImages === true && !capabilities.value.codexImages;
-										const disabled = capabilitiesBusy || !capabilities.writable || imagesOff;
-										return (
-											<li key={item.key}>
-												<label style={checkRowStyle}>
-													<input
-														type="checkbox"
-														checked={checked}
-														disabled={disabled}
-														aria-describedby={`cap-hint-${item.key}`}
-														onChange={(event) => {
-															void patchCapability(item.key, event.target.checked);
-														}}
-													/>
-													<span>
-														<span style={{ display: "block" }}>{t(item.label)}</span>
-														<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-															{t(item.hint)}
-														</span>
-													</span>
-												</label>
-											</li>
-										);
-									})}
-								</ul>
-								<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("imagineTitle")}</h4>
-								<ul style={listStyle}>
-									{CAPABILITY_TOGGLES.filter((item) => item.key.startsWith("grokImagine")).map((item) => {
-										const checked = capabilities.value[item.key];
-										const disabled = capabilitiesBusy || !capabilities.writable;
-										return (
-											<li key={item.key}>
-												<label style={checkRowStyle}>
-													<input
-														type="checkbox"
-														checked={checked}
-														disabled={disabled}
-														aria-describedby={`cap-hint-${item.key}`}
-														onChange={(event) => {
-															void patchCapability(item.key, event.target.checked);
-														}}
-													/>
-													<span>
-														<span style={{ display: "block" }}>{t(item.label)}</span>
-														<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-															{t(item.hint)}
-														</span>
-													</span>
-												</label>
-											</li>
-										);
-									})}
-								</ul>
-								<div style={nestedStyle}>
-									<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("capabilityLimitsTitle")}</h4>
-									<p style={hintStyle}>{t("capabilityLimitsHint")}</p>
-									<ul style={listStyle}>
-										{CAPABILITY_LIMITS.map((item) => {
-											const displayValue = capabilities.value[item.key] / item.scale;
-											const inputId = `cap-limit-${item.key}`;
-											return (
-												<li key={item.key} style={rowStyle}>
-													<label htmlFor={inputId} style={{ ...bodyStyle, flex: "1 1 360px" }}>
-														<span style={{ display: "block", color: "var(--dsw-alias-label-primary)" }}>
-															{t(item.label)}
-														</span>
-														<span id={`${inputId}-hint`} style={{ display: "block", ...hintStyle }}>
-															{t(item.hint)}
-														</span>
-													</label>
-													<input
-														key={`${item.key}-${String(capabilities.revision)}-${String(displayValue)}`}
-														id={inputId}
-														type="number"
-														inputMode="numeric"
-														min={item.min}
-														max={item.max}
-														step={1}
-														defaultValue={displayValue}
-														disabled={capabilitiesBusy || !capabilities.writable}
-														aria-describedby={`${inputId}-hint`}
-														style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
-														onInput={(event) => event.currentTarget.setCustomValidity("")}
-														onKeyDown={(event) => {
-															if (event.key === "Enter") event.currentTarget.blur();
-															if (event.key === "Escape") {
-																event.currentTarget.value = String(displayValue);
-																event.currentTarget.setCustomValidity("");
-															}
-														}}
-														onBlur={(event) => {
-															const target = event.currentTarget;
-															const next = Number(target.value);
-															if (!Number.isInteger(next) || next < item.min || next > item.max) {
-																target.setCustomValidity(t("capabilityLimitInvalid", { min: item.min, max: item.max }));
-																target.reportValidity();
-																return;
-															}
-															target.setCustomValidity("");
-															const apiValue = next * item.scale;
-															if (apiValue === capabilities.value[item.key]) return;
-															void patchCapability(item.key, apiValue).then((saved) => {
-																if (!saved && target.isConnected) target.value = String(displayValue);
-															});
-														}}
-													/>
-												</li>
-											);
-										})}
-									</ul>
-								</div>
-							</fieldset>
-						)}
-					</section>
+					<CapabilitiesTab
+						t={t}
+						capabilities={capabilities}
+						capabilitiesError={capabilitiesError}
+						capabilitiesBusy={capabilitiesBusy}
+						imagine={imagine}
+						imagineError={imagineError}
+						onPatchCapability={(key, value) => patchCapability(key, value)}
+					/>
 				) : null}
-				{activeTab === "about" ? <p style={warningStyle}>{t("termsWarning")}</p> : null}
 				{activeTab === "gateway" ? (
-					<section style={cardStyle} aria-labelledby="coding-oauth-gateway-title">
-						<div>
-							<h3 id="coding-oauth-gateway-title" style={{ ...titleStyle, fontSize: 16 }}>
-								{t("gatewayTitle")}
-							</h3>
-							<p style={{ ...bodyStyle, marginTop: 4 }}>{t("gatewayIntro")}</p>
-							<p style={{ ...hintStyle, marginTop: 8 }}>{t("gatewayWarning")}</p>
-						</div>
-						{gatewayError === undefined ? null : (
-							<p style={errorStyle} role="alert">
-								{gatewayError}
-							</p>
-						)}
-						{gatewayRevealError === undefined ? null : (
-							<p style={errorStyle} role="alert">
-								{gatewayRevealError}
-							</p>
-						)}
-						{gateway === undefined && gatewayError === undefined ? (
-							<div style={statusStyle} role="status">
-								<span aria-hidden="true" style={dotStyle("loading")} />
-								{t("gatewayLoading")}
-							</div>
-						) : gateway === undefined ? null : (
-							<div style={nestedStyle}>
-								<p style={statusStyle} role="status">
-									<span aria-hidden="true" style={dotStyle(gateway.running ? "available" : "unavailable")} />
-									<span>{gateway.running ? t("gatewayRunning") : t("gatewayStopped")}</span>
-								</p>
-								<label style={checkRowStyle}>
-									<input
-										type="checkbox"
-										checked={gateway.enabled}
-										disabled={gatewayBusy}
-										onChange={(event) => {
-											const enabled = event.target.checked;
-											setGatewayBusy(true);
-											void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { enabled })
-												.then((value) => {
-													setGateway(parseGateway(value) ?? gateway);
-													setGatewayError(undefined);
-												})
-												.catch((error: unknown) => {
-													setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
-												})
-												.finally(() => setGatewayBusy(false));
-										}}
-									/>
-									<span>{t("gatewayEnabled")}</span>
-								</label>
-								<div>
-									<label
-										htmlFor="coding-oauth-gateway-port"
-										style={{ ...bodyStyle, color: "var(--dsw-alias-label-primary)" }}
-									>
-										{t("gatewayPort")}
-									</label>
-									<p id="coding-oauth-gateway-port-hint" style={hintStyle}>
-										{t("gatewayPortHint")}
-									</p>
-									<div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-										<input
-											id="coding-oauth-gateway-port"
-											type="number"
-											inputMode="numeric"
-											min={GATEWAY_PORT_MIN}
-											max={GATEWAY_PORT_MAX}
-											step={1}
-											value={portDraft}
-											disabled={gatewayBusy}
-											aria-describedby="coding-oauth-gateway-port-hint"
-											style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
-											onChange={(event) => setPortDraft(event.target.value)}
-											onKeyDown={(event) => {
-												if (event.key === "Enter") {
-													event.preventDefault();
-													void applyGatewayPort();
-												}
-												if (event.key === "Escape" && gateway !== undefined) {
-													setPortDraft(String(gateway.port));
-												}
-											}}
-										/>
-										<button
-											type="button"
-											style={primaryButtonStyle}
-											disabled={
-												gatewayBusy || portDraft === String(gateway.port) || parseGatewayPort(portDraft) === undefined
-											}
-											onClick={() => {
-												void applyGatewayPort();
-											}}
-										>
-											{t("gatewayPortApply")}
-										</button>
-										<button
-											type="button"
-											style={buttonStyle}
-											disabled={gatewayBusy}
-											onClick={() => {
-												setPortDraft(String(randomGatewayPort(gateway.port)));
-											}}
-										>
-											{t("gatewayPortRandom")}
-										</button>
-									</div>
-								</div>
-								<p style={copyRowStyle}>
-									<span style={hintStyle}>
-										{t("gatewayOpenAiUrl")}
-										<span style={{ display: "block", ...monoStyle }}>
-											{`${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`}
-										</span>
-									</span>
-									<button
-										type="button"
-										style={primaryButtonStyle}
-										onClick={() => {
-											void handleCopy("openai", `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`);
-										}}
-									>
-										{copyLabel("openai")}
-									</button>
-								</p>
-								<p style={copyRowStyle}>
-									<span style={hintStyle}>
-										{t("gatewayAnthropicUrl")}
-										<span style={{ display: "block", ...monoStyle }}>
-											{formatGatewayBaseUrl(gateway.bind, gateway.port)}
-										</span>
-									</span>
-									<button
-										type="button"
-										style={buttonStyle}
-										onClick={() => {
-											void handleCopy("anthropic", formatGatewayBaseUrl(gateway.bind, gateway.port));
-										}}
-									>
-										{copyLabel("anthropic")}
-									</button>
-								</p>
-								<p style={copyRowStyle}>
-									<span style={hintStyle}>
-										{t("gatewayKeyHint")}
-										<span style={{ display: "block", ...monoStyle, overflowWrap: "anywhere" }}>
-											{gatewayKeyVisible && gatewayOnceKey !== undefined ? gatewayOnceKey : gateway.keyHint || "—"}
-										</span>
-									</span>
-									<span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-										<button
-											type="button"
-											style={primaryButtonStyle}
-											disabled={gatewayBusy}
-											onClick={() => {
-												void copyGatewayKey();
-											}}
-										>
-											{copyLabel("key", t("gatewayCopyKey"))}
-										</button>
-										<button
-											type="button"
-											style={buttonStyle}
-											disabled={gatewayBusy}
-											onClick={() => {
-												void toggleGatewayKeyVisible();
-											}}
-										>
-											{gatewayKeyVisible ? t("gatewayHideKey") : t("gatewayShowKey")}
-										</button>
-									</span>
-								</p>
-								<p style={hintStyle}>{t("gatewayKeyCopyHint")}</p>
-								{gatewayRotateConfirm ? (
-									<div style={nestedStyle}>
-										<p style={bodyStyle}>{t("gatewayRotateConfirm")}</p>
-										<p style={hintStyle}>{t("gatewayRotateConfirmHint")}</p>
-										<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-											<button
-												type="button"
-												style={buttonStyle}
-												disabled={gatewayBusy}
-												onClick={() => {
-													void rotateGatewayKey();
-												}}
-											>
-												{t("gatewayRotateConfirmAction")}
-											</button>
-											<button
-												type="button"
-												style={buttonStyle}
-												disabled={gatewayBusy}
-												onClick={() => setGatewayRotateConfirm(false)}
-											>
-												{t("gatewayRotateCancel")}
-											</button>
-										</div>
-									</div>
-								) : (
-									<button
-										type="button"
-										style={buttonStyle}
-										disabled={gatewayBusy}
-										onClick={() => setGatewayRotateConfirm(true)}
-									>
-										{t("gatewayRotate")}
-									</button>
-								)}
-							</div>
-						)}
-					</section>
+					<GatewayTab
+						t={t}
+						gateway={gateway}
+						gatewayError={gatewayError}
+						gatewayBusy={gatewayBusy}
+						gatewayOnceKey={gatewayOnceKey}
+						gatewayKeyVisible={gatewayKeyVisible}
+						gatewayRotateConfirm={gatewayRotateConfirm}
+						gatewayRevealError={gatewayRevealError}
+						portDraft={portDraft}
+						copiedField={copiedField}
+						copyFailedField={copyFailedField}
+						onEnabledChange={setGatewayEnabled}
+						onPortDraftChange={setPortDraft}
+						onApplyPort={() => {
+							void applyGatewayPort();
+						}}
+						onRandomPort={(port) => {
+							setPortDraft(String(port));
+						}}
+						onCopy={(field, text) => {
+							void handleCopy(field, text);
+						}}
+						onCopyKey={() => {
+							void copyGatewayKey();
+						}}
+						onToggleKeyVisible={() => {
+							void toggleGatewayKeyVisible();
+						}}
+						onRotateConfirm={() => {
+							setGatewayRotateConfirm(true);
+						}}
+						onRotateCancel={() => {
+							setGatewayRotateConfirm(false);
+						}}
+						onRotate={() => {
+							void rotateGatewayKey();
+						}}
+					/>
 				) : null}
-				{activeTab === "about" && status !== undefined ? (
-					<div style={cardStyle}>
-						<div style={rowStyle}>
-							<div>
-								<h3 style={{ ...titleStyle, fontSize: 16 }}>{t("antigravityTitle")}</h3>
-								<p style={{ ...bodyStyle, marginTop: 4 }}>{t("antigravityDescription")}</p>
-								<p style={{ ...bodyStyle, marginTop: 4 }}>
-									<span style={monoStyle}>{status.antigravity.route}</span>
-								</p>
-							</div>
-							<div style={statusStyle} role="status">
-								<span aria-hidden="true" style={dotStyle("signed-out", status.antigravity.installed)} />
-								<span>{status.antigravity.installed ? t("antigravityInstalled") : t("antigravityMissing")}</span>
-							</div>
-						</div>
-						<p style={bodyStyle}>{t("antigravityCliHint")}</p>
-						<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>
-					</div>
-				) : null}
+				{activeTab === "about" ? <AboutTab t={t} /> : null}
 			</div>
 		</section>
 	);
