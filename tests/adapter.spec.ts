@@ -184,7 +184,12 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		for (const route of [GROK_BUILD_ROUTE, CODEX_OAUTH_ROUTE, KIMI_CODE_OAUTH_ROUTE, CLAUDE_CODE_OAUTH_ROUTE]) {
 			const policy = adapter.providerRetryPolicy(route);
 			expect(policy?.mode).toBe("normal");
-			expect(policy).toMatchObject({ maxRetries: 2 });
+			expect(policy).toMatchObject({
+				maxRetries: 5,
+				initialDelayMs: 5_000,
+				maxDelayMs: 80_000,
+				jitterRatio: 0.1,
+			});
 			const codes = policy?.mode === "normal" ? policy.retryableCodes : [];
 			for (const code of ["AUTH", "RATE_LIMIT", "SERVER", "TIMEOUT", "TRANSPORT", "EMPTY_RESPONSE"]) {
 				expect(codes).toContain(code);
