@@ -119,7 +119,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 ## 6. 兼容性
 
-正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.5.3`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3`）。GitHub 与本地 tarball 安装仍然有效。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.5.4`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4`）。GitHub 与本地 tarball 安装仍然有效。
 
 以下标识保持稳定（无迁移方案前不要改名）：
 

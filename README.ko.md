@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.3 · 이전 이름 `dsh-grok-build`
+**v0.5.4 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -23,7 +23,7 @@
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
-| npm | `dsh-coding-subscription-oauth@0.5.3`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
+| npm | `dsh-coding-subscription-oauth@0.5.4`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
 | 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
@@ -38,7 +38,7 @@
 - ⚙️ **동적 카탈로그** — 선택기에는 인증을 완료한 라우트만 `(OAuth)` 라벨과 함께 표시되며, grok-4.6의 `xhigh`도 포함됩니다.
 - 🌐 **프록시 인지형** — 검증된 신뢰 가능한 구독 도메인만 프록시합니다.
 - 📥 **수동 CLI Pull** — 설정 페이지가 허용 목록에 있는 공식 Grok/Codex/Kimi/Claude CLI OAuth 파일을 읽기 전용으로 검색합니다. 미리보기와 덮어쓰기 확인 후 단방향 복사본을 가져옵니다.
-- 🗂️ **탭으로 나뉜 설정** — Accounts, Gateway, Capabilities, About 네 탭이 긴 폭포형 스크롤을 대체하며, 로그인된 프로바이더 카드는 펼칠 때까지 접혀 있습니다.
+- 🗂️ **탭으로 나뉜 설정** — Accounts, Gateway, Capabilities, About. 원격 호스트에서는 device code를 우선하고 CLI missing 소음을 줄이며, 로그인된 카드는 펼칠 때까지 접혀 있습니다.
 - 🎛️ **선택적 기능 (기본 꺼짐)** — Codex 검색, 사용량/쿼터, 이미지 생성/편집, Fast, Grok Imagine은 스위치를 켜면 즉시 적용됩니다.
 - 🔌 **옵트인 로컬 API 게이트웨이** — 기본 꺼짐의 루프백 OpenAI/Anthropic 호환 서버. 내 도구 전용이며 공개 릴레이가 아닙니다.
 
@@ -73,7 +73,7 @@
 
 ```bash
 # 1. web 프로필에 플러그인 설치 (현재 npm 릴리스)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -114,7 +114,7 @@ DeepSeek Harness `0.1.0-rc.6+` 및 Node.js 22.19+가 필요합니다. 자세한 
 
 ```bash
 # 현재 npm 릴리스 (권장)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 개발/대안: GitHub에서
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
