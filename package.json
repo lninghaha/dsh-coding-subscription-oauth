@@ -76,6 +76,7 @@
   "files": [
     "lib",
     "src",
+    "media",
     "cordis.patch.yml",
     "INSTALL.md",
     "CHANGELOG.md",

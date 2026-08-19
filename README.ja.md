@@ -20,7 +20,6 @@
 ## 名称変更
 
 当初は Grok Build 専用で **`dsh-grok-build`** でした。現在は SuperGrok / Codex / Kimi / Claude / Antigravity のコーディングサブスク OAuth です。
-
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
@@ -141,6 +140,20 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 ## 設定ページ
 
 **Settings → Coding OAuth** を開きます:
+
+
+
+<p align="center">
+  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
+</p>
 
 | プロバイダー | 方法 |
 |---|---|

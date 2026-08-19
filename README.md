@@ -145,6 +145,18 @@ pnpm run smoke:deployed             # real Codex/Kimi tool-calls + second-turn r
 
 Open **Settings → Coding OAuth**. The page is organized into four top tabs — **Accounts**, **Gateway**, **Capabilities**, and **About** — so it no longer requires a long waterfall scroll. Signed-in provider cards collapse to a compact summary; expand one to edit models or use its CLI Pull controls. CLI previews span the full content width, and the Capabilities tab shows live optional switches plus Imagine status.
 
+<p align="center">
+  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
+</p>
+
+<p align="center">
+  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
+</p>
+
 | Provider | Methods |
 |---|---|
 | Grok | auth code · device code · model selection |
