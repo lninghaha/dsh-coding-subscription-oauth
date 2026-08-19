@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.3 · früher `dsh-grok-build`
+**v0.5.4 · früher `dsh-grok-build`
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -23,7 +23,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
-| npm | `dsh-coding-subscription-oauth@0.5.3` (aktuelle Version) | Es gab kein altes npm-Paket |
+| npm | `dsh-coding-subscription-oauth@0.5.4` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
 | Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
@@ -38,7 +38,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 - ⚙️ **Dynamischer Katalog** — der Wähler listet nur authentifizierte Routen, gekennzeichnet mit `(OAuth)`, einschließlich `xhigh` von grok-4.6.
 - 🌐 **Proxy-bewusst** — nur geprüfte, vertrauenswürdige Abonnement-Domänen werden über den Proxy geleitet.
 - 📥 **Manueller CLI-Pull** — die Einstellungen entdecken erlaubte offizielle Grok-/Codex-/Kimi-/Claude-CLI-OAuth-Dateien schreibgeschützt; nach Vorschau und Überschreibbestätigung ziehen Sie eine Einweg-Kopie.
-- 🗂️ **Einstellungen mit Tabs** — Accounts, Gateway, Capabilities und About ersetzen das lange Scrollen; Karten angemeldeter Anbieter bleiben eingeklappt, bis sie erweitert werden.
+- 🗂️ **Einstellungen mit Tabs** — Accounts, Gateway, Capabilities und About; Remote-Hosts bevorzugen Device-Code mit ruhigeren CLI-Missing-Hinweisen; angemeldete Karten bleiben eingeklappt, bis sie erweitert werden.
 - 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten.
 - 🔌 **Opt-in lokales API-Gateway** — standardmäßig ausgeschalteter Loopback-Server, OpenAI-/Anthropic-kompatibel; für Ihre eigenen Werkzeuge, niemals ein öffentliches Relay.
 
@@ -73,7 +73,7 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 
 ```bash
 # 1. Plugin in das Web-Profil installieren (aktuelle npm-Version)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 2. optional — Google Antigravity (gepinnte, geprüfte Version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -114,7 +114,7 @@ Erfordert DeepSeek Harness `0.1.0-rc.6+` und Node.js 22.19+. Vollständige Detai
 
 ```bash
 # aktuelle npm-Version (empfohlen)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # Entwicklung/Alternativ: von GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.3** · formerly `dsh-grok-build`
+**v0.5.4** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -23,7 +23,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| npm (recommended) | Current release is `0.5.3`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3` | No legacy npm package was published |
+| npm (recommended) | Current release is `0.5.4`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4` | No legacy npm package was published |
 | GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
@@ -39,7 +39,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - ⚙️ **Dynamic catalog** — the selector lists only signed-in routes, labelled `(OAuth)`, including grok-4.6 `xhigh`.
 - 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
 - 📥 **Manual CLI Pull** — Settings discovers allowlisted official Grok/Codex/Kimi/Claude CLI OAuth files read-only; you pull a one-way copy after preview and overwrite confirmation.
-- 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About replace the long waterfall; signed-in provider cards stay collapsed until you expand them.
+- 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About; remote hosts prefer device-code sign-in with quieter CLI-missing tips; signed-in cards stay collapsed until expanded.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on.
 - 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
 
@@ -77,7 +77,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ Requires DeepSeek Harness `0.1.0-rc.6+` and Node.js 22.19+. Full details in the 
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -143,7 +143,7 @@ pnpm run smoke:deployed             # real Codex/Kimi tool-calls + second-turn r
 
 ## Settings page
 
-Open **Settings → Coding OAuth**. The page is organized into four top tabs — **Accounts**, **Gateway**, **Capabilities**, and **About** — so it no longer requires a long waterfall scroll. Signed-in provider cards collapse to a compact summary; expand one to edit models or use its CLI Pull controls. CLI previews span the full content width, and the Capabilities tab shows live optional switches plus Imagine status.
+Open **Settings → Coding OAuth**. The page is organized into four top tabs — **Accounts**, **Gateway**, **Capabilities**, and **About** — so it no longer requires a long waterfall scroll. On a remote (non-loopback) host, Accounts prefers device-code sign-in and collapses noisy CLI-missing hints into one tip. Signed-in provider cards collapse to a compact summary; expand one to edit models or use its CLI Pull controls. CLI previews span the full content width, and the Capabilities tab shows live optional switches plus Imagine status.
 
 <table>
   <tr>

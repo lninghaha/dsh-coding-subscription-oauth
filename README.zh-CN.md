@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.3** · 原名 `dsh-grok-build`
+**v0.5.4** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -23,7 +23,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.5.3`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.5.4`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -39,7 +39,7 @@
 - ⚙️ **动态目录** —— 选择器只列出已登录路由并标注 `(OAuth)`，含 grok-4.6 的 `xhigh`。
 - 🌐 **代理感知** —— 只代理审核过的订阅域名；Kimi 中国流量默认直连。
 - 📥 **手动 CLI 拉取** —— 设置页只读发现白名单内的官方 Grok/Codex/Kimi/Claude CLI OAuth 文件；预览并确认覆盖后，单向拉取一份副本。
-- 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About 四个顶部标签替代漫长瀑布流；已登录供应商卡片默认收起，展开后再编辑。
+- 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About；远程主机优先设备码登录并弱化 CLI 缺失提示；已登录供应商卡片默认收起，展开后再编辑。
 - 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。
 - 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
 
@@ -75,7 +75,7 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -116,7 +116,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -141,7 +141,7 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 ## 设置页
 
-打开 **设置 → 编码 OAuth**。页面拆成四个顶部标签：**Accounts**、**Gateway**、**Capabilities**、**About**，不再需要长距离滚动。已登录供应商卡片默认折叠，展开后可编辑模型或使用卡片内的 CLI 拉取；CLI 预览占满内容宽度，Capabilities 标签还会显示实时可选开关和 Imagine 状态。
+打开 **设置 → 编码 OAuth**。页面拆成四个顶部标签：**Accounts**、**Gateway**、**Capabilities**、**About**，不再需要长距离滚动。远程（非 loopback）主机上，Accounts 会优先设备码登录，并把嘈杂的 CLI 缺失提示收成一条；已登录供应商卡片默认折叠，展开后可编辑模型或使用卡片内的 CLI 拉取；CLI 预览占满内容宽度，Capabilities 标签还会显示实时可选开关和 Imagine 状态。
 
 <table>
   <tr>

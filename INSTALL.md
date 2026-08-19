@@ -3,15 +3,15 @@
 本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 ```
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.3`**：
+第一次公开发布是 **`0.4.1`**。当前推荐 **`0.5.4`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
@@ -26,7 +26,7 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 
 ```bash
 # 普通用户：当前 npm 发布版
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
 
 # 开发 / 备用：从 GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

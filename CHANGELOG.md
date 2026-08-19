@@ -4,10 +4,18 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.4 - 2026-08-19
+
+### Changed
+
+- Improve remote/headless Settings UX: prefer device-code CTAs on non-loopback hosts, collapse noisy per-card CLI-missing hints into one neutral tip, shorten Capabilities copy, move Antigravity onto Accounts, and enrich About with remote-login help plus plugin version.
+- Load Gateway and Imagine status only when their tabs open; soft-fetch Capabilities when Codex is signed in so quota can still appear on Accounts.
+- Split the Settings client into tab/components modules with display/parser Vitest coverage, and make `promote-release` resilient to overlay `EXDEV` renames.
+
 ### Documentation
 
-- Add product screenshots of Settings → Coding OAuth (Accounts, Gateway, Capabilities) under `media/`, linked from the README family.
-- Tighten Settings screenshot framing and show Accounts / Gateway / Capabilities as a three-column README gallery instead of stacked full-width images.
+- Refresh Settings product screenshots under `media/` for the remote-host Accounts tip, device-code-first CTAs, quieter CLI-missing banner, Gateway loopback hint, and shortened Capabilities copy; keep the three-column README gallery (Accounts / Gateway / Capabilities).
+- Record previously unreleased screenshot gallery work (Accounts / Gateway / Capabilities under `media/`, three-column README layout) in this release.
 
 ## v0.5.3 - 2026-08-19
 
