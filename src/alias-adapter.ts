@@ -12,6 +12,7 @@ import type {
 	StreamChunk,
 } from "@deepseek-ai/dsh-llm";
 import { LlmAdapter, LlmError } from "@deepseek-ai/dsh-llm";
+import { remapXaiCapacityFailure } from "./grok-errors.ts";
 import { remapAuthFailureIfContextOverflow } from "./kimi-errors.ts";
 
 export interface AliasLlmRoutePolicy {
@@ -121,7 +122,7 @@ export class AliasLlmAdapter extends LlmAdapter {
 							...raw,
 							reason: {
 								...raw.reason,
-								failure: remapAuthFailureIfContextOverflow(raw.reason.failure),
+								failure: remapXaiCapacityFailure(remapAuthFailureIfContextOverflow(raw.reason.failure)),
 							},
 						}
 					: raw;
