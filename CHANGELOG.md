@@ -7,6 +7,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 ### Documentation
 
 - Add product screenshots of Settings → Coding OAuth (Accounts, Gateway, Capabilities) under `media/`, linked from the README family.
+- Tighten Settings screenshot framing and show Accounts / Gateway / Capabilities as a three-column README gallery instead of stacked full-width images.
 
 ## v0.5.3 - 2026-08-19
 
