@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.5 - 2026-08-19
+
+### Changed
+
+- Redesign the Coding OAuth Settings client: semantic status badges, segmented tabs with live hints, toggle switches for capabilities, sign-in step flow with copy actions, model search/filter controls, Codex usage progress bars, gateway quick-setup snippets (cURL / Python / IDE), skeleton pulse animations, and auto-dismiss success notices.
+
 ## v0.5.4 - 2026-08-19
 
 ### Changed

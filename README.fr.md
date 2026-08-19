@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.4 · anciennement `dsh-grok-build`
+**v0.5.5 · anciennement `dsh-grok-build`
 
 **Plugin OAuth pour abonnements de codage de [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Connectez-vous une fois avec les abonnements que vous payez déjà, puis utilisez leurs modèles depuis la page de configuration ou la CLI dsh. **Aucun token collé dans le chat.**
 
@@ -24,7 +24,7 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 | | Utiliser | Toujours valable |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (même `main`) |
-| npm | `dsh-coding-subscription-oauth@0.5.4` (version actuelle) | Aucun ancien paquet npm n'a été publié |
+| npm | `dsh-coding-subscription-oauth@0.5.5` (version actuelle) | Aucun ancien paquet npm n'a été publié |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inchangé |
 | API HTTP des réglages | `/plugins/dsh-grok-build/*` | inchangé |
@@ -73,7 +73,7 @@ Ce sont les recherches et erreurs DSH qui mènent le plus souvent ici.
 
 ```bash
 # 1. installez le plugin dans le profil web (version actuelle npm)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
 
 # 2. optionnel — Google Antigravity (version épinglée examinée)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -114,7 +114,7 @@ Nécessite DeepSeek Harness `0.1.0-rc.6+` et Node.js 22.19+. Détails complets d
 
 ```bash
 # version actuelle npm (recommandé)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
 
 # développement/alternatif : depuis GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
