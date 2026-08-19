@@ -203,4 +203,4 @@ export const CONSUMED_PREVIEW_CODES = new Set([
 	"unsafe_destination",
 ]);
 
-export const PLUGIN_VERSION = "0.5.5";
+export const PLUGIN_VERSION = "0.5.6";

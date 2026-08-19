@@ -4,6 +4,18 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.6 - 2026-08-19
+
+### Fixed
+
+- Relax Docker preview seed checks so `web-preview` images build against the current plugin version and installed DSH peer packages instead of hard-coded semver pins.
+- Improve the settings screenshot capture script so isolated DSH preview overlays (Continue, internal testing notice, modal masks) are dismissed before opening **Settings → Coding OAuth**.
+
+### Documentation
+
+- Refresh Settings product screenshots under `media/` for the v0.5.5 UI redesign: segmented tabs with live hints, semantic status badges, sign-in step flow, toggle switches on Capabilities, and gateway quick-setup snippets on Gateway.
+- Record npm publication confirmation for `dsh-coding-subscription-oauth@0.5.5` and keep README install commands on the latest release.
+
 ## v0.5.5 - 2026-08-19
 
 ### Changed

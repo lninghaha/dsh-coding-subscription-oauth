@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.5** · 原名 `dsh-grok-build`
+**v0.5.6** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -23,7 +23,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.5.5`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.5.6`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.6` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -75,7 +75,7 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.6
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -116,7 +116,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.6
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -141,7 +141,7 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 ## 设置页
 
-打开 **设置 → 编码 OAuth**。页面拆成四个顶部标签：**Accounts**、**Gateway**、**Capabilities**、**About**，不再需要长距离滚动。远程（非 loopback）主机上，Accounts 会优先设备码登录，并把嘈杂的 CLI 缺失提示收成一条；已登录供应商卡片默认折叠，展开后可编辑模型或使用卡片内的 CLI 拉取；CLI 预览占满内容宽度，Capabilities 标签还会显示实时可选开关和 Imagine 状态。
+打开 **设置 → 编码 OAuth**。页面采用分段标签：**Accounts**、**Gateway**、**Capabilities**、**About**，并带有实时状态提示、语义化徽章与骨架屏加载。远程（非 loopback）主机上，Accounts 会优先设备码登录，并把嘈杂的 CLI 缺失提示收成一条；已登录供应商卡片默认折叠，展开后可搜索/筛选模型、查看配额进度条或使用 CLI 拉取；Gateway 提供 cURL / Python / IDE 快速配置片段，Capabilities 使用开关联动（含依赖项置灰）并显示 Imagine 状态。
 
 <table>
   <tr>

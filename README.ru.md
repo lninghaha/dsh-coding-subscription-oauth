@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.5 · ранее `dsh-grok-build`
+**v0.5.6 · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -24,7 +24,7 @@
 | | Используйте | По-прежнему работает |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
-| npm | `dsh-coding-subscription-oauth@0.5.5` (текущая версия) | Старого npm-пакета не было |
+| npm | `dsh-coding-subscription-oauth@0.5.6` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |
 | HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
@@ -73,7 +73,7 @@
 
 ```bash
 # 1. установите текущую npm-версию в web-профиль
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.6
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -114,7 +114,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # текущая npm-версия (рекомендуется)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.5
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.6
 
 # разработка/альтернатива: из GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
