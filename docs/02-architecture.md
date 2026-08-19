@@ -119,7 +119,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.2`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.2`). GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.3`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.3`). GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 

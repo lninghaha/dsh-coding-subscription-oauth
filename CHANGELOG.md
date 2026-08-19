@@ -2,7 +2,7 @@
 
 All notable changes to `dsh-coding-subscription-oauth` are documented here, following the release loop in `docs/00-project-rules.md`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning follows [SemVer](https://semver.org/).
 
-## Unreleased
+## v0.5.3 - 2026-08-19
 
 ### Changed
 

@@ -1,7 +1,7 @@
 {
   "name": "dsh-coding-subscription-oauth",
   "description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
