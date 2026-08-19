@@ -139,6 +139,20 @@ node scripts/release.mjs --pack
 
 > Publishing and remote Git writes are intentionally outside the script.
 
+### 4.1 npm publish (maintainer cloud terminal)
+
+npm 发布由维护者在云终端自行操作。自动化 agent（含 Cursor Cloud）**不得**代为 `npm login` / `npm publish`，也不得用 Trusted Publishing 或其它方式代发。
+
+Agent 可以处理版本 bump、changelog、GitHub Release / `v*` tag，以及发版后的核对。需要发布到 npm 时，**只向维护者给出下面三条命令**（按需替换仓库路径）：
+
+```bash
+cd <仓库根目录>
+npm login
+npm publish --access public
+```
+
+> 根目录 `AGENTS.md` 为云端本地注入文件（见 `.gitignore`），不同步公开仓库；本条以本节为可追踪约定。
+
 ---
 
 ## 5. Keeping the Project Active
