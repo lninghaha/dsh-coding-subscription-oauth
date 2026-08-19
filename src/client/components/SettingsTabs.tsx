@@ -1,17 +1,25 @@
-/** Accessible tablist for Coding OAuth settings. */
+/** Accessible segmented tablist for Coding OAuth settings. */
 
 import type { KeyboardEvent } from "react";
 import { SETTINGS_TABS } from "../constants.ts";
-import { tabButtonActiveStyle, tabButtonStyle, tabNavStyle } from "../styles.ts";
+import { segmentedNavStyle, segmentedTabActiveStyle, segmentedTabStyle } from "../styles.ts";
 import type { GrokBuildSettingsInjected, SettingsTabId } from "../types.ts";
+
+export interface SettingsTabHint {
+	id: SettingsTabId;
+	suffix?: string;
+}
 
 export interface SettingsTabsProps {
 	t: GrokBuildSettingsInjected["t"];
 	activeTab: SettingsTabId;
 	onChange: (tab: SettingsTabId) => void;
+	hints?: readonly SettingsTabHint[];
 }
 
-export function SettingsTabs({ t, activeTab, onChange }: SettingsTabsProps) {
+export function SettingsTabs({ t, activeTab, onChange, hints }: SettingsTabsProps) {
+	const hintFor = (id: SettingsTabId): string | undefined => hints?.find((entry) => entry.id === id)?.suffix;
+
 	const focusTab = (index: number): void => {
 		const tab = SETTINGS_TABS[index];
 		if (tab === undefined) return;
@@ -39,9 +47,11 @@ export function SettingsTabs({ t, activeTab, onChange }: SettingsTabsProps) {
 	};
 
 	return (
-		<div role="tablist" aria-label={t("title")} style={tabNavStyle} onKeyDown={onKeyDown}>
+		<div role="tablist" aria-label={t("title")} style={segmentedNavStyle} onKeyDown={onKeyDown}>
 			{SETTINGS_TABS.map((tab) => {
 				const selected = activeTab === tab.id;
+				const suffix = hintFor(tab.id);
+				const label = suffix === undefined ? t(tab.label) : `${t(tab.label)} (${suffix})`;
 				return (
 					<button
 						key={tab.id}
@@ -51,12 +61,12 @@ export function SettingsTabs({ t, activeTab, onChange }: SettingsTabsProps) {
 						aria-selected={selected}
 						aria-controls={`coding-oauth-panel-${tab.id}`}
 						tabIndex={selected ? 0 : -1}
-						style={selected ? tabButtonActiveStyle : tabButtonStyle}
+						style={selected ? segmentedTabActiveStyle : segmentedTabStyle}
 						onClick={() => {
 							onChange(tab.id);
 						}}
 					>
-						{t(tab.label)}
+						{label}
 					</button>
 				);
 			})}

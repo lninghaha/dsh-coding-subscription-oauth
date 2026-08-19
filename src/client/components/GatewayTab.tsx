@@ -1,7 +1,8 @@
 /** Local API gateway settings tab. */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GATEWAY_PORT_MAX, GATEWAY_PORT_MIN } from "../constants.ts";
+import { buildGatewaySnippets, type GatewaySnippetId } from "../gatewaySnippets.ts";
 import { formatGatewayBaseUrl, parseGatewayPort, randomGatewayPort } from "../parsers.ts";
 import {
 	bodyStyle,
@@ -16,12 +17,18 @@ import {
 	monoStyle,
 	nestedStyle,
 	primaryButtonStyle,
+	segmentedNavStyle,
+	segmentedTabActiveStyle,
+	segmentedTabStyle,
 	skeletonStyle,
+	snippetStyle,
 	statusStyle,
 	titleStyle,
 	warningStyle,
 } from "../styles.ts";
 import type { CopyField, GatewayView, GrokBuildSettingsInjected } from "../types.ts";
+import { Badge } from "./Badge.tsx";
+import { CopyButton } from "./CopyButton.tsx";
 
 export interface GatewayTabProps {
 	t: GrokBuildSettingsInjected["t"];
@@ -47,6 +54,15 @@ export interface GatewayTabProps {
 	onRotate: () => void;
 }
 
+const SNIPPET_TABS: readonly {
+	id: GatewaySnippetId;
+	labelKey: "gatewaySnippetCurl" | "gatewaySnippetPython" | "gatewaySnippetIde";
+}[] = [
+	{ id: "curl", labelKey: "gatewaySnippetCurl" },
+	{ id: "python", labelKey: "gatewaySnippetPython" },
+	{ id: "ide", labelKey: "gatewaySnippetIde" },
+];
+
 export function GatewayTab({
 	t,
 	gateway,
@@ -71,6 +87,23 @@ export function GatewayTab({
 	onRotate,
 }: GatewayTabProps) {
 	const [enableConfirm, setEnableConfirm] = useState(false);
+	const [activeSnippet, setActiveSnippet] = useState<GatewaySnippetId>("curl");
+
+	const portValid = parseGatewayPort(portDraft) !== undefined;
+	const portChanged = gateway !== undefined && portDraft !== String(gateway.port);
+
+	const snippets = useMemo(() => {
+		if (gateway === undefined) return undefined;
+		const openAi = `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`;
+		const anthropic = formatGatewayBaseUrl(gateway.bind, gateway.port);
+		const key =
+			gatewayKeyVisible && gatewayOnceKey !== undefined
+				? gatewayOnceKey
+				: gateway.keyHint.length > 0
+					? gateway.keyHint
+					: "";
+		return buildGatewaySnippets(openAi, anthropic, key);
+	}, [gateway, gatewayKeyVisible, gatewayOnceKey]);
 
 	const copyLabel = (field: CopyField, idle?: string): string => {
 		if (copyFailedField === field) return t("copyFailed");
@@ -107,10 +140,10 @@ export function GatewayTab({
 				</div>
 			) : gateway === undefined ? null : (
 				<div style={nestedStyle}>
-					<p style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle(gateway.running ? "available" : "unavailable")} />
-						<span>{gateway.running ? t("gatewayRunning") : t("gatewayStopped")}</span>
-					</p>
+					<Badge
+						label={gateway.running ? t("gatewayRunning") : t("gatewayStopped")}
+						tone={gateway.running ? "success" : "neutral"}
+					/>
 					{enableConfirm ? (
 						<div style={nestedStyle}>
 							<p style={bodyStyle}>{t("gatewayEnableConfirm")}</p>
@@ -166,6 +199,11 @@ export function GatewayTab({
 						<p id="coding-oauth-gateway-port-hint" style={hintStyle}>
 							{t("gatewayPortHint")}
 						</p>
+						{!portValid && portDraft.length > 0 ? (
+							<p style={{ ...hintStyle, color: "var(--dsw-alias-state-error-primary)" }} role="alert">
+								{t("gatewayPortInvalid")}
+							</p>
+						) : null}
 						<div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
 							<input
 								id="coding-oauth-gateway-port"
@@ -177,7 +215,16 @@ export function GatewayTab({
 								value={portDraft}
 								disabled={gatewayBusy}
 								aria-describedby="coding-oauth-gateway-port-hint"
-								style={{ ...inputStyle, width: 112, flex: "0 0 112px" }}
+								aria-invalid={!portValid && portDraft.length > 0}
+								style={{
+									...inputStyle,
+									width: 112,
+									flex: "0 0 112px",
+									borderColor:
+										!portValid && portDraft.length > 0
+											? "var(--dsw-alias-state-error-primary)"
+											: "var(--dsw-alias-border-l2)",
+								}}
 								onChange={(event) => {
 									onPortDraftChange(event.target.value);
 								}}
@@ -194,9 +241,7 @@ export function GatewayTab({
 							<button
 								type="button"
 								style={primaryButtonStyle}
-								disabled={
-									gatewayBusy || portDraft === String(gateway.port) || parseGatewayPort(portDraft) === undefined
-								}
+								disabled={gatewayBusy || !portChanged || !portValid}
 								onClick={onApplyPort}
 							>
 								{t("gatewayPortApply")}
@@ -262,6 +307,38 @@ export function GatewayTab({
 						</span>
 					</p>
 					<p style={hintStyle}>{t("gatewayKeyCopyHint")}</p>
+					{gateway.enabled && snippets !== undefined ? (
+						<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+							<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("gatewaySnippetsTitle")}</h4>
+							<div role="tablist" aria-label={t("gatewaySnippetsTitle")} style={segmentedNavStyle}>
+								{SNIPPET_TABS.map((tab) => {
+									const selected = activeSnippet === tab.id;
+									return (
+										<button
+											key={tab.id}
+											type="button"
+											role="tab"
+											aria-selected={selected}
+											style={selected ? segmentedTabActiveStyle : segmentedTabStyle}
+											onClick={() => {
+												setActiveSnippet(tab.id);
+											}}
+										>
+											{t(tab.labelKey)}
+										</button>
+									);
+								})}
+							</div>
+							<code style={snippetStyle}>{snippets[activeSnippet]}</code>
+							<CopyButton
+								text={snippets[activeSnippet]}
+								idleLabel={t("copy")}
+								copiedLabel={t("copied")}
+								failedLabel={t("copyFailed")}
+								primary
+							/>
+						</div>
+					) : null}
 					{gatewayRotateConfirm ? (
 						<div style={nestedStyle}>
 							<p style={bodyStyle}>{t("gatewayRotateConfirm")}</p>

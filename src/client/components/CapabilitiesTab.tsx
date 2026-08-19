@@ -5,7 +5,6 @@ import { imagineSourceLabel } from "../parsers.ts";
 import {
 	bodyStyle,
 	cardStyle,
-	checkRowStyle,
 	dotStyle,
 	errorStyle,
 	hintStyle,
@@ -23,6 +22,8 @@ import type {
 	GrokBuildSettingsInjected,
 	ImagineCredentialView,
 } from "../types.ts";
+import { Badge } from "./Badge.tsx";
+import { ToggleSwitch } from "./ToggleSwitch.tsx";
 
 export interface CapabilitiesTabProps {
 	t: GrokBuildSettingsInjected["t"];
@@ -68,10 +69,10 @@ export function CapabilitiesTab({
 				</div>
 			) : imagine === undefined ? null : (
 				<div style={nestedStyle}>
-					<p style={statusStyle} role="status">
-						<span aria-hidden="true" style={dotStyle(imagine.configured ? "available" : "unavailable")} />
-						<span>{imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}</span>
-					</p>
+					<Badge
+						label={imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}
+						tone={imagine.configured ? "success" : "neutral"}
+					/>
 					<p style={hintStyle}>{t("imagineSource", { source: imagineSourceLabel(imagine.source, t) })}</p>
 				</div>
 			)}
@@ -98,25 +99,34 @@ export function CapabilitiesTab({
 							const checked = capabilities.value[item.key];
 							const imagesOff = item.requiresImages === true && !capabilities.value.codexImages;
 							const disabled = capabilitiesBusy || !capabilities.writable || imagesOff;
+							const switchId = `cap-switch-${item.key}`;
 							return (
-								<li key={item.key}>
-									<label style={checkRowStyle}>
-										<input
-											type="checkbox"
+								<li
+									key={item.key}
+									style={{
+										opacity: imagesOff ? 0.5 : 1,
+										transition: "opacity 0.15s ease",
+									}}
+								>
+									<div style={{ ...rowStyle, alignItems: "flex-start" }}>
+										<label htmlFor={switchId} style={{ flex: "1 1 360px", cursor: disabled ? "default" : "pointer" }}>
+											<span style={{ display: "block", fontSize: 14, color: "var(--dsw-alias-label-primary)" }}>
+												{t(item.label)}
+											</span>
+											<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
+												{imagesOff ? t("requiresCodexImages") : t(item.hint)}
+											</span>
+										</label>
+										<ToggleSwitch
+											id={switchId}
 											checked={checked}
 											disabled={disabled}
-											aria-describedby={`cap-hint-${item.key}`}
-											onChange={(event) => {
-												void onPatchCapability(item.key, event.target.checked);
+											ariaLabel={t(item.label)}
+											onChange={(next) => {
+												void onPatchCapability(item.key, next);
 											}}
 										/>
-										<span>
-											<span style={{ display: "block" }}>{t(item.label)}</span>
-											<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-												{t(item.hint)}
-											</span>
-										</span>
-									</label>
+									</div>
 								</li>
 							);
 						})}
@@ -126,25 +136,28 @@ export function CapabilitiesTab({
 						{imagineToggles.map((item) => {
 							const checked = capabilities.value[item.key];
 							const disabled = capabilitiesBusy || !capabilities.writable;
+							const switchId = `cap-switch-${item.key}`;
 							return (
 								<li key={item.key}>
-									<label style={checkRowStyle}>
-										<input
-											type="checkbox"
-											checked={checked}
-											disabled={disabled}
-											aria-describedby={`cap-hint-${item.key}`}
-											onChange={(event) => {
-												void onPatchCapability(item.key, event.target.checked);
-											}}
-										/>
-										<span>
-											<span style={{ display: "block" }}>{t(item.label)}</span>
+									<div style={{ ...rowStyle, alignItems: "flex-start" }}>
+										<label htmlFor={switchId} style={{ flex: "1 1 360px", cursor: disabled ? "default" : "pointer" }}>
+											<span style={{ display: "block", fontSize: 14, color: "var(--dsw-alias-label-primary)" }}>
+												{t(item.label)}
+											</span>
 											<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
 												{t(item.hint)}
 											</span>
-										</span>
-									</label>
+										</label>
+										<ToggleSwitch
+											id={switchId}
+											checked={checked}
+											disabled={disabled}
+											ariaLabel={t(item.label)}
+											onChange={(next) => {
+												void onPatchCapability(item.key, next);
+											}}
+										/>
+									</div>
 								</li>
 							);
 						})}

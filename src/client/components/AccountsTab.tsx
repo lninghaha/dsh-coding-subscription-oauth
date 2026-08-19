@@ -5,16 +5,13 @@ import { allOfficialCliMissing, anyOfficialCliAvailable } from "../display.ts";
 import {
 	accountGridStyle,
 	bodyStyle,
-	buttonStyle,
 	cardStyle,
 	dotStyle,
-	errorStyle,
 	hintStyle,
 	monoStyle,
 	rowStyle,
 	skeletonStyle,
 	statusStyle,
-	tipStyle,
 	titleStyle,
 } from "../styles.ts";
 import type {
@@ -26,7 +23,9 @@ import type {
 	SourceStatus,
 	UsageView,
 } from "../types.ts";
+import { Badge } from "./Badge.tsx";
 import { CliPullPreview } from "./CliPullPreview.tsx";
+import { NoticeBanner } from "./NoticeBanner.tsx";
 import { ProviderCard } from "./ProviderCard.tsx";
 
 export interface AccountsTabProps {
@@ -61,6 +60,7 @@ export interface AccountsTabProps {
 	onCommitSource: () => void;
 	onCancelSourcePreview: () => void;
 	onRefreshSources: () => void;
+	onDismissSourcesNotice: () => void;
 }
 
 export function AccountsTab({
@@ -95,6 +95,7 @@ export function AccountsTab({
 	onCommitSource,
 	onCancelSourcePreview,
 	onRefreshSources,
+	onDismissSourcesNotice,
 }: AccountsTabProps) {
 	if (status === undefined) {
 		return (
@@ -110,37 +111,35 @@ export function AccountsTab({
 	return (
 		<>
 			{remote && !remoteTipDismissed ? (
-				<div
-					style={{ ...tipStyle, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}
-				>
-					<p style={{ ...bodyStyle, margin: 0, color: "var(--dsw-alias-label-primary)" }}>{t("remoteAccountsTip")}</p>
-					<button type="button" style={buttonStyle} onClick={onDismissRemoteTip}>
-						{t("remoteTipDismiss")}
-					</button>
-				</div>
+				<NoticeBanner
+					message={t("remoteAccountsTip")}
+					dismissLabel={t("remoteTipDismiss")}
+					onDismiss={onDismissRemoteTip}
+				/>
 			) : null}
 			{allOfficialCliMissing(sources) ? (
-				<div
-					style={{ ...tipStyle, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}
-				>
-					<p style={{ ...bodyStyle, margin: 0, color: "var(--dsw-alias-label-primary)" }}>
-						{t("sourcesAllMissingHint")}
-					</p>
-					<button type="button" style={buttonStyle} disabled={sourcesBusy} onClick={onRefreshSources}>
-						{t("sourcesCheckAgain")}
-					</button>
-				</div>
+				<NoticeBanner
+					message={t("sourcesAllMissingHint")}
+					dismissLabel={t("sourcesCheckAgain")}
+					onDismiss={() => {
+						onRefreshSources();
+					}}
+				/>
 			) : null}
 			{anyOfficialCliAvailable(sources) ? <p style={hintStyle}>{t("sourcesAvailableHint")}</p> : null}
 			{sourcesError === undefined ? null : (
-				<p style={errorStyle} role="alert">
+				<p style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }} role="alert">
 					{sourcesError}
 				</p>
 			)}
 			{sourcesNotice === undefined ? null : (
-				<p style={bodyStyle} role="status">
-					{sourcesNotice}
-				</p>
+				<NoticeBanner
+					key={sourcesNotice}
+					message={sourcesNotice}
+					tone="success"
+					autoHideMs={5000}
+					onDismiss={onDismissSourcesNotice}
+				/>
 			)}
 			<div style={accountGridStyle}>
 				{PROVIDERS.map((definition) => {
@@ -199,10 +198,11 @@ export function AccountsTab({
 								<span style={monoStyle}>{status.antigravity.route}</span>
 							</p>
 						</div>
-						<div style={statusStyle} role="status">
-							<span aria-hidden="true" style={dotStyle("signed-out", status.antigravity.installed)} />
-							<span>{status.antigravity.installed ? t("antigravityInstalled") : t("antigravityMissing")}</span>
-						</div>
+						<Badge
+							label={status.antigravity.installed ? t("antigravityInstalled") : t("antigravityMissing")}
+							tone={status.antigravity.installed ? "success" : "neutral"}
+							installed={status.antigravity.installed}
+						/>
 					</div>
 					<p style={bodyStyle}>{t("antigravityCliHint")}</p>
 					<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>

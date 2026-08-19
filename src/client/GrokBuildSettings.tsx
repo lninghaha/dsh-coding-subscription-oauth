@@ -1,11 +1,12 @@
 /** Plugin-owned coding subscription account section inside the dsh Settings shell. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cancelPreviewTicket, copyText, isConflictError, isConsumedPreviewError, jsonRequest } from "./api.ts";
 import { AboutTab } from "./components/AboutTab.tsx";
 import { AccountsTab } from "./components/AccountsTab.tsx";
 import { CapabilitiesTab } from "./components/CapabilitiesTab.tsx";
 import { GatewayTab } from "./components/GatewayTab.tsx";
+import type { SettingsTabHint } from "./components/SettingsTabs.tsx";
 import { SettingsTabs } from "./components/SettingsTabs.tsx";
 import {
 	CAPABILITIES_PATH,
@@ -28,6 +29,7 @@ import {
 	STATUS_PATH,
 } from "./constants.ts";
 import { isLikelyRemoteHost } from "./display.ts";
+import { ensureMicroStyles } from "./microStyles.ts";
 import {
 	emptyCapabilitySettings,
 	mergeSources,
@@ -185,6 +187,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 
 	// Accounts: status immediately; sources shortly after (non-blocking for first paint).
 	useEffect(() => {
+		ensureMicroStyles();
 		void refresh();
 		const timer = window.setTimeout(() => {
 			void refreshSources();
@@ -441,6 +444,22 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 
 	const showUsage = capabilities?.value.codexUsage === true && status?.providers.codex.status === "signed-in";
 
+	const tabHints = useMemo((): readonly SettingsTabHint[] => {
+		const hints: SettingsTabHint[] = [];
+		if (status !== undefined) {
+			const signedInCount = Object.values(status.providers).filter(
+				(provider) => provider.status === "signed-in",
+			).length;
+			if (signedInCount > 0) {
+				hints.push({ id: "accounts", suffix: String(signedInCount) });
+			}
+		}
+		if (gateway?.running === true) {
+			hints.push({ id: "gateway", suffix: t("tabGatewayActive") });
+		}
+		return hints;
+	}, [gateway?.running, status, t]);
+
 	const markCopied = (field: CopyField): void => {
 		if (copiedTimerRef.current !== undefined) window.clearTimeout(copiedTimerRef.current);
 		setCopiedField(field);
@@ -570,7 +589,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 					{requestError}
 				</p>
 			)}
-			<SettingsTabs t={t} activeTab={activeTab} onChange={setActiveTab} />
+			<SettingsTabs t={t} activeTab={activeTab} onChange={setActiveTab} hints={tabHints} />
 			<div
 				id={`coding-oauth-panel-${activeTab}`}
 				role="tabpanel"
@@ -634,6 +653,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						}}
 						onRefreshSources={() => {
 							void refreshSources();
+						}}
+						onDismissSourcesNotice={() => {
+							setSourcesNotice(undefined);
 						}}
 					/>
 				) : null}
