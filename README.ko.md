@@ -143,17 +143,22 @@ pnpm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 
 
 
-<p align="center">
-  <img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="900" />
-</p>
-
-<p align="center">
-  <img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="900" />
-</p>
-
-<p align="center">
-  <img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="900" />
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
+      <sub>Accounts</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
+      <sub>Gateway</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
+      <sub>Capabilities</sub>
+    </td>
+  </tr>
+</table>
 
 | 프로바이더 | 방식 |
 |---|---|

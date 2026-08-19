@@ -143,17 +143,22 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 打开 **设置 → 编码 OAuth**。页面拆成四个顶部标签：**Accounts**、**Gateway**、**Capabilities**、**About**，不再需要长距离滚动。已登录供应商卡片默认折叠，展开后可编辑模型或使用卡片内的 CLI 拉取；CLI 预览占满内容宽度，Capabilities 标签还会显示实时可选开关和 Imagine 状态。
 
-<p align="center">
-  <img src="media/settings_accounts.png" alt="编码 OAuth · Accounts 标签" width="900" />
-</p>
-
-<p align="center">
-  <img src="media/settings_gateway.png" alt="编码 OAuth · Gateway 标签" width="900" />
-</p>
-
-<p align="center">
-  <img src="media/settings_capabilities.png" alt="编码 OAuth · Capabilities 标签" width="900" />
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="编码 OAuth · Accounts 标签" width="280" /></a><br />
+      <sub>Accounts</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="编码 OAuth · Gateway 标签" width="280" /></a><br />
+      <sub>Gateway</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="编码 OAuth · Capabilities 标签" width="280" /></a><br />
+      <sub>Capabilities</sub>
+    </td>
+  </tr>
+</table>
 
 | 供应商 | 方式 |
 |---|---|
