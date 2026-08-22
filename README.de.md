@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.0 · früher `dsh-grok-build`
+**v0.6.1 · früher `dsh-grok-build`
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -27,7 +27,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.0` (aktuelle Version) | Es gab kein altes npm-Paket |
+| npm | `dsh-coding-subscription-oauth@0.6.1` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
 | Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
@@ -77,14 +77,13 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 
 ```bash
 # 1. Plugin in das Web-Profil installieren (aktuelle npm-Version)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 2. optional — Google Antigravity (gepinnte, geprüfte Version)
 dsh plugin --profile web add dsh-agy@0.1.2
 
-# 3. den residenten dsh-web-Dienst neu starten
-# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
-systemctl --user restart dsh-web.service
+# 3. den vorhandenen DSH-Web-Prozess mit dem konfigurierten Prozessmanager neu starten
+# `dsh web` ist der offizielle CLI-Alias, kein Dienstname.
 ```
 
 Danach **Settings → Coding OAuth** öffnen und bei einem beliebigen Anbieter anmelden. Fertig — wählen Sie Ihr authentifiziertes Modell im Wähler.
@@ -119,7 +118,7 @@ Erfordert DeepSeek Harness `0.1.0-rc.6+` und Node.js 22.19+. Vollständige Detai
 
 ```bash
 # aktuelle npm-Version (empfohlen)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # Entwicklung/Alternativ: von GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

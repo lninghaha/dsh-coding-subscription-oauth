@@ -44,9 +44,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 function service(context: Context, name: string): unknown {
 	try {
-		return context.get(name);
-	} catch {
+		const value = context.get(name);
+		if (value !== undefined && value !== null) return value;
+	} catch {}
+	try {
 		return record(context)?.[name];
+	} catch {
+		return undefined;
 	}
 }
 
@@ -92,7 +96,7 @@ export function createDshHostAdapter(context: Context): DshHostAdapter {
 			});
 		}
 	}
-	const llm = record(service(context, "llm")) ?? (candidate["llm"] as Record<string, unknown> | undefined);
+	const llm = record(service(context, "llm"));
 	if (llm === undefined || typeof llm["registerAdapter"] !== "function") {
 		diagnostics.push({
 			id: "host.api.llm.registerAdapter",
@@ -120,9 +124,7 @@ export function createDshHostAdapter(context: Context): DshHostAdapter {
 				webServer: capability(service(context, "webServer"), "exact-route-v1", ["register"]),
 				settings: capability(service(context, "settings"), "settings-register-v1", ["register"]),
 				credentials: capability(service(context, "credentials"), "credential-resolver-v1", ["resolve"]),
-				llm: capability(service(context, "llm") ?? record(context)?.["llm"], "llm-adapter-registry-v1", [
-					"registerAdapter",
-				]),
+				llm: capability(service(context, "llm"), "llm-adapter-registry-v1", ["registerAdapter"]),
 				ownerRequestPolicy: capability(service(context, "ownerRequestPolicy"), "owner-request-policy-v1", [
 					"authorize",
 					"diagnostics",

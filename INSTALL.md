@@ -3,21 +3,21 @@
 本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 ```
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-第一次公开发布是 **`0.4.1`**。当前推荐 **`0.6.0`**：
+第一次公开发布是 **`0.4.1`**。当前推荐 **`0.6.1`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
 ## 前置条件
 
-- DeepSeek Harness 0.1.0-rc.6+
+- DeepSeek Harness 0.1.0-rc.6 (the exact verified BOM)
 - Node.js 22.19+
 - 需要使用的个人编码订阅；没有 Claude/Google 账号也可以先安装路由
 - 部分网络需要 HTTP/HTTPS 代理
@@ -26,7 +26,7 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 
 ```bash
 # 普通用户：当前 npm 发布版
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 开发 / 备用：从 GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -42,9 +42,10 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## 升级注意事项
 
-- 本版按 DSH `0.1.0-rc.6+` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。
-- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.0` 可从 npm 解析，再安装 Subscription `0.6.0`（以及需要的 Hub `1.9.0`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
-- 共装 Hub 与 Subscription 时，安装两个目标版本后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
+- 本版按 DSH `0.1.0-rc.6` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。
+- 从 `0.6.0` 升级到 `0.6.1` 后再重启：`0.6.0` 在严格 Cordis 注入检查下可能因读取尚未注入的可选服务而拖垮插件树。这个补丁不迁移或重置 OAuth 凭据、Gateway、模型/适配器 ID 与缓存。
+- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.0` 可从 npm 解析，再安装 Subscription `0.6.1`（以及需要的 Hub `1.9.1`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
+- 共装 Hub 与 Subscription 时，先安装 Hub `1.9.1` 与 Subscription `0.6.1`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
 - 升级会保留既有 Cordis id、OAuth 凭据文件、模型/适配器 ID、Gateway 配置和模型缓存；不要为了“清理旧版本”删除这些文件。若旧包名 `dsh-grok-build` 仍在 profile 中，只移除那条旧插件记录，再安装当前包，避免重复路由。
 - 回滚时恢复上一个插件版本并重启一次，保留凭据和配置；先查看兼容性诊断与失败原因，不要用清空凭据来代替回滚。
 - DSH Web 与本地 Gateway 继续只绑定 loopback。远程 Settings 只能走 SSH 隧道或满足 owner proof、精确 Origin 和 CSRF proof 的 HTTPS 反向代理；升级不会放宽到 `0.0.0.0`。

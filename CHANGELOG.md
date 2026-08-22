@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.6.1 - 2026-08-22
+
+### Fixed
+
+- Probe optional DSH host services without eagerly reading Cordis properties, so a missing injection degrades safely instead of failing the complete plugin tree during startup.
+
 ## v0.6.0 - 2026-08-22
 
 ### Added

@@ -139,9 +139,9 @@ export function apply(ctx: ClientContext): void {
 	const t = dsh.locale.bind(namespace) as GrokBuildSettingsInjected["t"];
 	dsh.installSlots({
 		mountFallback: () => mountIndependentEntry(t),
-		register: (slotContext) =>
-			slotContext.slots.inject("settings.section", () =>
-				slotContext.slots.register(
+		register: (slots) =>
+			slots.inject("settings.section", () =>
+				slots.register(
 					{
 						name: "settings.section",
 						id: "grok-build",

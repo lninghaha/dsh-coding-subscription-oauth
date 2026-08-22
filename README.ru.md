@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.0 · ранее `dsh-grok-build`
+**v0.6.1 · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -28,7 +28,7 @@
 | | Используйте | По-прежнему работает |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.0` (текущая версия) | Старого npm-пакета не было |
+| npm | `dsh-coding-subscription-oauth@0.6.1` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |
 | HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
@@ -77,14 +77,13 @@
 
 ```bash
 # 1. установите текущую npm-версию в web-профиль
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
 
-# 3. перезапустите резидентный сервис dsh web
-# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
-systemctl --user restart dsh-web.service
+# 3. перезапустите существующий процесс DSH Web через настроенный менеджер процессов
+# `dsh web` — официальный псевдоним CLI, а не имя службы.
 ```
 
 Затем откройте **Settings → Coding OAuth** и войдите в любого провайдера. Готово — выберите авторизованную модель в селекторе.
@@ -119,7 +118,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # текущая npm-версия (рекомендуется)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # разработка/альтернатива: из GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

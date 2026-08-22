@@ -12,15 +12,32 @@ export interface DshClientCompatibilityDiagnostic {
 	readonly actual: string;
 }
 
-function hasSlots(context: unknown): context is ClientContext {
-	if (typeof context !== "object" || context === null) return false;
-	const slots = (context as { readonly slots?: unknown }).slots;
-	return (
+type SlotsApi = ClientContext["slots"];
+
+function slotsOf(context: unknown): SlotsApi | undefined {
+	if (typeof context !== "object" || context === null) return undefined;
+	let slots: unknown;
+	try {
+		const get = (context as { readonly get?: unknown }).get;
+		if (typeof get === "function") slots = get.call(context, "slots");
+	} catch {
+		// Older client runtimes may not expose the Cordis reflection helper.
+	}
+	if (slots === undefined) {
+		try {
+			slots = (context as { readonly slots?: unknown }).slots;
+		} catch {
+			// Strict Cordis rejects optional service reads outside an inject scope.
+		}
+	}
+	if (
 		typeof slots === "object" &&
 		slots !== null &&
 		typeof (slots as { readonly inject?: unknown }).inject === "function" &&
 		typeof (slots as { readonly register?: unknown }).register === "function"
-	);
+	)
+		return slots as SlotsApi;
+	return undefined;
 }
 
 export interface DshClientAdapter {
@@ -30,7 +47,7 @@ export interface DshClientAdapter {
 	diagnostics(): readonly DshClientCompatibilityDiagnostic[];
 	assertCompatible(): void;
 	installSlots(options: {
-		readonly register: (context: ClientContext) => () => void;
+		readonly register: (slots: SlotsApi) => () => void;
 		readonly mountFallback: () => () => void;
 	}): void;
 }
@@ -40,11 +57,12 @@ type InstallSlotsOptions = Parameters<DshClientAdapter["installSlots"]>[0];
 export function createDshClientAdapter(context: ClientContext): DshClientAdapter {
 	const candidate = context as unknown as Record<string, unknown>;
 	const locale = candidate["locale"] as Record<string, unknown> | undefined;
+	const slots = slotsOf(context);
 	const checks: Array<[string, unknown, DshClientCompatibilityDiagnostic["level"]]> = [
 		["client.effect", candidate["effect"], "error"],
 		["client.locale.register", locale?.["register"], "error"],
 		["client.locale.bind", locale?.["bind"], "error"],
-		["client.slots.inject", (candidate["slots"] as Record<string, unknown> | undefined)?.["inject"], "warning"],
+		["client.slots.inject", slots?.inject, "warning"],
 	];
 	const diagnostics = checks.flatMap(([id, value, level]): DshClientCompatibilityDiagnostic[] =>
 		typeof value === "function"
@@ -78,21 +96,21 @@ export function createDshClientAdapter(context: ClientContext): DshClientAdapter
 			let disposed = false;
 			let installed = false;
 			let disposeCurrent: () => void = () => undefined;
-			const install = (slotContext: ClientContext): void => {
-				if (disposed || installed) return;
+			const install = (slotContext: ClientContext): boolean => {
+				const slots = slotsOf(slotContext);
+				if (disposed || installed || slots === undefined) return false;
 				installed = true;
 				disposeCurrent();
-				disposeCurrent = options.register(slotContext);
+				disposeCurrent = options.register(slots);
+				return true;
 			};
 
-			if (hasSlots(context)) {
-				install(context);
-			} else {
+			if (!install(context)) {
 				disposeCurrent = options.mountFallback();
 				const inject = candidate["inject"];
 				if (typeof inject === "function") {
 					(inject as ClientContext["inject"]).call(context, ["slots"], (slotContext) => {
-						if (hasSlots(slotContext)) install(slotContext);
+						install(slotContext);
 					});
 				}
 			}

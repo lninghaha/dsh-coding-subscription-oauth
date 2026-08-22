@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.0 · 이전 이름 `dsh-grok-build`
+**v0.6.1 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -27,7 +27,7 @@
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
-| npm | `dsh-coding-subscription-oauth@0.6.0`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
+| npm | `dsh-coding-subscription-oauth@0.6.1`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
 | 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
@@ -77,14 +77,13 @@
 
 ```bash
 # 1. web 프로필에 플러그인 설치 (현재 npm 릴리스)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
 
-# 3. 상주하는 dsh web 서비스 재시작
-# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
-systemctl --user restart dsh-web.service
+# 3. 실제로 구성한 프로세스 관리자로 기존 DSH Web 프로세스 재시작
+# `dsh web`은 공식 CLI 별칭이지 서비스 이름이 아닙니다.
 ```
 
 그런 다음 **Settings → Coding OAuth**를 열고 원하는 프로바이더에 로그인하세요. 완료입니다 — 선택기에서 인증된 모델을 선택하면 됩니다.
@@ -119,7 +118,7 @@ DeepSeek Harness `0.1.0-rc.6+` 및 Node.js 22.19+가 필요합니다. 자세한 
 
 ```bash
 # 현재 npm 릴리스 (권장)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 개발/대안: GitHub에서
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

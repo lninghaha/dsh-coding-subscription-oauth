@@ -33,12 +33,23 @@ describe("DSH compatibility contracts", () => {
 	});
 
 	it("reports a missing optional LLM registry as degraded while owner Web APIs remain usable", () => {
-		const adapter = createDshHostAdapter({
+		const context = {
 			effect() {},
 			inject() {},
 			get() {},
 			logger() {},
-		} as unknown as Context);
+		} as unknown as Context;
+		const unInjected = new Set<PropertyKey>(["webServer", "settings", "credentials", "llm", "ownerRequestPolicy"]);
+		const adapter = createDshHostAdapter(
+			new Proxy(context, {
+				get(target, property, receiver) {
+					if (unInjected.has(property)) {
+						throw new Error(`cannot get property "${String(property)}" without inject`);
+					}
+					return Reflect.get(target, property, receiver);
+				},
+			}),
+		);
 
 		expect(adapter.compatibility().status).toBe("degraded");
 		expect(() => adapter.assertCompatible()).toThrow(/host\.api\.llm\.registerAdapter/);
@@ -158,5 +169,35 @@ describe("DSH compatibility contracts", () => {
 
 		expect(disposeFallback).toHaveBeenCalledOnce();
 		expect(register).toHaveBeenCalledOnce();
+	});
+
+	it("uses Cordis reflection without reading an uninjected slots property", () => {
+		const slots = { inject() {}, register() {} };
+		const target = {
+			effect(callback: () => (() => void) | undefined) {
+				callback();
+			},
+			inject: vi.fn(),
+			get(name: string) {
+				return name === "slots" ? slots : undefined;
+			},
+			locale: { register() {}, bind() {} },
+		};
+		const context = new Proxy(target, {
+			get(object, property, receiver) {
+				if (property === "slots") throw new Error('cannot get property "slots" without inject');
+				return Reflect.get(object, property, receiver);
+			},
+		}) as unknown as ClientContext;
+		const mountFallback = vi.fn(() => vi.fn());
+		const register = vi.fn(() => vi.fn());
+
+		const adapter = createDshClientAdapter(context);
+		expect(adapter.diagnostics()).toEqual([]);
+		adapter.installSlots({ mountFallback, register });
+
+		expect(register).toHaveBeenCalledOnce();
+		expect(mountFallback).not.toHaveBeenCalled();
+		expect(target.inject).not.toHaveBeenCalled();
 	});
 });

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.0** · 原名 `dsh-grok-build`
+**v0.6.1** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.1` 修复 `0.6.0` 在严格 Cordis 注入检查下的启动失败；保留 profile、配置和凭据文件，Subscription `0.6.1` 与 Hub `1.9.1` 都更新后再重启一次现有 DSH Web 进程。`dsh-coding-oauth-core@0.1.0` 仍是共享 npm 依赖，不是需要单独安装的 DSH 插件。
 
 ---
 
@@ -27,7 +27,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.6.0`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.6.1`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -79,14 +79,13 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
 
-# 3. 重启常驻的 dsh web 服务
-# 仅示范本机服务管理器；官方 `dsh web` 是启动 web profile 的 CLI 别名，不是 systemd 单元名。
-systemctl --user restart dsh-web.service
+# 3. 使用本机实际配置的进程管理器重启现有 DSH Web 进程
+# 官方 `dsh web` 是启动 web profile 的 CLI 别名，不是服务单元名。
 ```
 
 然后打开 **设置 → 编码 OAuth** 登录任一供应商即可。选择器会自动列出已认证的模型。
@@ -121,7 +120,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.1
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
