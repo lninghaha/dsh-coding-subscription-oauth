@@ -38,7 +38,7 @@ async function ensureLink(target, path) {
 	await symlink(target, path, "dir");
 }
 
-const dsh = await assertPackage(DSH_ROOT, "@deepseek-ai/dsh", "0.1.0-rc.6");
+const dsh = await assertPackage(DSH_ROOT, "@deepseek-ai/dsh");
 const plugin = await assertPackage(PLUGIN_ROOT, PLUGIN_NAME);
 if (dsh.engines?.node !== undefined && typeof dsh.engines.node !== "string") {
 	throw new Error("invalid @deepseek-ai/dsh engines.node metadata");

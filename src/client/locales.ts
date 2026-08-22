@@ -226,8 +226,10 @@ export const en = {
 	remoteLoginHelp:
 		"On a remote DSH host, open Settings here and use device-code sign-in for each provider. Complete the code on any browser that can reach the provider, then return to chat and pick the provider route model.",
 	pluginVersion: "Plugin version {version}",
+	aboutTitle: "About",
 	aboutDocsHint:
 		"See the plugin README and INSTALL docs in the repository for setup, supported providers, and gateway safety notes.",
+	aboutDocsLink: "Open README on GitHub",
 	otherLoginMethods: "Other sign-in methods",
 	hideOtherLoginMethods: "Hide other methods",
 	signInStepOpen: "Open the provider authorization page",
@@ -466,7 +468,9 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	remoteLoginHelp:
 		"在远程 DSH 主机上，打开此处 Settings，对每个供应商使用设备码登录。在能访问供应商的任意浏览器完成验证码，再回到聊天选择对应路由模型。",
 	pluginVersion: "插件版本 {version}",
+	aboutTitle: "关于",
 	aboutDocsHint: "仓库中的 README 与 INSTALL 文档介绍了安装步骤、支持的供应商以及网关安全注意事项。",
+	aboutDocsLink: "在 GitHub 打开 README",
 	otherLoginMethods: "其他登录方式",
 	hideOtherLoginMethods: "收起其他方式",
 	signInStepOpen: "打开供应商授权页面",

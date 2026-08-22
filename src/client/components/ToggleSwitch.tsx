@@ -37,7 +37,7 @@ const thumbStyle = (checked: boolean): CSSProperties => ({
 	borderRadius: "50%",
 	// Match DSH primary fill/foreground pairing so the thumb stays visible when
 	// dark theme inverts brand-primary to near-white.
-	background: checked ? "var(--dsw-alias-label-primary-foreground)" : "var(--dsw-alias-button-elevated-fill, #ffffff)",
+	background: checked ? "var(--dsw-alias-label-primary-foreground)" : "var(--dsw-alias-button-elevated-fill)",
 	boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
 	transition: TRANSITION,
 });

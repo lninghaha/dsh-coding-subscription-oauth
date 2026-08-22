@@ -73,6 +73,10 @@ if (releaseVersions[0] !== manifest.version) {
 	fail(`top CHANGELOG release (${releaseVersions[0] ?? "missing"}) does not match package version ${manifest.version}`);
 }
 if (!readme.includes(manifest.version)) fail(`README.md does not mention ${manifest.version}`);
+const installDoc = await readFile(join(root, "INSTALL.md"), "utf8");
+if (!installDoc.includes(manifest.version)) fail(`INSTALL.md does not mention ${manifest.version}`);
+const readmeZh = await readFile(join(root, "README.zh-CN.md"), "utf8");
+if (!readmeZh.includes(manifest.version)) fail(`README.zh-CN.md does not mention ${manifest.version}`);
 
 if (mode === "pack") run("pnpm", ["run", "release:build"]);
 else run("pnpm", ["run", "release:verify"]);

@@ -82,7 +82,9 @@ export const warningStyle: CSSProperties = {
 	...bodyStyle,
 	padding: "10px 12px",
 	borderRadius: 8,
-	background: "var(--dsw-alias-bg-layer-1)",
+	border: "1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary, #e06c00) 35%, transparent)",
+	background: "color-mix(in srgb, var(--dsw-alias-state-warn-primary, #e06c00) 10%, transparent)",
+	color: "var(--dsw-alias-label-primary)",
 };
 export const tipStyle: CSSProperties = {
 	...bodyStyle,
@@ -303,10 +305,3 @@ export function providerStatusTone(status: ProviderStatus["status"], installed =
 	if (status === "signing-in") return "info";
 	return "neutral";
 }
-
-/** @deprecated Use segmentedTabStyle / segmentedTabActiveStyle */
-export const tabNavStyle: CSSProperties = segmentedNavStyle;
-/** @deprecated Use segmentedTabStyle */
-export const tabButtonStyle: CSSProperties = segmentedTabStyle;
-/** @deprecated Use segmentedTabActiveStyle */
-export const tabButtonActiveStyle: CSSProperties = segmentedTabActiveStyle;

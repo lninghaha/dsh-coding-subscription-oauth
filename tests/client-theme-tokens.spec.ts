@@ -24,4 +24,19 @@ describe("Settings theme token contracts", () => {
 		expect(statusToneColor("neutral")).not.toContain("label-dimmed");
 		expect(String(badgeStyle("neutral").color)).toContain("label-tertiary");
 	});
+
+	it("avoids hardcoded white fallbacks on theme-sensitive fills", async () => {
+		const toggleSource = await import("node:fs/promises").then((fs) =>
+			fs.readFile(new URL("../src/client/components/ToggleSwitch.tsx", import.meta.url), "utf8"),
+		);
+		expect(toggleSource).not.toMatch(/#ffffff|#fff\b/i);
+		expect(toggleSource).toContain("--dsw-alias-button-primary-fill");
+		expect(toggleSource).toContain("--dsw-alias-label-primary-foreground");
+
+		const progressSource = await import("node:fs/promises").then((fs) =>
+			fs.readFile(new URL("../src/client/components/ProgressBar.tsx", import.meta.url), "utf8"),
+		);
+		expect(progressSource).toContain("--dsw-alias-button-info-fill");
+		expect(progressSource).not.toMatch(/brand-primary.*barColor|return "var\(--dsw-alias-brand-primary/);
+	});
 });

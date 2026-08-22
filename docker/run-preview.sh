@@ -28,8 +28,10 @@ data_volume=${DSH_PREVIEW_DATA_VOLUME:-${container}-data}
 workspace_volume=${DSH_PREVIEW_WORKSPACE_VOLUME:-${container}-workspace}
 extra_authorities=${DSH_PREVIEW_AUTHORITIES:-}
 
-[[ -n $dsh_install_dir ]] || fail 'set DSH_INSTALL_DIR to an audited @deepseek-ai/dsh@0.1.0-rc.6 package directory'
+[[ -n $dsh_install_dir ]] || fail 'set DSH_INSTALL_DIR to an audited @deepseek-ai/dsh program package directory'
 [[ -f $dsh_install_dir/package.json ]] || fail "DSH_INSTALL_DIR has no package.json: $dsh_install_dir"
+dsh_name=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).name' "$dsh_install_dir/package.json")
+[[ $dsh_name == @deepseek-ai/dsh ]] || fail "DSH_INSTALL_DIR must be @deepseek-ai/dsh; found $dsh_name"
 valid_preview_port "$host_port" || fail 'DSH_PREVIEW_HOST_PORT must be in 17800-17999 or 19000-19199'
 valid_preview_port "$backend_port" || fail 'DSH_PREVIEW_BACKEND_PORT must be in 17800-17999 or 19000-19199'
 [[ $host_port != "$backend_port" ]] || fail 'preview and backend ports must differ'

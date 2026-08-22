@@ -1,6 +1,6 @@
 /** Local API gateway settings tab. */
 
-import { useMemo, useState } from "react";
+import { type KeyboardEvent, useMemo, useState } from "react";
 import { GATEWAY_PORT_MAX, GATEWAY_PORT_MIN } from "../constants.ts";
 import { buildGatewaySnippets, type GatewaySnippetId } from "../gatewaySnippets.ts";
 import { formatGatewayBaseUrl, parseGatewayPort, randomGatewayPort } from "../parsers.ts";
@@ -8,7 +8,6 @@ import {
 	bodyStyle,
 	buttonStyle,
 	cardStyle,
-	checkRowStyle,
 	copyRowStyle,
 	dotStyle,
 	errorStyle,
@@ -29,6 +28,7 @@ import {
 import type { CopyField, GatewayView, GrokBuildSettingsInjected } from "../types.ts";
 import { Badge } from "./Badge.tsx";
 import { CopyButton } from "./CopyButton.tsx";
+import { ToggleSwitch } from "./ToggleSwitch.tsx";
 
 export interface GatewayTabProps {
 	t: GrokBuildSettingsInjected["t"];
@@ -79,7 +79,6 @@ export function GatewayTab({
 	onPortDraftChange,
 	onApplyPort,
 	onRandomPort,
-	onCopy,
 	onCopyKey,
 	onToggleKeyVisible,
 	onRotateConfirm,
@@ -111,6 +110,34 @@ export function GatewayTab({
 		return idle ?? t("copy");
 	};
 
+	const focusSnippetTab = (index: number): void => {
+		const tab = SNIPPET_TABS[index];
+		if (tab === undefined) return;
+		setActiveSnippet(tab.id);
+		document.getElementById(`coding-oauth-snippet-tab-${tab.id}`)?.focus();
+	};
+
+	const onSnippetKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+		const current = SNIPPET_TABS.findIndex((tab) => tab.id === activeSnippet);
+		if (current < 0) return;
+		if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+			event.preventDefault();
+			focusSnippetTab((current + 1) % SNIPPET_TABS.length);
+		} else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+			event.preventDefault();
+			focusSnippetTab((current - 1 + SNIPPET_TABS.length) % SNIPPET_TABS.length);
+		} else if (event.key === "Home") {
+			event.preventDefault();
+			focusSnippetTab(0);
+		} else if (event.key === "End") {
+			event.preventDefault();
+			focusSnippetTab(SNIPPET_TABS.length - 1);
+		}
+	};
+
+	const openAiUrl = gateway === undefined ? "" : `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`;
+	const anthropicUrl = gateway === undefined ? "" : formatGatewayBaseUrl(gateway.bind, gateway.port);
+
 	return (
 		<section style={cardStyle} aria-labelledby="coding-oauth-gateway-title">
 			<div>
@@ -138,7 +165,11 @@ export function GatewayTab({
 						{t("gatewayLoading")}
 					</div>
 				</div>
-			) : gateway === undefined ? null : (
+			) : gateway === undefined ? (
+				<p style={hintStyle} role="status">
+					{t("gatewayLoadFailed")}
+				</p>
+			) : (
 				<div style={nestedStyle}>
 					<Badge
 						label={gateway.running ? t("gatewayRunning") : t("gatewayStopped")}
@@ -172,13 +203,23 @@ export function GatewayTab({
 							</div>
 						</div>
 					) : (
-						<label style={checkRowStyle}>
-							<input
-								type="checkbox"
+						<label
+							htmlFor="coding-oauth-gateway-enabled"
+							style={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: 12,
+								fontSize: 14,
+								color: "var(--dsw-alias-label-primary)",
+							}}
+						>
+							<span>{t("gatewayEnabled")}</span>
+							<ToggleSwitch
+								id="coding-oauth-gateway-enabled"
 								checked={gateway.enabled}
 								disabled={gatewayBusy}
-								onChange={(event) => {
-									const enabled = event.target.checked;
+								onChange={(enabled) => {
 									if (enabled) {
 										setEnableConfirm(true);
 										return;
@@ -186,7 +227,6 @@ export function GatewayTab({
 									onEnabledChange(false);
 								}}
 							/>
-							<span>{t("gatewayEnabled")}</span>
 						</label>
 					)}
 					<div>
@@ -261,34 +301,26 @@ export function GatewayTab({
 					<p style={copyRowStyle}>
 						<span style={hintStyle}>
 							{t("gatewayOpenAiUrl")}
-							<span style={{ display: "block", ...monoStyle }}>
-								{`${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`}
-							</span>
+							<span style={{ display: "block", ...monoStyle }}>{openAiUrl}</span>
 						</span>
-						<button
-							type="button"
-							style={primaryButtonStyle}
-							onClick={() => {
-								onCopy("openai", `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`);
-							}}
-						>
-							{copyLabel("openai")}
-						</button>
+						<CopyButton
+							text={openAiUrl}
+							idleLabel={t("copy")}
+							copiedLabel={t("copied")}
+							failedLabel={t("copyFailed")}
+						/>
 					</p>
 					<p style={copyRowStyle}>
 						<span style={hintStyle}>
 							{t("gatewayAnthropicUrl")}
-							<span style={{ display: "block", ...monoStyle }}>{formatGatewayBaseUrl(gateway.bind, gateway.port)}</span>
+							<span style={{ display: "block", ...monoStyle }}>{anthropicUrl}</span>
 						</span>
-						<button
-							type="button"
-							style={buttonStyle}
-							onClick={() => {
-								onCopy("anthropic", formatGatewayBaseUrl(gateway.bind, gateway.port));
-							}}
-						>
-							{copyLabel("anthropic")}
-						</button>
+						<CopyButton
+							text={anthropicUrl}
+							idleLabel={t("copy")}
+							copiedLabel={t("copied")}
+							failedLabel={t("copyFailed")}
+						/>
 					</p>
 					<p style={copyRowStyle}>
 						<span style={hintStyle}>
@@ -310,15 +342,23 @@ export function GatewayTab({
 					{gateway.enabled && snippets !== undefined ? (
 						<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 							<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("gatewaySnippetsTitle")}</h4>
-							<div role="tablist" aria-label={t("gatewaySnippetsTitle")} style={segmentedNavStyle}>
+							<div
+								role="tablist"
+								aria-label={t("gatewaySnippetsTitle")}
+								style={segmentedNavStyle}
+								onKeyDown={onSnippetKeyDown}
+							>
 								{SNIPPET_TABS.map((tab) => {
 									const selected = activeSnippet === tab.id;
 									return (
 										<button
 											key={tab.id}
+											id={`coding-oauth-snippet-tab-${tab.id}`}
 											type="button"
 											role="tab"
 											aria-selected={selected}
+											aria-controls="coding-oauth-snippet-panel"
+											tabIndex={selected ? 0 : -1}
 											style={selected ? segmentedTabActiveStyle : segmentedTabStyle}
 											onClick={() => {
 												setActiveSnippet(tab.id);
@@ -329,13 +369,18 @@ export function GatewayTab({
 									);
 								})}
 							</div>
-							<code style={snippetStyle}>{snippets[activeSnippet]}</code>
+							<div
+								id="coding-oauth-snippet-panel"
+								role="tabpanel"
+								aria-labelledby={`coding-oauth-snippet-tab-${activeSnippet}`}
+							>
+								<code style={snippetStyle}>{snippets[activeSnippet]}</code>
+							</div>
 							<CopyButton
 								text={snippets[activeSnippet]}
 								idleLabel={t("copy")}
 								copiedLabel={t("copied")}
 								failedLabel={t("copyFailed")}
-								primary
 							/>
 						</div>
 					) : null}
@@ -344,7 +389,7 @@ export function GatewayTab({
 							<p style={bodyStyle}>{t("gatewayRotateConfirm")}</p>
 							<p style={hintStyle}>{t("gatewayRotateConfirmHint")}</p>
 							<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-								<button type="button" style={buttonStyle} disabled={gatewayBusy} onClick={onRotate}>
+								<button type="button" style={primaryButtonStyle} disabled={gatewayBusy} onClick={onRotate}>
 									{t("gatewayRotateConfirmAction")}
 								</button>
 								<button type="button" style={buttonStyle} disabled={gatewayBusy} onClick={onRotateCancel}>
