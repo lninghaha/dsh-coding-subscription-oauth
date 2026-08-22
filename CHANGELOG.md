@@ -4,6 +4,20 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.8 - 2026-08-22
+
+### Fixed
+
+- Make the tag Release workflow idempotent for GitHub Releases (create or edit) and run npm provenance publish in a separate job so a pre-existing release no longer skips publishing.
+- Skip npm publish when the exact version is already on the registry, then verify `npm view` matches the tag.
+- Finish Settings theme polish: Gateway enable uses ToggleSwitch, OpenAI/Anthropic copy actions share CopyButton, snippet tabs get keyboard/ARIA parity, About gains a real heading and docs link, ProgressBar uses `button-info-fill`, and warn banners use warn-colored styling.
+
+### Changed
+
+- Relax Docker preview seed/`run-preview.sh` so they accept the installed `@deepseek-ai/dsh` version instead of a hard-coded `0.1.0-rc.6` pin.
+- Extend `release.mjs` version checks to `INSTALL.md` and `README.zh-CN.md`.
+- Document npm Trusted Publishing binding steps in `CONTRIBUTING.md`.
+
 ## v0.5.7 - 2026-08-22
 
 ### Fixed

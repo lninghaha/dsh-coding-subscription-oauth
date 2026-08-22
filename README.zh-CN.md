@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.7** · 原名 `dsh-grok-build`
+**v0.5.8** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -23,7 +23,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.5.7`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.7` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.5.8`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -75,7 +75,7 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.7
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -116,7 +116,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.7
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
