@@ -4,6 +4,13 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.5.7 - 2026-08-22
+
+### Fixed
+
+- Make Settings primary CTAs, active step markers, and toggle thumbs follow DSH `button-primary-fill` + `label-primary-foreground` so dark theme (where brand-primary inverts to near-white) no longer renders white-on-white buttons (#13).
+- Use readable `label-tertiary` for neutral badges/status dots instead of near-invisible `label-dimmed`, and correct the warn token spelling to `state-warn-primary`.
+
 ## v0.5.6 - 2026-08-19
 
 ### Fixed
