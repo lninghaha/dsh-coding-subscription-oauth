@@ -1,6 +1,6 @@
 import { chmod, lstat, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { CODEX_PI_PROVIDER, XAI_PI_PROVIDER } from "../src/ids.ts";
 import { OAUTH_SOURCE_MAX_BYTES } from "../src/oauth-sources.ts";
@@ -22,7 +22,7 @@ async function tempStore(): Promise<GrokBuildCredentialStore> {
 describe("oauthCredentialPath", () => {
 	it("accepts only a local basename and cannot escape DSH_HOME", () => {
 		expect(oauthCredentialPath("codex-oauth.json", "/tmp/example-dsh-home")).toBe(
-			"/tmp/example-dsh-home/codex-oauth.json",
+			resolve("/tmp/example-dsh-home", "codex-oauth.json"),
 		);
 		for (const basename of ["../outside.json", "nested/auth.json", "nested\\auth.json", ".", "..", ""]) {
 			expect(() => oauthCredentialPath(basename, "/tmp/example-dsh-home")).toThrow(/safe local filename/);
@@ -57,7 +57,7 @@ describe("GrokBuildCredentialStore", () => {
 		}));
 		const { stat } = await import("node:fs/promises");
 		const mode = (await stat(store.filename)).mode & 0o777;
-		expect(mode).toBe(0o600);
+		if (process.platform !== "win32") expect(mode).toBe(0o600);
 	});
 
 	it("rejects a credential file that became group-readable", async () => {
@@ -143,7 +143,7 @@ describe("GrokBuildCredentialStore", () => {
 		expect(written).toMatchObject({ type: "oauth", access: "new-access", refresh: "new-refresh", expires: 2 });
 		expect(await store.read(XAI_PI_PROVIDER)).toEqual(written);
 		const { stat } = await import("node:fs/promises");
-		expect((await stat(store.filename)).mode & 0o777).toBe(0o600);
+		if (process.platform !== "win32") expect((await stat(store.filename)).mode & 0o777).toBe(0o600);
 		const text = await readFile(store.filename, "utf8");
 		expect(JSON.parse(text)).toMatchObject({ version: 1, credential: { access: "new-access" } });
 		expect(text).not.toContain("{not-json");

@@ -1,7 +1,7 @@
 {
   "name": "dsh-coding-subscription-oauth",
   "description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
-  "version": "0.5.8",
+	"version": "0.6.0",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -40,16 +40,17 @@
     "dsh-grok-build": "lib/bin.js"
   },
   "scripts": {
+    "check:bom": "node build/verify-dsh-bom.mjs",
     "clean": "node build/clean.mjs",
     "typecheck": "tsc -b tsconfig.host.json tsconfig.client.json",
     "build:server": "tsc -p tsconfig.build.json && tsc -p tsconfig.dts-bin.json && node build/build-server.mjs",
     "build:client": "node build/build-client.mjs",
-    "build:artifacts": "pnpm run clean && pnpm run typecheck && pnpm run build:server && pnpm run build:client",
+    "build:artifacts": "pnpm run check:bom && pnpm run clean && pnpm run typecheck && pnpm run build:server && pnpm run build:client",
     "build": "pnpm run release:build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check",
-    "check:next": "pnpm run lint && pnpm run typecheck && pnpm run test",
+    "check:next": "pnpm run check:bom && pnpm run lint && pnpm run typecheck && pnpm run test",
     "check": "pnpm run lint && pnpm run release:build && pnpm run test",
     "release:promote": "node build/promote-release.mjs",
     "release:verify": "node build/verify-release.mjs",
@@ -84,6 +85,7 @@
     "docs/00-project-rules.md",
     "docs/02-architecture.md",
     "docs/02-architecture.zh-CN.md",
+    "compatibility/dsh-bom.json",
     "README.zh-CN.md",
     "README.ja.md",
     "README.ko.md",
@@ -101,6 +103,33 @@
   ],
   "license": "Apache-2.0",
   "dsh": {
+    "compatibility": {
+      "coreAbi": "dsh-coding-oauth-core/v1",
+      "verifiedBom": "./compatibility/dsh-bom.json",
+      "participant": "coding-subscription-oauth",
+      "diagnostics": "standalone",
+      "bom": {
+        "@deepseek-ai/cordis": "4.0.1",
+        "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-attachment": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-client-ui-settings": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-client-web": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-credentials": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-home-paths": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-llm-pi-ai": "0.1.0-rc.6",
+        "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
+        "@deepseek-ai/schemastery": "3.18.1",
+        "@earendil-works/pi-ai": "0.84.2",
+        "react": "18.3.1",
+        "react-dom": "18.3.1"
+      }
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
@@ -114,22 +143,24 @@
     }
   },
   "dependencies": {
+	"dsh-coding-oauth-core": "0.1.0",
     "undici": "^7.24.8"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1-rc.1",
+    "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-attachment": "*",
-    "@deepseek-ai/dsh-credentials": "*",
+    "@deepseek-ai/dsh-attachment": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.6",
     "@deepseek-ai/dsh-home-paths": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-host-webserver": "*",
-    "@deepseek-ai/dsh-invariants": "*",
+    "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
     "@deepseek-ai/dsh-llm": "0.1.0-rc.6",
     "@deepseek-ai/dsh-llm-pi-ai": "0.1.0-rc.6",
-    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "3.18.1",
     "@earendil-works/pi-ai": "0.84.2",
-    "react": "^18.2.0"
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -152,17 +183,21 @@
     },
     "react": {
       "optional": true
+    },
+    "react-dom": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
-    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.6",
     "@deepseek-ai/dsh-attachment": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-settings": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-web": "0.1.0-rc.6",
     "@deepseek-ai/dsh-credentials": "0.1.0-rc.6",
     "@deepseek-ai/dsh-home-paths": "0.1.0-rc.6",
     "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
@@ -174,8 +209,10 @@
     "@earendil-works/pi-ai": "0.84.2",
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
+    "@types/react-dom": "18.3.7",
     "esbuild": "^0.28.2",
-    "react": "^18.2.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "typescript": "^6.0.3",
     "undici": "^7.24.8",
     "vitest": "^4.1.8"

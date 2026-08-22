@@ -4,6 +4,7 @@ import { CAPABILITY_LIMITS, CAPABILITY_TOGGLES } from "../constants.ts";
 import { imagineSourceLabel } from "../parsers.ts";
 import {
 	bodyStyle,
+	buttonStyle,
 	cardStyle,
 	dotStyle,
 	errorStyle,
@@ -32,6 +33,10 @@ export interface CapabilitiesTabProps {
 	capabilitiesBusy: boolean;
 	imagine: ImagineCredentialView | undefined;
 	imagineError: string | undefined;
+	codexSignedIn: boolean;
+	onRetry: () => void;
+	onOpenAccounts: (provider: "codex") => void;
+	onFocusDependency: (target: "codexImages" | "imagineCredential") => void;
 	onPatchCapability: (key: CapabilitySettingKey, value: boolean | number) => Promise<boolean | undefined> | undefined;
 }
 
@@ -42,6 +47,10 @@ export function CapabilitiesTab({
 	capabilitiesBusy,
 	imagine,
 	imagineError,
+	codexSignedIn,
+	onRetry,
+	onOpenAccounts,
+	onFocusDependency,
 	onPatchCapability,
 }: CapabilitiesTabProps) {
 	const codexToggles = CAPABILITY_TOGGLES.filter((item) => !item.key.startsWith("grokImagine"));
@@ -56,9 +65,12 @@ export function CapabilitiesTab({
 				<p style={{ ...bodyStyle, marginTop: 4 }}>{t("capabilitiesIntro")}</p>
 			</div>
 			{imagineError === undefined ? null : (
-				<p style={errorStyle} role="alert">
-					{imagineError}
-				</p>
+				<div style={nestedStyle} role="alert">
+					<p style={errorStyle}>{imagineError}</p>
+					<button type="button" style={buttonStyle} onClick={onRetry}>
+						{t("retry")}
+					</button>
+				</div>
 			)}
 			{imagine === undefined && imagineError === undefined ? (
 				<div style={skeletonStyle} role="status" aria-busy="true">
@@ -68,7 +80,7 @@ export function CapabilitiesTab({
 					</div>
 				</div>
 			) : imagine === undefined ? null : (
-				<div style={nestedStyle}>
+				<div id="coding-oauth-imagine-credential" style={nestedStyle} tabIndex={-1}>
 					<Badge
 						label={imagine.configured ? t("imagineConfigured") : t("imagineNotConfigured")}
 						tone={imagine.configured ? "success" : "neutral"}
@@ -77,18 +89,21 @@ export function CapabilitiesTab({
 				</div>
 			)}
 			{capabilitiesError === undefined ? null : (
-				<p style={errorStyle} role="alert">
-					{capabilitiesError}
-				</p>
+				<div style={nestedStyle} role="alert">
+					<p style={errorStyle}>{capabilitiesError}</p>
+					<button type="button" style={buttonStyle} onClick={onRetry}>
+						{t("retry")}
+					</button>
+				</div>
 			)}
-			{capabilities === undefined ? (
+			{capabilities === undefined && capabilitiesError === undefined ? (
 				<div style={skeletonStyle} role="status" aria-busy="true">
 					<div style={statusStyle}>
 						<span aria-hidden="true" style={dotStyle("loading")} />
 						{t("capabilitiesLoading")}
 					</div>
 				</div>
-			) : (
+			) : capabilities === undefined ? null : (
 				<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
 					<legend style={{ ...bodyStyle, position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
 						{t("capabilitiesTitle")}
@@ -98,13 +113,23 @@ export function CapabilitiesTab({
 						{codexToggles.map((item) => {
 							const checked = capabilities.value[item.key];
 							const imagesOff = item.requiresImages === true && !capabilities.value.codexImages;
-							const disabled = capabilitiesBusy || !capabilities.writable || imagesOff;
+							const dependencyReason = !codexSignedIn
+								? t("requiresCodexSignIn")
+								: imagesOff
+									? t("requiresCodexImages")
+									: undefined;
+							const disabled = capabilitiesBusy || !capabilities.writable || dependencyReason !== undefined;
 							const switchId = `cap-switch-${item.key}`;
+							const repairAction = !codexSignedIn
+								? { label: t("openCodexAccount"), action: () => onOpenAccounts("codex") }
+								: imagesOff
+									? { label: t("focusCodexImages"), action: () => onFocusDependency("codexImages") }
+									: undefined;
 							return (
 								<li
 									key={item.key}
 									style={{
-										opacity: imagesOff ? 0.5 : 1,
+										opacity: dependencyReason === undefined ? 1 : 0.65,
 										transition: "opacity 0.15s ease",
 									}}
 								>
@@ -114,14 +139,20 @@ export function CapabilitiesTab({
 												{t(item.label)}
 											</span>
 											<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-												{imagesOff ? t("requiresCodexImages") : t(item.hint)}
+												{dependencyReason ?? t(item.hint)}
 											</span>
 										</label>
+										{repairAction === undefined ? null : (
+											<button type="button" style={buttonStyle} onClick={repairAction.action}>
+												{repairAction.label}
+											</button>
+										)}
 										<ToggleSwitch
 											id={switchId}
 											checked={checked}
 											disabled={disabled}
 											ariaLabel={t(item.label)}
+											ariaDescribedBy={`cap-hint-${item.key}`}
 											onChange={(next) => {
 												void onPatchCapability(item.key, next);
 											}}
@@ -135,7 +166,8 @@ export function CapabilitiesTab({
 					<ul style={listStyle}>
 						{imagineToggles.map((item) => {
 							const checked = capabilities.value[item.key];
-							const disabled = capabilitiesBusy || !capabilities.writable;
+							const dependencyReason = imagine?.configured === true ? undefined : t("requiresImagineCredential");
+							const disabled = capabilitiesBusy || !capabilities.writable || dependencyReason !== undefined;
 							const switchId = `cap-switch-${item.key}`;
 							return (
 								<li key={item.key}>
@@ -145,14 +177,20 @@ export function CapabilitiesTab({
 												{t(item.label)}
 											</span>
 											<span id={`cap-hint-${item.key}`} style={{ display: "block", ...hintStyle }}>
-												{t(item.hint)}
+												{dependencyReason ?? t(item.hint)}
 											</span>
 										</label>
+										{dependencyReason === undefined ? null : (
+											<button type="button" style={buttonStyle} onClick={() => onFocusDependency("imagineCredential")}>
+												{t("focusImagineCredential")}
+											</button>
+										)}
 										<ToggleSwitch
 											id={switchId}
 											checked={checked}
 											disabled={disabled}
 											ariaLabel={t(item.label)}
+											ariaDescribedBy={`cap-hint-${item.key}`}
 											onChange={(next) => {
 												void onPatchCapability(item.key, next);
 											}}

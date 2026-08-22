@@ -1,6 +1,6 @@
 /** Local API gateway settings tab. */
 
-import { type KeyboardEvent, useMemo, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { GATEWAY_PORT_MAX, GATEWAY_PORT_MIN } from "../constants.ts";
 import { buildGatewaySnippets, type GatewaySnippetId } from "../gatewaySnippets.ts";
 import { formatGatewayBaseUrl, parseGatewayPort, randomGatewayPort } from "../parsers.ts";
@@ -43,6 +43,7 @@ export interface GatewayTabProps {
 	copiedField: CopyField | undefined;
 	copyFailedField: CopyField | undefined;
 	onEnabledChange: (enabled: boolean) => void;
+	onRetry: () => void;
 	onPortDraftChange: (value: string) => void;
 	onApplyPort: () => void;
 	onRandomPort: (port: number) => void;
@@ -76,6 +77,7 @@ export function GatewayTab({
 	copiedField,
 	copyFailedField,
 	onEnabledChange,
+	onRetry,
 	onPortDraftChange,
 	onApplyPort,
 	onRandomPort,
@@ -87,21 +89,42 @@ export function GatewayTab({
 }: GatewayTabProps) {
 	const [enableConfirm, setEnableConfirm] = useState(false);
 	const [activeSnippet, setActiveSnippet] = useState<GatewaySnippetId>("curl");
+	const enableConfirmAction = useRef<HTMLButtonElement>(null);
+	const rotateTrigger = useRef<HTMLButtonElement>(null);
+	const rotateConfirmAction = useRef<HTMLButtonElement>(null);
+	const restoreEnableFocus = useRef(false);
+	const restoreRotateFocus = useRef(false);
+
+	useEffect(() => {
+		if (enableConfirm) {
+			enableConfirmAction.current?.focus();
+			return;
+		}
+		if (!restoreEnableFocus.current) return;
+		restoreEnableFocus.current = false;
+		document.getElementById("coding-oauth-gateway-enabled")?.focus();
+	}, [enableConfirm]);
+	useEffect(() => {
+		if (gatewayRotateConfirm) {
+			rotateConfirmAction.current?.focus();
+			return;
+		}
+		if (!restoreRotateFocus.current) return;
+		restoreRotateFocus.current = false;
+		rotateTrigger.current?.focus();
+	}, [gatewayRotateConfirm]);
 
 	const portValid = parseGatewayPort(portDraft) !== undefined;
 	const portChanged = gateway !== undefined && portDraft !== String(gateway.port);
 
 	const snippets = useMemo(() => {
-		if (gateway === undefined) return undefined;
+		if (gateway === undefined || !gatewayKeyVisible || gatewayOnceKey === undefined || gateway.models.length === 0) {
+			return undefined;
+		}
 		const openAi = `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`;
 		const anthropic = formatGatewayBaseUrl(gateway.bind, gateway.port);
-		const key =
-			gatewayKeyVisible && gatewayOnceKey !== undefined
-				? gatewayOnceKey
-				: gateway.keyHint.length > 0
-					? gateway.keyHint
-					: "";
-		return buildGatewaySnippets(openAi, anthropic, key);
+		// A masked keyHint is display-only and can never produce an executable command.
+		return buildGatewaySnippets(openAi, anthropic, gatewayOnceKey, gateway.models[0]);
 	}, [gateway, gatewayKeyVisible, gatewayOnceKey]);
 
 	const copyLabel = (field: CopyField, idle?: string): string => {
@@ -166,24 +189,35 @@ export function GatewayTab({
 					</div>
 				</div>
 			) : gateway === undefined ? (
-				<p style={hintStyle} role="status">
-					{t("gatewayLoadFailed")}
-				</p>
+				<div style={nestedStyle} role="status">
+					<p style={hintStyle}>{t("gatewayLoadFailed")}</p>
+					<button type="button" style={buttonStyle} onClick={onRetry}>
+						{t("retry")}
+					</button>
+				</div>
 			) : (
 				<div style={nestedStyle}>
 					<Badge
 						label={gateway.running ? t("gatewayRunning") : t("gatewayStopped")}
 						tone={gateway.running ? "success" : "neutral"}
 					/>
+					<p style={hintStyle}>
+						{gateway.models.length > 0
+							? t("gatewayModelsReady", { count: gateway.models.length, model: gateway.models[0] })
+							: t("gatewayModelsUnavailable")}
+					</p>
+					<p style={hintStyle}>{gateway.keyConfigured ? t("gatewayKeyConfigured") : t("gatewayKeyNotConfigured")}</p>
 					{enableConfirm ? (
 						<div style={nestedStyle}>
 							<p style={bodyStyle}>{t("gatewayEnableConfirm")}</p>
 							<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 								<button
+									ref={enableConfirmAction}
 									type="button"
 									style={primaryButtonStyle}
 									disabled={gatewayBusy}
 									onClick={() => {
+										restoreEnableFocus.current = true;
 										setEnableConfirm(false);
 										onEnabledChange(true);
 									}}
@@ -195,6 +229,7 @@ export function GatewayTab({
 									style={buttonStyle}
 									disabled={gatewayBusy}
 									onClick={() => {
+										restoreEnableFocus.current = true;
 										setEnableConfirm(false);
 									}}
 								>
@@ -383,22 +418,47 @@ export function GatewayTab({
 								failedLabel={t("copyFailed")}
 							/>
 						</div>
+					) : gateway.enabled ? (
+						<p style={hintStyle}>{t("gatewaySnippetsUnavailable")}</p>
 					) : null}
 					{gatewayRotateConfirm ? (
 						<div style={nestedStyle}>
 							<p style={bodyStyle}>{t("gatewayRotateConfirm")}</p>
 							<p style={hintStyle}>{t("gatewayRotateConfirmHint")}</p>
 							<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-								<button type="button" style={primaryButtonStyle} disabled={gatewayBusy} onClick={onRotate}>
+								<button
+									ref={rotateConfirmAction}
+									type="button"
+									style={primaryButtonStyle}
+									disabled={gatewayBusy}
+									onClick={() => {
+										restoreRotateFocus.current = true;
+										onRotate();
+									}}
+								>
 									{t("gatewayRotateConfirmAction")}
 								</button>
-								<button type="button" style={buttonStyle} disabled={gatewayBusy} onClick={onRotateCancel}>
+								<button
+									type="button"
+									style={buttonStyle}
+									disabled={gatewayBusy}
+									onClick={() => {
+										restoreRotateFocus.current = true;
+										onRotateCancel();
+									}}
+								>
 									{t("gatewayRotateCancel")}
 								</button>
 							</div>
 						</div>
 					) : (
-						<button type="button" style={buttonStyle} disabled={gatewayBusy} onClick={onRotateConfirm}>
+						<button
+							ref={rotateTrigger}
+							type="button"
+							style={buttonStyle}
+							disabled={gatewayBusy}
+							onClick={onRotateConfirm}
+						>
 							{t("gatewayRotate")}
 						</button>
 					)}

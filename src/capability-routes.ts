@@ -16,13 +16,12 @@ import {
 	normalizeCapabilitySettingsPatch,
 } from "./capability-settings.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
+import { CAPABILITY_SETTINGS_PATH, CODEX_USAGE_PATH, IMAGINE_CREDENTIAL_STATUS_PATH } from "./ids.ts";
 import { safeMessage } from "./redact.ts";
-import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerRequestPolicy } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
-export const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
-export const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
+export { CAPABILITY_SETTINGS_PATH, CODEX_USAGE_PATH, IMAGINE_CREDENTIAL_STATUS_PATH } from "./ids.ts";
 
 /** Structural `ctx.webServer` + `ctx.effect` surface used by the registrar. */
 export interface CapabilityRouteContext {
@@ -55,6 +54,7 @@ export interface CapabilityRouteOptions {
 	readonly controller: CapabilityRouteController;
 	readonly usage?: () => unknown | Promise<unknown>;
 	readonly credentialInfo?: () => unknown | Promise<unknown>;
+	readonly ownerRequestPolicy?: OwnerRequestPolicy;
 }
 
 class CapabilityRouteRequestError extends Error {
@@ -70,26 +70,27 @@ class CapabilityRouteRequestError extends Error {
 /** Register the plugin-owned capability routes. Owns and returns the route disposer. */
 export function registerCapabilityRoutes(ctx: CapabilityRouteContext, options: CapabilityRouteOptions): () => void {
 	const { controller, usage, credentialInfo } = options;
+	const ownerRequestPolicy = options.ownerRequestPolicy ?? LOOPBACK_OWNER_REQUEST_POLICY;
 	let dispose = (): void => undefined;
 	ctx.effect(() => {
 		dispose = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => {
 			webServer.register({
 				kind: "exact",
 				path: CAPABILITY_SETTINGS_PATH,
-				handler: (req, res) => handleCapabilities(req, res, controller),
+				handler: (req, res) => handleCapabilities(req, res, controller, ownerRequestPolicy),
 			});
 			if (usage !== undefined) {
 				webServer.register({
 					kind: "exact",
 					path: CODEX_USAGE_PATH,
-					handler: (req, res) => handleUsage(req, res, controller, usage),
+					handler: (req, res) => handleUsage(req, res, controller, usage, ownerRequestPolicy),
 				});
 			}
 			if (credentialInfo !== undefined) {
 				webServer.register({
 					kind: "exact",
 					path: IMAGINE_CREDENTIAL_STATUS_PATH,
-					handler: (req, res) => handleCredentialStatus(req, res, credentialInfo),
+					handler: (req, res) => handleCredentialStatus(req, res, credentialInfo, ownerRequestPolicy),
 				});
 			}
 		});
@@ -102,13 +103,14 @@ async function handleCapabilities(
 	req: IncomingMessage,
 	res: ServerResponse,
 	controller: CapabilityRouteController,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
 	const method = req.method ?? "";
 	if (method !== "GET" && method !== "PATCH" && method !== "PUT") {
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -136,12 +138,13 @@ async function handleUsage(
 	res: ServerResponse,
 	controller: CapabilityRouteController,
 	usage: () => unknown | Promise<unknown>,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
 	if (req.method !== "GET") {
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -161,12 +164,13 @@ async function handleCredentialStatus(
 	req: IncomingMessage,
 	res: ServerResponse,
 	credentialInfo: () => unknown | Promise<unknown>,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
 	if (req.method !== "GET") {
 		json(res, 405, { error: "method not allowed" });
 		return;
 	}
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}

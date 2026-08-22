@@ -4,9 +4,8 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CodingOAuthGatewayController } from "./gateway.js";
-export declare const GATEWAY_SETTINGS_PATH = "/plugins/dsh-grok-build/gateway";
-export declare const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
-export declare const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
+import { type OwnerRequestPolicy } from "./web-origin.js";
+export { GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH } from "./ids.js";
 export interface GatewayRouteContext {
     readonly webServer: {
         register(route: {
@@ -17,5 +16,5 @@ export interface GatewayRouteContext {
     };
     effect(callback: () => () => void | Promise<void>, label?: string): unknown;
 }
-export declare function registerGatewayRoutes(ctx: GatewayRouteContext, controller: CodingOAuthGatewayController): () => void;
+export declare function registerGatewayRoutes(ctx: GatewayRouteContext, controller: CodingOAuthGatewayController, ownerRequestPolicy?: OwnerRequestPolicy): () => void;
 //# sourceMappingURL=gateway-routes.d.ts.map

@@ -8,6 +8,8 @@ import { type RetryPolicyConfig } from "@deepseek-ai/dsh-llm";
 import z from "@deepseek-ai/schemastery";
 import { type CapabilitySettingsPatch } from "./capability-settings.js";
 import { type GatewayConfig } from "./gateway-config.js";
+export type { CodingOAuthParticipant, CodingOAuthRuntime, DshHostCapabilities, OwnerRequestPolicy as CoreOwnerRequestPolicy, } from "dsh-coding-oauth-core";
+export { acquireCodingOAuthRuntime, CODING_OAUTH_CORE_ABI, } from "dsh-coding-oauth-core";
 export { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "./adapter.js";
 export type { AliasLlmRoutePolicy } from "./alias-adapter.js";
 export { AliasLlmAdapter } from "./alias-adapter.js";
@@ -17,6 +19,7 @@ export type { CodingOAuthWebStatus, GrokBuildLoginMethod, GrokBuildWebAuthStatus
 export { CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_STATUS_PATH, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GrokBuildWebAuth, registerCodingOAuthRoutes, registerGrokBuildAuthRoutes, SubscriptionWebAuth, } from "./auth-routes.js";
 export type { CatalogSource, LiveModelDescriptor } from "./catalog.js";
 export { extractLiveModels, extractModelIds, fetchLiveModelIds, fetchLiveModels, materializeLiveModel, mergeLiveCatalog, preferredGrokBuildModelFrom, thinkingLevelMapFromLiveEfforts, } from "./catalog.js";
+export { createDshHostAdapter } from "./dsh-host-adapter.js";
 export type { GrokImportProbe } from "./grok-import.js";
 export { grokAuthPath, importGrokAuth, parseGrokAuthDocument, probeGrokAuth } from "./grok-import.js";
 export type { CodingOAuthProviderSlug, CodingOAuthRoute } from "./ids.js";
@@ -33,14 +36,16 @@ export { codingOAuthProxyInEffect, codingOAuthProxyUnreachableHint, ensureCoding
 export { redactProxyUrl, safeMessage } from "./redact.js";
 export { GrokBuildSession } from "./session.js";
 export { GrokBuildCredentialStore, grokBuildAuthPath, OAuthCredentialFileStore, oauthCredentialPath, } from "./store.js";
+export type { OwnerRequestPolicy, OwnerRequestPolicyConfig } from "./web-origin.js";
+export { createOwnerRequestPolicy, LOOPBACK_OWNER_REQUEST_POLICY, OWNER_CSRF_HEADER, OWNER_PROOF_HEADER, } from "./web-origin.js";
 /** Stable Cordis plugin name. */
 export declare const name = "llm-grok-build-oauth";
 /** Separate API-key credential used only by official xAI Imagine REST calls. */
 export declare const XAI_API_KEY_CREDENTIAL = "XAI_API_KEY";
 /** Owner-private artifact directory below the resolved DSH home. */
-export declare const IMAGINE_MEDIA_STORE_DIRNAME = ".dsh-coding-subscription-oauth-media";
-/** LLM registry required before the subscription route can register. */
-export declare const inject: string[];
+export { IMAGINE_MEDIA_STORE_DIRNAME } from "./ids.js";
+/** Optional host services are acquired inside the elected child fiber. */
+export declare const inject: readonly [];
 /** Plugin configuration; every field is optional. */
 export interface Config {
     /** HTTP(S) proxy URL for the audited coding-subscription host allowlist. */
@@ -59,11 +64,21 @@ export interface Config {
     capabilities?: CapabilitySettingsPatch;
     /** Opt-in isolated local OpenAI-compatible gateway. Default off. */
     gateway?: Partial<GatewayConfig>;
+    /** Owner-only request authorization for loopback, SSH tunnels, and trusted HTTPS proxies. */
+    ownerRequest?: {
+        loopbackAccessMode?: "loopback" | "ssh-tunnel";
+        trustedProxy?: {
+            peers?: string[];
+            origins?: string[];
+            ownerProof?: string;
+            csrfToken?: string;
+        };
+    };
 }
 export declare const Config: z<Config>;
 /**
  * Register the `grok-build` LLM route with a provider-native OAuth store.
  * @param ctx - plugin context carrying the LLM registry plus optional web server.
  */
-export declare function apply(ctx: Context, config: Config): void;
+export declare function apply(ctx: Context, config?: Config): void;
 //# sourceMappingURL=index.d.ts.map

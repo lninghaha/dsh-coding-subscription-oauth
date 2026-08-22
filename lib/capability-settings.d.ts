@@ -1,4 +1,5 @@
 import Schema from "@deepseek-ai/schemastery";
+import { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.js";
 /**
  * Integration-ready capability settings controller for the
  * `coding-subscription-oauth` namespace. Schema defaults sit under the
@@ -8,7 +9,7 @@ import Schema from "@deepseek-ai/schemastery";
  * @module dsh-coding-subscription-oauth/capability-settings
  */
 /** Settings namespace owned by this plugin. */
-export declare const CAPABILITY_SETTINGS_NAMESPACE = "coding-subscription-oauth";
+export { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.js";
 /** Default-off capability flags. Presence in the user section marks an override. */
 export declare const CAPABILITY_FLAG_KEYS: readonly ["codexSearch", "codexImages", "codexImageEdits", "codexUsage", "codexFast", "grokImagineImage", "grokImagineVideo"];
 /** Conservative numeric limits persisted beside the flags. */
@@ -169,7 +170,7 @@ export type CapabilitySettingsListener = (snapshot: CapabilitySettingsSnapshot) 
  */
 export declare class CapabilitySettingsConflictError extends Error {
     readonly code = "SETTINGS_CONFLICT";
-    readonly ns = "coding-subscription-oauth";
+    readonly ns: "coding-subscription-oauth";
     readonly expected: number;
     readonly actual: number;
     constructor(expected: number, actual: number);
@@ -177,7 +178,7 @@ export declare class CapabilitySettingsConflictError extends Error {
 /** A write refused because no writable settings provider is attached. */
 export declare class CapabilitySettingsReadOnlyError extends Error {
     readonly code: "SETTINGS_PROVIDER_ABSENT" | "SETTINGS_READ_ONLY" | "SETTINGS_DISPOSED";
-    readonly ns = "coding-subscription-oauth";
+    readonly ns: "coding-subscription-oauth";
     readonly reason: "absent" | "read-only" | "disposed";
     constructor(reason: "absent" | "read-only" | "disposed");
 }
@@ -212,7 +213,7 @@ export declare function assertServiceableCapabilitySettings(value: CapabilitySet
  * resolved state is the YAML/default layer and every write fails explicitly.
  */
 export declare class CapabilitySettingsController {
-    readonly ns = "coding-subscription-oauth";
+    readonly ns: "coding-subscription-oauth";
     private readonly settings;
     private readonly base;
     private readonly onListenerError;

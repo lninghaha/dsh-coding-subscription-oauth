@@ -4,6 +4,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { readDshClientPlatformContract } from "./dsh-client-platform.mjs";
 
 const root = resolve(".");
 const execute = promisify(execFile);
@@ -101,7 +102,7 @@ const plugin = await import(`${pathToFileURL(resolve(root, "lib/index.js")).href
 assert.equal(plugin.name, "llm-grok-build-oauth");
 assert.equal(typeof plugin.apply, "function");
 assert.ok(Array.isArray(plugin.inject));
-assert.ok(plugin.inject.includes("llm"));
+assert.deepEqual(plugin.inject, [], "optional host services must stay out of the top-level inject contract");
 assert.equal(plugin.XAI_API_KEY_CREDENTIAL, "XAI_API_KEY");
 assert.equal(plugin.IMAGINE_MEDIA_STORE_DIRNAME, ".dsh-coding-subscription-oauth-media");
 
@@ -131,7 +132,16 @@ for (const marker of [
 const clientRequires = [
 	...new Set([...clientSource.matchAll(/\brequire\((["'])([^"']+)\1\)/g)].map((match) => match[2])),
 ].sort();
-assert.deepEqual(clientRequires, ["react", "react/jsx-runtime"], "client may require only platform React modules");
+const platform = await readDshClientPlatformContract();
+const unsupportedClientRequires = clientRequires.filter((id) => !platform.modules.includes(id));
+assert.deepEqual(
+	unsupportedClientRequires,
+	[],
+	`client may require only official DSH PLATFORM_MODULES (${platform.version})`,
+);
+for (const requiredPlatformModule of ["react", "react/jsx-runtime", "react-dom/client"]) {
+	assert.ok(clientRequires.includes(requiredPlatformModule), `client bundle is missing ${requiredPlatformModule}`);
+}
 
 const binPath = resolve(root, "lib/bin.js");
 const binSource = await readFile(binPath, "utf8");

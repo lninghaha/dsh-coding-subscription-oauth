@@ -5,33 +5,53 @@ import type { Context } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-host-webserver";
 import type {} from "@deepseek-ai/dsh-llm";
 import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
+import { CODING_OAUTH_CORE_ABI } from "dsh-coding-oauth-core";
 import { grokBuildAuthStatus, importGrokBuildSession, loginGrokBuildSession } from "./auth.ts";
 import type { CatalogSource } from "./catalog.ts";
+import type { DshCompatibility } from "./compatibility.ts";
 import { probeGrokAuth } from "./grok-import.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
-import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug, XAI_PI_PROVIDER } from "./ids.ts";
+import {
+	ANTIGRAVITY_ROUTE,
+	CODING_OAUTH_LOGIN_CANCEL_PATH,
+	CODING_OAUTH_LOGIN_CODE_PATH,
+	CODING_OAUTH_LOGIN_PATH,
+	CODING_OAUTH_LOGOUT_PATH,
+	CODING_OAUTH_MODELS_PATH,
+	CODING_OAUTH_STATUS_PATH,
+	type CodingOAuthProviderSlug,
+	GROK_BUILD_AUTH_IMPORT_PATH,
+	GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
+	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
+	GROK_BUILD_AUTH_LOGIN_PATH,
+	GROK_BUILD_AUTH_LOGOUT_PATH,
+	GROK_BUILD_AUTH_MODELS_PATH,
+	GROK_BUILD_AUTH_STATUS_PATH,
+	XAI_PI_PROVIDER,
+} from "./ids.ts";
 import { loginGrokBuildPkce } from "./oauth.ts";
 import type { SubscriptionLoginMethod } from "./oauth-providers.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
 import { safeMessage } from "./redact.ts";
 import type { GrokBuildSession } from "./session.ts";
-import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerAccessMode, type OwnerRequestPolicy } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const GROK_BUILD_AUTH_STATUS_PATH = "/plugins/dsh-grok-build/auth/status";
-export const GROK_BUILD_AUTH_LOGIN_PATH = "/plugins/dsh-grok-build/auth/login";
-export const GROK_BUILD_AUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/auth/login/code";
-export const GROK_BUILD_AUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/auth/login/cancel";
-export const GROK_BUILD_AUTH_IMPORT_PATH = "/plugins/dsh-grok-build/auth/import";
-export const GROK_BUILD_AUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/auth/logout";
-export const GROK_BUILD_AUTH_MODELS_PATH = "/plugins/dsh-grok-build/auth/models";
-
-export const CODING_OAUTH_STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
-export const CODING_OAUTH_LOGIN_PATH = "/plugins/dsh-grok-build/oauth/login";
-export const CODING_OAUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
-export const CODING_OAUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
-export const CODING_OAUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
-export const CODING_OAUTH_MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
+export {
+	CODING_OAUTH_LOGIN_CANCEL_PATH,
+	CODING_OAUTH_LOGIN_CODE_PATH,
+	CODING_OAUTH_LOGIN_PATH,
+	CODING_OAUTH_LOGOUT_PATH,
+	CODING_OAUTH_MODELS_PATH,
+	CODING_OAUTH_STATUS_PATH,
+	GROK_BUILD_AUTH_IMPORT_PATH,
+	GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
+	GROK_BUILD_AUTH_LOGIN_CODE_PATH,
+	GROK_BUILD_AUTH_LOGIN_PATH,
+	GROK_BUILD_AUTH_LOGOUT_PATH,
+	GROK_BUILD_AUTH_MODELS_PATH,
+	GROK_BUILD_AUTH_STATUS_PATH,
+} from "./ids.ts";
 
 export type GrokBuildLoginMethod = "pkce" | "device";
 
@@ -566,6 +586,7 @@ export function registerGrokBuildAuthRoutes(
 	ctx: Context,
 	session: GrokBuildSession,
 	existingAuth?: GrokBuildWebAuth,
+	ownerRequestPolicy: OwnerRequestPolicy = LOOPBACK_OWNER_REQUEST_POLICY,
 ): void {
 	const auth = existingAuth ?? new GrokBuildWebAuth(session);
 	const ownsAuth = existingAuth === undefined;
@@ -579,7 +600,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_STATUS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					json(res, 200, await auth.status());
 				},
 			}),
@@ -588,7 +609,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_LOGIN_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						json(res, 200, await auth.signIn(readLoginMethod(await readJsonRequest(req))));
 					} catch (error: unknown) {
@@ -601,7 +622,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_LOGIN_CODE_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const code = typeof body === "object" && body !== null && "code" in body ? body.code : undefined;
@@ -620,7 +641,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_LOGIN_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					await auth.cancel();
 					json(res, 200, await auth.status());
 				},
@@ -630,7 +651,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_IMPORT_PATH,
 				handler: (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					json(res, 410, { error: "legacy import retired; use OAuth Pull preview and confirmation" });
 				},
 			}),
@@ -639,7 +660,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_MODELS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const selected =
@@ -659,7 +680,7 @@ export function registerGrokBuildAuthRoutes(
 				path: GROK_BUILD_AUTH_LOGOUT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					await auth.signOut();
 					json(res, 200, { ok: true });
 				},
@@ -670,6 +691,9 @@ export function registerGrokBuildAuthRoutes(
 }
 
 export interface CodingOAuthWebStatus {
+	accessMode: OwnerAccessMode;
+	uiOwner: "standalone" | "hub";
+	compatibility: DshCompatibility;
 	providers: {
 		grok: GrokBuildWebAuthStatus;
 		codex: SubscriptionWebAuthStatus;
@@ -701,6 +725,8 @@ export function registerCodingOAuthRoutes(
 	ctx: Context,
 	grokSession: GrokBuildSession,
 	subscriptionSessions: readonly OAuthProviderSession[],
+	ownerRequestPolicy: OwnerRequestPolicy = LOOPBACK_OWNER_REQUEST_POLICY,
+	compatibility?: (accessMode: OwnerAccessMode) => DshCompatibility,
 ): void {
 	const grok = new GrokBuildWebAuth(grokSession);
 	const subscriptions = new Map(
@@ -717,9 +743,9 @@ export function registerCodingOAuthRoutes(
 		"dsh-coding-subscription-oauth: Coding OAuth auth lifetime",
 	);
 
-	registerGrokBuildAuthRoutes(ctx, grokSession, grok);
+	registerGrokBuildAuthRoutes(ctx, grokSession, grok, ownerRequestPolicy);
 
-	const allStatus = async (): Promise<CodingOAuthWebStatus> => {
+	const allStatus = async (accessMode: OwnerAccessMode): Promise<CodingOAuthWebStatus> => {
 		const [grokStatus, codex, kimi, claude] = await Promise.all([
 			grok.status().catch(
 				async (error: unknown): Promise<GrokBuildWebAuthStatus> => ({
@@ -739,6 +765,9 @@ export function registerCodingOAuthRoutes(
 			// Account cards remain usable even when an unrelated adapter list fails.
 		}
 		return {
+			accessMode,
+			uiOwner: "standalone",
+			compatibility: compatibility?.(accessMode) ?? fallbackCompatibility(accessMode),
 			providers: { grok: grokStatus, codex, kimi, claude },
 			antigravity: {
 				installed: antigravityInstalled,
@@ -755,9 +784,10 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_STATUS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
 					try {
-						json(res, 200, await allStatus());
+						json(res, 200, await allStatus(decision.accessMode));
 					} catch (error: unknown) {
 						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
@@ -768,7 +798,7 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_LOGIN_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -794,7 +824,7 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_LOGIN_CODE_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -815,13 +845,14 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_LOGIN_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						if (slug === "grok") await grok.cancel();
 						else await subscription(slug).cancel();
-						json(res, 200, await allStatus());
+						json(res, 200, await allStatus(decision.accessMode));
 					} catch (error: unknown) {
 						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
@@ -832,7 +863,8 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_MODELS_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
@@ -842,7 +874,7 @@ export function registerCodingOAuthRoutes(
 						}
 						if (slug === "grok") await grok.setModels(selected);
 						else await subscription(slug).setModels(selected);
-						json(res, 200, await allStatus());
+						json(res, 200, await allStatus(decision.accessMode));
 					} catch (error: unknown) {
 						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
@@ -853,13 +885,14 @@ export function registerCodingOAuthRoutes(
 				path: CODING_OAUTH_LOGOUT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
 					try {
 						const body = await readJsonRequest(req);
 						const slug = providerSlug(body);
 						if (slug === "grok") await grok.signOut();
 						else await subscription(slug).signOut();
-						json(res, 200, await allStatus());
+						json(res, 200, await allStatus(decision.accessMode));
 					} catch (error: unknown) {
 						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
 					}
@@ -868,4 +901,21 @@ export function registerCodingOAuthRoutes(
 		]);
 		return releaseRoutes;
 	}, "dsh-coding-subscription-oauth: Coding OAuth routes");
+}
+
+function fallbackCompatibility(accessMode: OwnerAccessMode): DshCompatibility {
+	return {
+		coreAbi: CODING_OAUTH_CORE_ABI,
+		dshVersion: null,
+		status: "degraded",
+		uiOwner: "standalone",
+		accessMode,
+		capabilities: {
+			webServer: { state: "available", contract: "exact-route-v1" },
+			llm: { state: "available", contract: "llm-adapter-registry-v1" },
+			settings: { state: "missing", contract: "settings-register-v1" },
+			credentials: { state: "missing", contract: "credential-resolver-v1" },
+		},
+		diagnostics: [],
+	};
 }

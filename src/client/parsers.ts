@@ -326,12 +326,22 @@ export function parseGateway(value: unknown): GatewayView | undefined {
 	const bind = optionalString(value["bind"]);
 	const port = optionalFiniteNumber(value["port"]);
 	if (bind === undefined || port === undefined) return undefined;
+	const models = Array.isArray(value["models"])
+		? value["models"].filter((model): model is string => typeof model === "string" && model.length > 0)
+		: [];
+	const model = optionalString(value["model"]) ?? models[0] ?? null;
+	if (models.length === 0 && model !== null) models.push(model);
+	const keyAvailable = value["keyAvailable"] === true || value["keyConfigured"] === true;
 	return {
 		enabled: value["enabled"] === true,
 		running: value["running"] === true,
 		bind,
 		port,
+		model,
+		keyConfigured: keyAvailable,
+		keyAvailable,
 		keyHint: optionalString(value["keyHint"]) ?? "",
+		models,
 		warning: optionalString(value["warning"]) ?? "",
 	};
 }

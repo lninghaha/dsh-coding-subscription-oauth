@@ -63,6 +63,14 @@ export type SubscriptionStatus = {
 export type ProviderStatus = GrokStatus | SubscriptionStatus;
 
 export interface CodingOAuthStatus {
+	accessMode: "loopback" | "ssh-tunnel" | "trusted-https-proxy" | "denied";
+	uiOwner: "standalone" | "hub";
+	compatibility: {
+		coreAbi: string;
+		dshVersion: string | null;
+		status: "healthy" | "degraded" | "incompatible";
+		diagnostics: readonly unknown[];
+	};
 	providers: {
 		grok: GrokStatus;
 		codex: SubscriptionStatus;
@@ -174,7 +182,11 @@ export interface GatewayView {
 	running: boolean;
 	bind: string;
 	port: number;
+	model: string | null;
+	keyConfigured: boolean;
+	keyAvailable: boolean;
 	keyHint: string;
+	models: string[];
 	warning: string;
 }
 

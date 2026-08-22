@@ -9,6 +9,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ImageAttachmentRef } from "@deepseek-ai/dsh-attachment";
 import { type ImagineImageAttachmentRef } from "./grok-imagine.js";
 import { type MediaArtifactMeta, type MediaDownloadView, type TrustedImagineAuthz } from "./media-store.js";
+import { type OwnerRequestPolicy } from "./web-origin.js";
 /** Hard ceiling for live exact download routes. Callers cannot raise this. */
 export declare const IMAGINE_ROUTE_MAX_ENTRIES = 64;
 /** Hard ceiling for remembered image routes. Callers cannot raise this. */
@@ -46,6 +47,7 @@ export interface ImagineRouteOptions {
     readonly maxEntries?: number;
     /** Capped at {@link IMAGINE_IMAGE_ROUTE_TTL_MS}. */
     readonly imageTtlMs?: number;
+    readonly ownerRequestPolicy?: OwnerRequestPolicy;
 }
 export interface ImagineRouteRegistry {
     rememberImages(refs: readonly ImageAttachmentRef[] | readonly ImagineImageAttachmentRef[]): void;

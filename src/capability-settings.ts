@@ -1,4 +1,5 @@
 import Schema from "@deepseek-ai/schemastery";
+import { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.ts";
 
 /**
  * Integration-ready capability settings controller for the
@@ -10,7 +11,7 @@ import Schema from "@deepseek-ai/schemastery";
  */
 
 /** Settings namespace owned by this plugin. */
-export const CAPABILITY_SETTINGS_NAMESPACE = "coding-subscription-oauth";
+export { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.ts";
 
 /** Default-off capability flags. Presence in the user section marks an override. */
 export const CAPABILITY_FLAG_KEYS = [

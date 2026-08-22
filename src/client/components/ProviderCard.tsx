@@ -1,6 +1,6 @@
 /** Single provider account card for the Accounts tab. */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SOURCE_REASON_KEY } from "../constants.ts";
 import { methodLabel, orderedLoginMethods, shouldShowPerCardSourceReason } from "../display.ts";
 import { formatEpoch, modelFields, usageHasVisibleFields } from "../parsers.ts";
@@ -23,6 +23,7 @@ import {
 	stepNumberStyle,
 	stepRowStyle,
 	titleStyle,
+	visuallyHiddenStyle,
 } from "../styles.ts";
 import type {
 	GrokBuildSettingsInjected,
@@ -170,6 +171,10 @@ export function ProviderCard({
 }: ProviderCardProps) {
 	const [showAltMethods, setShowAltMethods] = useState(false);
 	const [modelFilter, setModelFilter] = useState("");
+	const [logoutConfirm, setLogoutConfirm] = useState(false);
+	const logoutTrigger = useRef<HTMLButtonElement>(null);
+	const logoutConfirmAction = useRef<HTMLButtonElement>(null);
+	const restoreLogoutFocus = useRef(false);
 
 	const ordered = orderedLoginMethods(definition, remote);
 	const primaryMethod: LoginMethod = ordered[0] ?? definition.recommended;
@@ -184,7 +189,29 @@ export function ProviderCard({
 					? t("requestFailed")
 					: t("signedOut");
 	const activeMethod = providerStatus.status === "signing-in" ? providerStatus.method : primaryMethod;
-	const { available, selected } = modelFields(providerStatus);
+	const { available, selected } = useMemo(() => modelFields(providerStatus), [providerStatus]);
+	const [modelDraft, setModelDraft] = useState<string[]>(selected);
+	useEffect(() => {
+		setModelDraft(selected);
+	}, [selected]);
+	useEffect(() => {
+		if (providerStatus.status !== "signed-in") setLogoutConfirm(false);
+	}, [providerStatus.status]);
+	useEffect(() => {
+		if (logoutConfirm) {
+			logoutConfirmAction.current?.focus();
+			return;
+		}
+		if (!restoreLogoutFocus.current) return;
+		restoreLogoutFocus.current = false;
+		if (providerStatus.status === "signed-in") {
+			logoutTrigger.current?.focus();
+			return;
+		}
+		document.getElementById(`coding-oauth-login-${definition.slug}`)?.focus();
+	}, [definition.slug, logoutConfirm, providerStatus.status]);
+	const modelDraftDirty =
+		modelDraft.length !== selected.length || modelDraft.some((model, index) => model !== selected[index]);
 	const grokProviderStatus = definition.slug === "grok" ? (providerStatus as GrokStatus) : undefined;
 	const showSourceReason = shouldShowPerCardSourceReason(source);
 
@@ -226,14 +253,65 @@ export function ProviderCard({
 			<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 				{providerStatus.status === "signed-in" ? (
 					<>
-						<button type="button" style={buttonStyle} disabled={busy} onClick={onSignOut}>
-							{busy ? t("working") : t("logout")}
-						</button>
-						<button type="button" style={buttonStyle} onClick={onToggleExpanded}>
+						{logoutConfirm ? (
+							<fieldset style={{ ...nestedStyle, margin: 0, minWidth: 0 }}>
+								<legend style={visuallyHiddenStyle}>{t("logoutConfirmTitle")}</legend>
+								<p style={bodyStyle}>{t("logoutConfirmHint")}</p>
+								<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+									<button
+										ref={logoutConfirmAction}
+										type="button"
+										style={primaryButtonStyle}
+										disabled={busy}
+										onClick={() => {
+											restoreLogoutFocus.current = true;
+											onSignOut();
+										}}
+									>
+										{busy ? t("working") : t("logoutConfirmAction")}
+									</button>
+									<button
+										type="button"
+										style={buttonStyle}
+										disabled={busy}
+										onClick={() => {
+											restoreLogoutFocus.current = true;
+											setLogoutConfirm(false);
+										}}
+									>
+										{t("cancel")}
+									</button>
+								</div>
+							</fieldset>
+						) : (
+							<button
+								ref={logoutTrigger}
+								type="button"
+								style={buttonStyle}
+								disabled={busy}
+								onClick={() => setLogoutConfirm(true)}
+							>
+								{t("logout")}
+							</button>
+						)}
+						<button
+							id={`coding-oauth-models-toggle-${definition.slug}`}
+							type="button"
+							style={buttonStyle}
+							aria-expanded={expanded}
+							aria-controls={expanded ? `coding-oauth-models-${definition.slug}` : undefined}
+							onClick={onToggleExpanded}
+						>
 							{expanded ? t("collapseModels") : t("expandModels")}
 						</button>
 						{source?.available === true ? (
-							<button type="button" style={buttonStyle} disabled={sourcesBusy} onClick={onPreviewSource}>
+							<button
+								id={`coding-oauth-source-pull-${definition.slug}`}
+								type="button"
+								style={buttonStyle}
+								disabled={sourcesBusy}
+								onClick={onPreviewSource}
+							>
 								{t("sourcesPullCopy")}
 							</button>
 						) : null}
@@ -274,6 +352,7 @@ export function ProviderCard({
 				) : (
 					<>
 						<button
+							id={`coding-oauth-login-${definition.slug}`}
 							type="button"
 							style={primaryButtonStyle}
 							disabled={busy}
@@ -311,7 +390,13 @@ export function ProviderCard({
 								))
 							: null}
 						{source?.available === true ? (
-							<button type="button" style={buttonStyle} disabled={sourcesBusy} onClick={onPreviewSource}>
+							<button
+								id={`coding-oauth-source-pull-${definition.slug}`}
+								type="button"
+								style={buttonStyle}
+								disabled={sourcesBusy}
+								onClick={onPreviewSource}
+							>
 								{t("sourcesPullCopy")}
 							</button>
 						) : showSourceReason && source?.reason !== undefined ? (
@@ -335,7 +420,11 @@ export function ProviderCard({
 			{providerStatus.status === "signing-in" && activeMethod !== "device" ? (
 				<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 					<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+						<label htmlFor={`coding-oauth-code-${definition.slug}`} style={visuallyHiddenStyle}>
+							{t("pasteCodeLabel")}
+						</label>
 						<input
+							id={`coding-oauth-code-${definition.slug}`}
 							style={{ ...inputStyle, flex: "1 1 360px" }}
 							value={codeInput}
 							placeholder={t("pasteCodePlaceholder")}
@@ -362,7 +451,7 @@ export function ProviderCard({
 				</div>
 			) : null}
 			{providerStatus.status === "signed-in" && expanded ? (
-				<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+				<div id={`coding-oauth-models-${definition.slug}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 					<div style={rowStyle}>
 						<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("models")}</h4>
 						<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -371,7 +460,7 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
-									onSaveModels([]);
+									setModelDraft([]);
 								}}
 							>
 								{t("deselectAll")}
@@ -381,7 +470,7 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
-									onSaveModels([...available]);
+									setModelDraft([...available]);
 								}}
 							>
 								{t("selectAll")}
@@ -391,14 +480,18 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
-									onSaveModels(available.length > 0 ? [available[0]!] : []);
+									setModelDraft(available.length > 0 ? [available[0]!] : []);
 								}}
 							>
 								{t("resetModelsDefault")}
 							</button>
 						</div>
 					</div>
+					<label htmlFor={`coding-oauth-model-filter-${definition.slug}`} style={visuallyHiddenStyle}>
+						{t("modelFilterLabel", { provider: t(definition.titleKey) })}
+					</label>
 					<input
+						id={`coding-oauth-model-filter-${definition.slug}`}
 						type="search"
 						style={inputStyle}
 						value={modelFilter}
@@ -422,7 +515,7 @@ export function ProviderCard({
 					</p>
 					<ul style={listStyle}>
 						{filteredModels.map((id) => {
-							const checked = selected.includes(id);
+							const checked = modelDraft.includes(id);
 							return (
 								<li key={id}>
 									<label style={checkRowStyle}>
@@ -431,10 +524,10 @@ export function ProviderCard({
 											checked={checked}
 											disabled={busy}
 											onChange={() => {
-												const current = new Set(selected);
+												const current = new Set(modelDraft);
 												if (checked) current.delete(id);
 												else current.add(id);
-												onSaveModels([...current]);
+												setModelDraft([...available].filter((model) => current.has(model)));
 											}}
 										/>
 										<span style={monoStyle}>{id}</span>
@@ -443,6 +536,17 @@ export function ProviderCard({
 							);
 						})}
 					</ul>
+					<div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+						<button
+							type="button"
+							style={primaryButtonStyle}
+							disabled={busy || !modelDraftDirty}
+							onClick={() => onSaveModels(modelDraft)}
+						>
+							{busy ? t("working") : t("applyModelDraft")}
+						</button>
+						{modelDraftDirty ? <span style={hintStyle}>{t("modelDraftPending")}</span> : null}
+					</div>
 					{filteredModels.length === 0 ? <p style={hintStyle}>{t("modelFilterPlaceholder")}</p> : null}
 					{grokProviderStatus?.status === "signed-in" && grokProviderStatus.catalogError !== undefined ? (
 						<p style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }}>{t("catalogError")}</p>

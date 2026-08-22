@@ -9,6 +9,7 @@ export interface ToggleSwitchProps {
 	onChange: (checked: boolean) => void;
 	/** Accessible label (visually hidden when label prop is rendered externally). */
 	ariaLabel?: string;
+	ariaDescribedBy?: string;
 	id?: string;
 }
 
@@ -42,7 +43,14 @@ const thumbStyle = (checked: boolean): CSSProperties => ({
 	transition: TRANSITION,
 });
 
-export function ToggleSwitch({ checked, disabled = false, onChange, ariaLabel, id }: ToggleSwitchProps) {
+export function ToggleSwitch({
+	checked,
+	disabled = false,
+	onChange,
+	ariaLabel,
+	ariaDescribedBy,
+	id,
+}: ToggleSwitchProps) {
 	return (
 		<button
 			id={id}
@@ -50,6 +58,7 @@ export function ToggleSwitch({ checked, disabled = false, onChange, ariaLabel, i
 			role="switch"
 			aria-checked={checked}
 			aria-label={ariaLabel}
+			aria-describedby={ariaDescribedBy}
 			disabled={disabled}
 			style={trackStyle(checked, disabled)}
 			onClick={() => {

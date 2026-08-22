@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.8 · antigo `dsh-grok-build`
+**v0.6.0 · antigo `dsh-grok-build`
 
 **Plugin de OAuth para assinaturas de codificação do [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Entre com as assinaturas que você já paga — depois use os modelos delas a partir da página de configurações do dsh ou da CLI. **Nenhum token colado no chat.**
 
@@ -17,6 +17,10 @@
 
 ---
 
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+
+---
+
 ## Mudança de nome
 
 O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre SuperGrok / Codex / Kimi / Claude / Antigravity.
@@ -24,7 +28,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 | | Use isto | Ainda funciona |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (mesmo `main`) |
-| npm | `dsh-coding-subscription-oauth@0.5.8` (versão atual) | Nenhum pacote npm legado foi publicado |
+| npm | `dsh-coding-subscription-oauth@0.6.0` (versão atual) | Nenhum pacote npm legado foi publicado |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inalterado |
 | API HTTP das configurações | `/plugins/dsh-grok-build/*` | inalterado |
@@ -73,12 +77,13 @@ Estas são as buscas e erros do DSH que costumam trazer as pessoas até aqui.
 
 ```bash
 # 1. instale o plugin no perfil web (versão atual do npm)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 2. opcional — Google Antigravity (versão fixa revisada)
 dsh plugin --profile web add dsh-agy@0.1.2
 
 # 3. reinicie o serviço dsh web residente
+# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
 systemctl --user restart dsh-web.service
 ```
 
@@ -114,7 +119,7 @@ Requer DeepSeek Harness `0.1.0-rc.6+` e Node.js 22.19+. Detalhes completos nas [
 
 ```bash
 # versão atual do npm (recomendado)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # desenvolvimento/alternativo: do GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -123,7 +128,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-Reinicie o `dsh web` após instalar. Verificação contra uma implantação ao vivo:
+Reinicie o processo DSH Web existente após instalar. Verificação contra uma implantação ao vivo:
 
 ```bash
 pnpm run verify:deployed            # confere /api/llm.models real + estado OAuth
@@ -146,15 +151,15 @@ Abra **Settings → Coding OAuth**:
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
+      <a href="media/en/settings_accounts.png"><img src="media/en/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
       <sub>Accounts</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
+      <a href="media/en/settings_gateway.png"><img src="media/en/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
       <sub>Gateway</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
+      <a href="media/en/settings_capabilities.png"><img src="media/en/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
       <sub>Capabilities</sub>
     </td>
   </tr>

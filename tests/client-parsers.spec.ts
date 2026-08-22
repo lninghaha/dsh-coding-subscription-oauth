@@ -41,14 +41,39 @@ describe("client parsers", () => {
 		);
 		expect(parseGatewayPort("18080")).toBe(18080);
 		expect(parseGatewayPort("22")).toBeUndefined();
-		expect(parseGateway({ enabled: true, running: false, bind: "127.0.0.1", port: 18080, keyHint: "ab…" })).toEqual({
+		expect(
+			parseGateway({
+				enabled: true,
+				running: false,
+				bind: "127.0.0.1",
+				port: 18080,
+				keyConfigured: true,
+				keyHint: "ab…",
+				models: ["gpt-5.3-codex", 3],
+			}),
+		).toEqual({
 			enabled: true,
 			running: false,
 			bind: "127.0.0.1",
 			port: 18080,
+			model: "gpt-5.3-codex",
+			keyConfigured: true,
+			keyAvailable: true,
 			keyHint: "ab…",
+			models: ["gpt-5.3-codex"],
 			warning: "",
 		});
+		expect(
+			parseGateway({
+				enabled: false,
+				running: false,
+				bind: "127.0.0.1",
+				port: 18080,
+				model: "codex/gpt-5",
+				keyAvailable: true,
+				keyHint: "dsh_…abcd",
+			}),
+		).toEqual(expect.objectContaining({ models: ["codex/gpt-5"], keyConfigured: true }));
 	});
 
 	it("parses preview tickets and imagine credential status", () => {

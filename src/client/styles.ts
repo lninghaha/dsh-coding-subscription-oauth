@@ -5,7 +5,14 @@ import type { ProviderStatus } from "./types.ts";
 
 export const TRANSITION = "all 0.15s ease";
 
-export const pageStyle: CSSProperties = { display: "flex", flexDirection: "column", gap: 16, maxWidth: 780 };
+export const pageStyle: CSSProperties = {
+	display: "flex",
+	flexDirection: "column",
+	gap: 16,
+	width: "100%",
+	maxWidth: 780,
+	minWidth: 0,
+};
 export const titleStyle: CSSProperties = {
 	margin: 0,
 	fontSize: 20,
@@ -158,6 +165,17 @@ export const nestedStyle: CSSProperties = {
 	background: "var(--dsw-alias-bg-layer-1)",
 };
 export const hintStyle: CSSProperties = { ...bodyStyle, fontSize: 13 };
+export const visuallyHiddenStyle: CSSProperties = {
+	position: "absolute",
+	width: 1,
+	height: 1,
+	padding: 0,
+	margin: -1,
+	overflow: "hidden",
+	clip: "rect(0, 0, 0, 0)",
+	whiteSpace: "nowrap",
+	border: 0,
+};
 export const segmentedNavStyle: CSSProperties = {
 	display: "inline-flex",
 	flexWrap: "wrap",
@@ -192,7 +210,7 @@ export const panelStyle: CSSProperties = {
 };
 export const accountGridStyle: CSSProperties = {
 	display: "grid",
-	gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+	gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))",
 	gap: 14,
 };
 export const copyRowStyle: CSSProperties = {

@@ -28,7 +28,6 @@ import {
 	SOURCES_PREVIEW_PATH,
 	STATUS_PATH,
 } from "./constants.ts";
-import { isLikelyRemoteHost } from "./display.ts";
 import { ensureMicroStyles } from "./microStyles.ts";
 import {
 	emptyCapabilitySettings,
@@ -42,7 +41,7 @@ import {
 	parseSources,
 	parseUsage,
 } from "./parsers.ts";
-import { bodyStyle, errorStyle, pageStyle, panelStyle, titleStyle } from "./styles.ts";
+import { bodyStyle, buttonStyle, errorStyle, pageStyle, panelStyle, titleStyle } from "./styles.ts";
 import type {
 	CapabilitySettingKey,
 	CapabilitySettingsView,
@@ -116,14 +115,17 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [expandedProviders, setExpandedProviders] = useState<Partial<Record<ProviderSlug, boolean>>>({});
 	const [remoteTipDismissed, setRemoteTipDismissed] = useState(readRemoteTipDismissed);
 	const copiedTimerRef = useRef<number | undefined>(undefined);
-	const remote = typeof window !== "undefined" ? isLikelyRemoteHost(window.location.hostname) : false;
+	const remote = status?.accessMode === "ssh-tunnel" || status?.accessMode === "trusted-https-proxy";
 
 	const refresh = useCallback(async () => {
 		try {
-			setStatus(await jsonRequest<CodingOAuthStatus>(STATUS_PATH));
+			const next = await jsonRequest<CodingOAuthStatus>(STATUS_PATH);
+			setStatus(next);
 			setRequestError(undefined);
+			return next;
 		} catch (error: unknown) {
 			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+			return undefined;
 		}
 	}, [t]);
 
@@ -188,12 +190,15 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	// Accounts: status immediately; sources shortly after (non-blocking for first paint).
 	useEffect(() => {
 		ensureMicroStyles();
-		void refresh();
-		const timer = window.setTimeout(() => {
-			void refreshSources();
-		}, 0);
+		let active = true;
+		let timer: number | undefined;
+		void refresh().then((next) => {
+			if (!active || next?.uiOwner === "hub") return;
+			timer = window.setTimeout(() => void refreshSources(), 0);
+		});
 		return () => {
-			window.clearTimeout(timer);
+			active = false;
+			if (timer !== undefined) window.clearTimeout(timer);
 		};
 	}, [refresh, refreshSources]);
 
@@ -443,6 +448,10 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	};
 
 	const showUsage = capabilities?.value.codexUsage === true && status?.providers.codex.status === "signed-in";
+	const signedInCount =
+		status === undefined
+			? 0
+			: Object.values(status.providers).filter((provider) => provider.status === "signed-in").length;
 
 	const tabHints = useMemo((): readonly SettingsTabHint[] => {
 		const hints: SettingsTabHint[] = [];
@@ -576,8 +585,36 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
+	const openAccountsForCodex = (): void => {
+		setActiveTab("accounts");
+		window.setTimeout(() => document.getElementById("coding-oauth-login-codex")?.focus(), 0);
+	};
+
+	const focusCapabilityDependency = (target: "codexImages" | "imagineCredential"): void => {
+		const id = target === "codexImages" ? "cap-switch-codexImages" : "coding-oauth-imagine-credential";
+		document.getElementById(id)?.focus();
+	};
+
+	if (status?.uiOwner === "hub") {
+		return (
+			<section data-dsh-coding-oauth="compact" style={pageStyle} aria-labelledby="coding-oauth-settings-title">
+				<h2 id="coding-oauth-settings-title" style={titleStyle}>
+					{t("coinstallTitle")}
+				</h2>
+				<p style={bodyStyle}>{t("coinstallSummary", { count: signedInCount })}</p>
+				<button
+					type="button"
+					style={buttonStyle}
+					onClick={() => window.dispatchEvent(new CustomEvent("usage-stats:open-dashboard"))}
+				>
+					{t("coinstallOpenHub")}
+				</button>
+			</section>
+		);
+	}
+
 	return (
-		<section style={pageStyle} aria-labelledby="coding-oauth-settings-title">
+		<section data-dsh-coding-oauth="" style={pageStyle} aria-labelledby="coding-oauth-settings-title">
 			<div>
 				<h2 id="coding-oauth-settings-title" style={titleStyle}>
 					{t("title")}
@@ -585,9 +622,14 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 				{activeTab === "accounts" ? <p style={{ ...bodyStyle, marginTop: 6 }}>{t("intro")}</p> : null}
 			</div>
 			{requestError === undefined ? null : (
-				<p style={errorStyle} role="alert">
-					{requestError}
-				</p>
+				<div role="alert" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+					<p style={errorStyle}>{requestError}</p>
+					{status === undefined ? (
+						<button type="button" style={buttonStyle} onClick={() => void refresh()}>
+							{t("retry")}
+						</button>
+					) : null}
+				</div>
 			)}
 			<SettingsTabs t={t} activeTab={activeTab} onChange={setActiveTab} hints={tabHints} />
 			<div
@@ -596,7 +638,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 				aria-labelledby={`coding-oauth-tab-${activeTab}`}
 				style={panelStyle}
 			>
-				{activeTab === "accounts" ? (
+				{activeTab === "accounts" && !(status === undefined && requestError !== undefined) ? (
 					<AccountsTab
 						t={t}
 						status={status}
@@ -667,6 +709,13 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						capabilitiesBusy={capabilitiesBusy}
 						imagine={imagine}
 						imagineError={imagineError}
+						codexSignedIn={status?.providers.codex.status === "signed-in"}
+						onRetry={() => {
+							void refreshCapabilities();
+							void refreshImagine();
+						}}
+						onOpenAccounts={openAccountsForCodex}
+						onFocusDependency={focusCapabilityDependency}
 						onPatchCapability={(key, value) => patchCapability(key, value)}
 					/>
 				) : null}
@@ -683,6 +732,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						portDraft={portDraft}
 						copiedField={copiedField}
 						copyFailedField={copyFailedField}
+						onRetry={() => {
+							void refreshGateway();
+						}}
 						onEnabledChange={setGatewayEnabled}
 						onPortDraftChange={setPortDraft}
 						onApplyPort={() => {

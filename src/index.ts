@@ -5,13 +5,14 @@
  */
 
 import { dirname, join } from "node:path";
-import type { Context } from "@deepseek-ai/cordis";
+import type { Context, Fiber } from "@deepseek-ai/cordis";
 import type { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 import type { CredentialInfo, CredentialProvider, CredentialRef } from "@deepseek-ai/dsh-credentials";
 import type {} from "@deepseek-ai/dsh-host-webserver";
 import { assertUsableApiKey, type RetryPolicyConfig, RetryPolicySchema } from "@deepseek-ai/dsh-llm";
 import z from "@deepseek-ai/schemastery";
 import type { Credential, OAuthCredential } from "@earendil-works/pi-ai";
+import { acquireCodingOAuthRuntime, CODING_OAUTH_CORE_ABI, type CodingOAuthRuntime } from "dsh-coding-oauth-core";
 import { createCodingOAuthAdapter } from "./adapter.ts";
 import { registerCodingOAuthRoutes } from "./auth-routes.ts";
 import { registerCapabilityRoutes } from "./capability-routes.ts";
@@ -41,6 +42,7 @@ import { codexAuthFromSession } from "./codex-http.ts";
 import { createCodexModelCapabilities } from "./codex-model-capabilities.ts";
 import { createCodexSearchProvider } from "./codex-search.ts";
 import { createCodexUsageReader } from "./codex-usage.ts";
+import { createDshHostAdapter } from "./dsh-host-adapter.ts";
 import { createCodingOAuthGatewayController } from "./gateway.ts";
 import { type GatewayConfig, GatewayConfigSchema } from "./gateway-config.ts";
 import { registerGatewayRoutes } from "./gateway-routes.ts";
@@ -56,6 +58,7 @@ import {
 	CLAUDE_PI_PROVIDER,
 	CODEX_PI_PROVIDER,
 	CODING_OAUTH_ROUTES,
+	IMAGINE_MEDIA_STORE_DIRNAME,
 	KIMI_PI_PROVIDER,
 	XAI_PI_PROVIDER,
 } from "./ids.ts";
@@ -69,10 +72,21 @@ import {
 import { OAUTH_PROVIDER_DEFINITIONS } from "./oauth-providers.ts";
 import { OAuthProviderSession } from "./oauth-session.ts";
 import type { OAuthSourceCredential } from "./oauth-sources.ts";
-import { ensureCodingOAuthProxy } from "./proxy.ts";
+import { acquireCodingOAuthProxy } from "./proxy.ts";
 import { GrokBuildSession } from "./session.ts";
 import { GrokBuildCredentialStore, type OAuthCredentialFileStore } from "./store.ts";
+import { createOwnerRequestPolicy, safeguardOwnerRequestPolicy } from "./web-origin.ts";
 
+export type {
+	CodingOAuthParticipant,
+	CodingOAuthRuntime,
+	DshHostCapabilities,
+	OwnerRequestPolicy as CoreOwnerRequestPolicy,
+} from "dsh-coding-oauth-core";
+export {
+	acquireCodingOAuthRuntime,
+	CODING_OAUTH_CORE_ABI,
+} from "dsh-coding-oauth-core";
 export { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "./adapter.ts";
 export type { AliasLlmRoutePolicy } from "./alias-adapter.ts";
 export { AliasLlmAdapter } from "./alias-adapter.ts";
@@ -123,6 +137,7 @@ export {
 	preferredGrokBuildModelFrom,
 	thinkingLevelMapFromLiveEfforts,
 } from "./catalog.ts";
+export { createDshHostAdapter } from "./dsh-host-adapter.ts";
 export type { GrokImportProbe } from "./grok-import.ts";
 export { grokAuthPath, importGrokAuth, parseGrokAuthDocument, probeGrokAuth } from "./grok-import.ts";
 export type { CodingOAuthProviderSlug, CodingOAuthRoute } from "./ids.ts";
@@ -198,6 +213,13 @@ export {
 	OAuthCredentialFileStore,
 	oauthCredentialPath,
 } from "./store.ts";
+export type { OwnerRequestPolicy, OwnerRequestPolicyConfig } from "./web-origin.ts";
+export {
+	createOwnerRequestPolicy,
+	LOOPBACK_OWNER_REQUEST_POLICY,
+	OWNER_CSRF_HEADER,
+	OWNER_PROOF_HEADER,
+} from "./web-origin.ts";
 
 /** Stable Cordis plugin name. */
 export const name = "llm-grok-build-oauth";
@@ -215,10 +237,10 @@ function fixedCredentialRef(value: string): CredentialRef {
 }
 
 /** Owner-private artifact directory below the resolved DSH home. */
-export const IMAGINE_MEDIA_STORE_DIRNAME = ".dsh-coding-subscription-oauth-media";
+export { IMAGINE_MEDIA_STORE_DIRNAME } from "./ids.ts";
 
-/** LLM registry required before the subscription route can register. */
-export const inject = ["llm"];
+/** Optional host services are acquired inside the elected child fiber. */
+export const inject = [] as const;
 
 /** Plugin configuration; every field is optional. */
 export interface Config {
@@ -238,6 +260,16 @@ export interface Config {
 	capabilities?: CapabilitySettingsPatch;
 	/** Opt-in isolated local OpenAI-compatible gateway. Default off. */
 	gateway?: Partial<GatewayConfig>;
+	/** Owner-only request authorization for loopback, SSH tunnels, and trusted HTTPS proxies. */
+	ownerRequest?: {
+		loopbackAccessMode?: "loopback" | "ssh-tunnel";
+		trustedProxy?: {
+			peers?: string[];
+			origins?: string[];
+			ownerProof?: string;
+			csrfToken?: string;
+		};
+	};
 }
 
 export const Config: z<Config> = z.object({
@@ -246,6 +278,15 @@ export const Config: z<Config> = z.object({
 	retryPolicy: RetryPolicySchema,
 	capabilities: CapabilitySettingsSchema,
 	gateway: GatewayConfigSchema,
+	ownerRequest: z.object({
+		loopbackAccessMode: z.union([z.const("loopback"), z.const("ssh-tunnel")]),
+		trustedProxy: z.object({
+			peers: z.array(z.string()),
+			origins: z.array(z.string()),
+			ownerProof: z.string(),
+			csrfToken: z.string(),
+		}),
+	}),
 });
 
 const CODEX_TOOL_NAMES = new Set<string>([CODEX_IMAGE_GENERATE_TOOL, CODEX_IMAGE_EDIT_TOOL]);
@@ -347,8 +388,58 @@ function unavailableImagineClient(): {
  * Register the `grok-build` LLM route with a provider-native OAuth store.
  * @param ctx - plugin context carrying the LLM registry plus optional web server.
  */
-export function apply(ctx: Context, config: Config): void {
-	ensureCodingOAuthProxy(config.proxy, config.proxyKimi === undefined ? {} : { proxyKimi: config.proxyKimi });
+export function apply(ctx: Context, config: Config = {}): void {
+	const host = createDshHostAdapter(ctx);
+	const lease: CodingOAuthRuntime = acquireCodingOAuthRuntime(host.scope(), {
+		id: "dsh-coding-subscription-oauth",
+		role: "standalone",
+		coreAbi: CODING_OAUTH_CORE_ABI,
+		async activate() {
+			let fiber: Fiber | undefined;
+			let ownerMounted = false;
+			fiber = ctx.inject([], async (injected) => {
+				await applyOwned(injected, config);
+				ownerMounted = true;
+				return () => {
+					ownerMounted = false;
+				};
+			});
+			try {
+				await fiber.await();
+				if (!ownerMounted) throw new Error("standalone Coding OAuth owner fiber did not activate");
+			} catch (error) {
+				try {
+					await fiber.dispose();
+				} catch {
+					// Preserve the startup error; Cordis already logs cleanup failures.
+				}
+				throw error;
+			}
+			return {
+				async dispose() {
+					await fiber?.dispose();
+				},
+			};
+		},
+	});
+	ctx.effect(() => () => lease.release(), "dsh-coding-subscription-oauth: release shared runtime ownership");
+}
+
+/**
+ * Owner runtime that survives optional LLM service churn. OAuth sessions and
+ * same-origin Web routes are deliberately owned here, rather than by the LLM
+ * child fiber, so a transient LLM unload cannot make account recovery vanish.
+ */
+async function applyOwned(ctx: Context, config: Config): Promise<void> {
+	const host = createDshHostAdapter(ctx);
+	const ownerRequestPolicy = safeguardOwnerRequestPolicy(
+		host.ownerRequestPolicy() ?? createOwnerRequestPolicy(config.ownerRequest),
+	);
+	const proxyLease = acquireCodingOAuthProxy(
+		config.proxy,
+		config.proxyKimi === undefined ? {} : { proxyKimi: config.proxyKimi },
+	);
+	ctx.effect(() => () => proxyLease.release(), "dsh-coding-subscription-oauth: scoped proxy policy");
 	const logger = ctx.logger(name);
 	const baseCapabilities = resolveCapabilitySettings(config.capabilities);
 	const runtime = new CapabilityRuntimeState(baseCapabilities, () => {
@@ -385,28 +476,11 @@ export function apply(ctx: Context, config: Config): void {
 	const codexAuth = codexAuthFromSession(codex);
 	const usage = createCodexUsageReader({ auth: codexAuth });
 	const codexModels = createCodexModelCapabilities({ auth: codexAuth });
-	const resolveCodexImageRoute: ResolveCodexImageRoute = (exec) =>
-		resolveCodexImageRouteFromLlm(exec, (provider, model, signal) => ctx.llm.resolveModelInfo(provider, model, signal));
 	invalidateOptionalAuthState = () => {
 		usage.clear();
 		codexModels.clear();
 		runtime.refresh();
 	};
-	const adapterRegistration = ctx.llm.registerAdapter(
-		[...CODING_OAUTH_ROUTES],
-		createCodingOAuthAdapter(grok, subscriptions, () => ctx.get("attachments"), config.retryPolicy, {
-			codexFast: {
-				isEligible: (modelId) => runtime.current().codexFast && codexModels.isPriorityEligible(modelId),
-			},
-		}),
-	);
-	ctx.effect(
-		() =>
-			bindCodexFastRoute(runtime, codexModels, adapterRegistration, {
-				onError: () => logger.warn("Codex Fast eligibility refresh failed closed"),
-			}),
-		"dsh-coding-subscription-oauth: Codex Fast route",
-	);
 
 	void Promise.allSettled([grok.loadCachedCatalog(), ...subscriptions.map((session) => session.loadCachedModels())])
 		.then(async (results) => {
@@ -423,19 +497,42 @@ export function apply(ctx: Context, config: Config): void {
 		});
 
 	let settingsOwner = 0;
+	const createFallbackCapabilityController = (): ReturnType<typeof createCapabilitySettingsController> =>
+		createCapabilitySettingsController({
+			...(config.capabilities === undefined ? {} : { base: config.capabilities }),
+			onListenerError: () => logger.warn("a capability settings listener failed"),
+		});
+	let capabilityController = createFallbackCapabilityController();
+	const capabilityRoutesController = {
+		snapshot: () => capabilityController.snapshot(),
+		current: () => capabilityController.current(),
+		patch: (patch: CapabilitySettingsPatch, expectedRevision: number) =>
+			capabilityController.patch(patch, expectedRevision),
+		replace: (section: CapabilitySettingsPatch, expectedRevision: number) =>
+			capabilityController.replace(section, expectedRevision),
+	};
 	let releaseActiveSettings = (): void => undefined;
-	ctx.effect(() => () => releaseActiveSettings(), "dsh-coding-subscription-oauth: capability settings bridge");
+	ctx.effect(
+		() => () => {
+			releaseActiveSettings();
+			capabilityController.dispose();
+		},
+		"dsh-coding-subscription-oauth: capability settings bridge",
+	);
 	ctx.inject(["settings"], (settingsCtx) => {
 		// Re-injection may happen before Cordis runs the previous child effect's
 		// disposer. Release it synchronously so an obsolete watcher cannot race a
 		// newly attached settings service.
 		releaseActiveSettings();
 		const owner = ++settingsOwner;
+		const previousController = capabilityController;
 		const controller = createCapabilitySettingsController({
 			settings: settingsCtx.get("settings") as CapabilitySettingsService,
 			...(config.capabilities === undefined ? {} : { base: config.capabilities }),
 			onListenerError: () => logger.warn("a capability settings listener failed"),
 		});
+		capabilityController = controller;
+		previousController.dispose();
 		runtime.set(controller.current());
 		const unsubscribe = controller.subscribe((snapshot) => {
 			runtime.set(snapshot.value);
@@ -448,18 +545,12 @@ export function apply(ctx: Context, config: Config): void {
 			controller.dispose();
 			if (owner === settingsOwner) {
 				releaseActiveSettings = (): void => undefined;
-				runtime.set(baseCapabilities);
+				capabilityController = createFallbackCapabilityController();
+				runtime.set(capabilityController.current());
 			}
 		};
 		releaseActiveSettings = release;
 		settingsCtx.effect(() => release, "dsh-coding-subscription-oauth: capability settings");
-		settingsCtx.inject(["webServer"], (webCtx) => {
-			registerCapabilityRoutes(webCtx, {
-				controller,
-				usage: () => usage.read(),
-				credentialInfo: () => describeImagineCredential(webCtx.get("credentials") as CredentialProvider | undefined),
-			});
-		});
 	});
 
 	const gateway = createCodingOAuthGatewayController({
@@ -477,20 +568,39 @@ export function apply(ctx: Context, config: Config): void {
 				logger.warn("local API gateway is enabled; exposing a subscription as a local API can violate provider ToS");
 			}
 		});
-		return () => {
-			void gateway.stop();
-		};
+		return () => gateway.stop();
 	}, "dsh-coding-subscription-oauth: local API gateway");
 
-	ctx.inject(["webServer"], (webCtx) => {
-		registerGatewayRoutes(webCtx, gateway);
-		registerCodingOAuthRoutes(webCtx, grok, subscriptions);
+	let webRoutesMounted = false;
+	const webRoutesFiber = ctx.inject(["webServer"], (webCtx) => {
+		registerCapabilityRoutes(webCtx, {
+			controller: capabilityRoutesController,
+			usage: () => usage.read(),
+			credentialInfo: () => describeImagineCredential(webCtx.get("credentials") as CredentialProvider | undefined),
+			ownerRequestPolicy,
+		});
+		registerGatewayRoutes(webCtx, gateway, ownerRequestPolicy);
+		registerCodingOAuthRoutes(webCtx, grok, subscriptions, ownerRequestPolicy, (accessMode) =>
+			host.compatibility({
+				accessMode,
+				uiOwner: "standalone",
+				diagnostics: ownerRequestPolicy.diagnostics(),
+			}),
+		);
 		registerOAuthImportRoutes(webCtx, oauthImportDestinations(grok, subscriptions), {
+			ownerRequestPolicy,
 			onImported: (event) => {
 				if (event.kind === "codex") invalidateOptionalAuthState();
 				notifyCatalogChange();
 			},
 		});
+		webRoutesMounted = true;
+		webCtx.effect(
+			() => () => {
+				webRoutesMounted = false;
+			},
+			"dsh-coding-subscription-oauth: required web route readiness",
+		);
 	});
 
 	const search = createCodexSearchProvider({
@@ -504,24 +614,6 @@ export function apply(ctx: Context, config: Config): void {
 		webCtx.effect(() => bindCapabilitySearch(runtime, web, search), "dsh-coding-subscription-oauth: Codex search");
 	});
 
-	ctx.inject(["tools", "attachments"], async (toolCtx) => {
-		const tools = toolCtx.get("tools") as CapabilityToolRegistry;
-		const attachments = toolCtx.get("attachments") as AttachmentStore;
-		const definitions = (
-			await createCapabilityTools({
-				current: () => runtime.current(),
-				auth: codexAuth,
-				attachments,
-				imagine: unavailableImagineClient(),
-				resolveCodexImageRoute,
-			})
-		).filter((definition) => CODEX_TOOL_NAMES.has(definition.name));
-		toolCtx.effect(
-			() => bindCapabilityTools(runtime, tools, definitions),
-			"dsh-coding-subscription-oauth: Codex image tools",
-		);
-	});
-
 	ctx.inject(["tools", "attachments", "credentials", "webServer"], async (toolCtx) => {
 		const tools = toolCtx.get("tools") as CapabilityToolRegistry;
 		const attachments = toolCtx.get("attachments") as AttachmentStore;
@@ -532,6 +624,7 @@ export function apply(ctx: Context, config: Config): void {
 		const routeRegistry = registerImagineRoutes(toolCtx, {
 			attachments,
 			media: { readForDownload: (artifactId, authz) => media.openDownload(artifactId, authz) },
+			ownerRequestPolicy,
 		});
 		const imagine = createGrokImagineClient({
 			resolveApiKey: (operation) => resolveImagineApiKey(credentials, operation),
@@ -562,7 +655,6 @@ export function apply(ctx: Context, config: Config): void {
 				auth: codexAuth,
 				attachments,
 				imagine: routedImagine,
-				resolveCodexImageRoute,
 			})
 		).filter((definition) => IMAGINE_TOOL_NAMES.has(definition.name));
 		let previousSettings = runtime.current();
@@ -593,6 +685,64 @@ export function apply(ctx: Context, config: Config): void {
 				}
 			},
 			"dsh-coding-subscription-oauth: Imagine client and media lifetime",
+		);
+	});
+
+	// Only adapters and LLM-backed model resolution depend on this service. Its
+	// child fiber may unload and reload without disturbing OAuth/Web ownership.
+	ctx.inject(["llm"], (llmCtx) =>
+		applyOwnedLlm(llmCtx, config, { grok, subscriptions, runtime, codexAuth, codexModels, logger }),
+	);
+
+	await webRoutesFiber.await();
+	if (!webRoutesMounted) throw new Error("required DSH webServer routes did not activate");
+}
+
+interface OwnedLlmDependencies {
+	readonly grok: GrokBuildSession;
+	readonly subscriptions: readonly OAuthProviderSession[];
+	readonly runtime: CapabilityRuntimeState;
+	readonly codexAuth: ReturnType<typeof codexAuthFromSession>;
+	readonly codexModels: ReturnType<typeof createCodexModelCapabilities>;
+	readonly logger: ReturnType<Context["logger"]>;
+}
+
+/** LLM-only child runtime, independently restarted by Cordis when LLM changes. */
+function applyOwnedLlm(ctx: Context, config: Config, owner: OwnedLlmDependencies): void {
+	createDshHostAdapter(ctx).assertCompatible();
+	const resolveCodexImageRoute: ResolveCodexImageRoute = (exec) =>
+		resolveCodexImageRouteFromLlm(exec, (provider, model, signal) => ctx.llm.resolveModelInfo(provider, model, signal));
+	const adapterRegistration = ctx.llm.registerAdapter(
+		[...CODING_OAUTH_ROUTES],
+		createCodingOAuthAdapter(owner.grok, owner.subscriptions, () => ctx.get("attachments"), config.retryPolicy, {
+			codexFast: {
+				isEligible: (modelId) => owner.runtime.current().codexFast && owner.codexModels.isPriorityEligible(modelId),
+			},
+		}),
+	);
+	ctx.effect(() => adapterRegistration, "dsh-coding-subscription-oauth: OAuth LLM adapters");
+	ctx.effect(
+		() =>
+			bindCodexFastRoute(owner.runtime, owner.codexModels, adapterRegistration, {
+				onError: () => owner.logger.warn("Codex Fast eligibility refresh failed closed"),
+			}),
+		"dsh-coding-subscription-oauth: Codex Fast route",
+	);
+	ctx.inject(["tools", "attachments"], async (toolCtx) => {
+		const tools = toolCtx.get("tools") as CapabilityToolRegistry;
+		const attachments = toolCtx.get("attachments") as AttachmentStore;
+		const definitions = (
+			await createCapabilityTools({
+				current: () => owner.runtime.current(),
+				auth: owner.codexAuth,
+				attachments,
+				imagine: unavailableImagineClient(),
+				resolveCodexImageRoute,
+			})
+		).filter((definition) => CODEX_TOOL_NAMES.has(definition.name));
+		toolCtx.effect(
+			() => bindCapabilityTools(owner.runtime, tools, definitions),
+			"dsh-coding-subscription-oauth: Codex image tools",
 		);
 	});
 }

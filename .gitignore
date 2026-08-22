@@ -9,6 +9,8 @@ output/
 .DS_Store
 coverage/
 .turbo/
+.codegraph/
+.codebase-memory/
 
 # local-only design docs, fault investigation & reference materials (not published)
 # docs/00-project-rules.md and docs/02-architecture*.md are explicitly published
@@ -28,6 +30,7 @@ reference/
 .cfresearch/
 .research/
 ccr/
+.playwright-cli/
 
 # local-only fault-investigation probe (never commit)
 scripts/probe-proxy-interception.mjs

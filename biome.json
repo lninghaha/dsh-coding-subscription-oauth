@@ -13,6 +13,7 @@
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
+		"lineEnding": "auto",
 		"lineWidth": 120
 	},
 	"linter": {

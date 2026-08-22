@@ -1,23 +1,13 @@
 /** Same-origin Web settings routes for Grok Build OAuth. */
 import type { Context } from "@deepseek-ai/cordis";
 import type { CatalogSource } from "./catalog.js";
+import type { DshCompatibility } from "./compatibility.js";
 import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug } from "./ids.js";
 import type { SubscriptionLoginMethod } from "./oauth-providers.js";
 import type { OAuthProviderSession } from "./oauth-session.js";
 import type { GrokBuildSession } from "./session.js";
-export declare const GROK_BUILD_AUTH_STATUS_PATH = "/plugins/dsh-grok-build/auth/status";
-export declare const GROK_BUILD_AUTH_LOGIN_PATH = "/plugins/dsh-grok-build/auth/login";
-export declare const GROK_BUILD_AUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/auth/login/code";
-export declare const GROK_BUILD_AUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/auth/login/cancel";
-export declare const GROK_BUILD_AUTH_IMPORT_PATH = "/plugins/dsh-grok-build/auth/import";
-export declare const GROK_BUILD_AUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/auth/logout";
-export declare const GROK_BUILD_AUTH_MODELS_PATH = "/plugins/dsh-grok-build/auth/models";
-export declare const CODING_OAUTH_STATUS_PATH = "/plugins/dsh-grok-build/oauth/status";
-export declare const CODING_OAUTH_LOGIN_PATH = "/plugins/dsh-grok-build/oauth/login";
-export declare const CODING_OAUTH_LOGIN_CODE_PATH = "/plugins/dsh-grok-build/oauth/code";
-export declare const CODING_OAUTH_LOGIN_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/cancel";
-export declare const CODING_OAUTH_LOGOUT_PATH = "/plugins/dsh-grok-build/oauth/logout";
-export declare const CODING_OAUTH_MODELS_PATH = "/plugins/dsh-grok-build/oauth/models";
+import { type OwnerAccessMode, type OwnerRequestPolicy } from "./web-origin.js";
+export { CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_STATUS_PATH, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, } from "./ids.js";
 export type GrokBuildLoginMethod = "pkce" | "device";
 export type GrokBuildWebAuthStatus = {
     status: "signed-out";
@@ -136,8 +126,11 @@ export declare class SubscriptionWebAuth {
     private rejectChallenge;
 }
 /** Register the plugin-owned OAuth routes when the Web server is composed. */
-export declare function registerGrokBuildAuthRoutes(ctx: Context, session: GrokBuildSession, existingAuth?: GrokBuildWebAuth): void;
+export declare function registerGrokBuildAuthRoutes(ctx: Context, session: GrokBuildSession, existingAuth?: GrokBuildWebAuth, ownerRequestPolicy?: OwnerRequestPolicy): void;
 export interface CodingOAuthWebStatus {
+    accessMode: OwnerAccessMode;
+    uiOwner: "standalone" | "hub";
+    compatibility: DshCompatibility;
     providers: {
         grok: GrokBuildWebAuthStatus;
         codex: SubscriptionWebAuthStatus;
@@ -151,5 +144,5 @@ export interface CodingOAuthWebStatus {
     };
 }
 /** Register the unified Coding OAuth API plus the compatibility Grok routes. */
-export declare function registerCodingOAuthRoutes(ctx: Context, grokSession: GrokBuildSession, subscriptionSessions: readonly OAuthProviderSession[]): void;
+export declare function registerCodingOAuthRoutes(ctx: Context, grokSession: GrokBuildSession, subscriptionSessions: readonly OAuthProviderSession[], ownerRequestPolicy?: OwnerRequestPolicy, compatibility?: (accessMode: OwnerAccessMode) => DshCompatibility): void;
 //# sourceMappingURL=auth-routes.d.ts.map

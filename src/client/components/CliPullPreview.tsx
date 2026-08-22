@@ -37,8 +37,14 @@ export function CliPullPreview({
 	const ticketExpiresAt = formatEpoch(preview.ticketExpiresAt);
 
 	return (
-		<div style={cardStyle} aria-live="polite">
-			<p style={bodyStyle}>
+		<section
+			id={`coding-oauth-source-preview-${preview.kind}`}
+			style={cardStyle}
+			aria-labelledby={`coding-oauth-source-preview-title-${preview.kind}`}
+			aria-live="polite"
+			tabIndex={-1}
+		>
+			<p id={`coding-oauth-source-preview-title-${preview.kind}`} style={bodyStyle}>
 				{t("sourcesPreviewTitle")} · {t(SOURCE_KIND_KEY[preview.kind])}
 			</p>
 			<p style={hintStyle}>
@@ -74,6 +80,7 @@ export function CliPullPreview({
 			{preview.confirmOverwriteRequired ? (
 				<label style={checkRowStyle}>
 					<input
+						aria-describedby={`coding-oauth-source-overwrite-hint-${preview.kind}`}
 						type="checkbox"
 						checked={confirmOverwrite}
 						disabled={sourcesBusy || preview.action === "blocked"}
@@ -83,7 +90,9 @@ export function CliPullPreview({
 					/>
 					<span>
 						{t("sourcesConfirmOverwrite")}
-						<span style={{ display: "block", ...hintStyle }}>{t("sourcesConfirmOverwriteHint")}</span>
+						<span id={`coding-oauth-source-overwrite-hint-${preview.kind}`} style={{ display: "block", ...hintStyle }}>
+							{t("sourcesConfirmOverwriteHint")}
+						</span>
 					</span>
 				</label>
 			) : null}
@@ -102,6 +111,6 @@ export function CliPullPreview({
 					{t("sourcesCancelPreview")}
 				</button>
 			</div>
-		</div>
+		</section>
 	);
 }

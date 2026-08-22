@@ -4,6 +4,21 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.6.0 - 2026-08-22
+
+### Added
+
+- Add exact DSH BOM/client platform gates, host/client compatibility adapters, trusted remote owner policy, and shared `dsh-coding-oauth-core` owner election for standalone/Hub co-installation.
+
+### Changed
+
+- Redesign Provider management around summaries, local model drafts with batch apply, in-card CLI Pull preview, real Gateway models, explicit confirmations, retryable loading states, and compact Hub-owned co-install UI.
+- Keep OAuth/Web ownership independent from optional LLM services and wait for required Web routes before reporting the standalone runtime active.
+
+### Fixed
+
+- Restore focus after CLI previews and logout confirmation, remove ARIA relationships to unmounted panels, and verify release client imports against the official DSH `PLATFORM_MODULES` contract.
+
 ## v0.5.8 - 2026-08-22
 
 ### Fixed

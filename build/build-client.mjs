@@ -2,16 +2,14 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, context } from "esbuild";
-
-// Mirrors @deepseek-ai/dsh-client-web's public PLATFORM_MODULES contract without
-// importing the shell runtime. This plugin only consumes react from it.
-const PLATFORM_MODULES = Object.freeze(["react", "react/jsx-runtime"]);
+import { readDshClientPlatformContract } from "./dsh-client-platform.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 if (typeof manifest.name !== "string" || manifest.name.length === 0) throw new Error("package.json name is required");
 const outdir = resolve(root, ".next/lib");
 const watch = process.argv.includes("--watch");
+const platform = await readDshClientPlatformContract();
 
 const options = {
 	entryPoints: [resolve(root, "src/client/index.tsx")],
@@ -21,7 +19,7 @@ const options = {
 	platform: "browser",
 	target: "es2022",
 	jsx: "automatic",
-	external: [...PLATFORM_MODULES],
+	external: [...platform.modules],
 	sourcemap: "external",
 	sourcesContent: true,
 	legalComments: "none",
@@ -48,5 +46,5 @@ if (watch) {
 } else {
 	const result = await build(options);
 	await writeFile(resolve(outdir, "client.meta.json"), JSON.stringify(result.metafile, null, 2));
-	console.log(`built ${options.outfile}`);
+	console.log(`built ${options.outfile} against dsh-client-web ${platform.version}`);
 }

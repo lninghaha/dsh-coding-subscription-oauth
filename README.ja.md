@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.8 · 旧名 `dsh-grok-build`
+**v0.6.0 · 旧名 `dsh-grok-build`
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
@@ -17,13 +17,17 @@
 
 ---
 
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+
+---
+
 ## 名称変更
 
 当初は Grok Build 専用で **`dsh-grok-build`** でした。現在は SuperGrok / Codex / Kimi / Claude / Antigravity のコーディングサブスク OAuth です。
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
-| npm | `dsh-coding-subscription-oauth@0.5.8`（現在のリリース） | 旧 npm パッケージは公開されていない |
+| npm | `dsh-coding-subscription-oauth@0.6.0`（現在のリリース） | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
 | 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
@@ -73,12 +77,13 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 
 ```bash
 # 1. web プロファイルにプラグインをインストール（現在の npm リリース）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 2. 任意 — Google Antigravity（レビュー済みの固定バージョン）
 dsh plugin --profile web add dsh-agy@0.1.2
 
 # 3. 常駐している dsh web サービスを再起動
+# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
 systemctl --user restart dsh-web.service
 ```
 
@@ -114,7 +119,7 @@ DeepSeek Harness `0.1.0-rc.6+` と Node.js 22.19+ が前提です。詳細は[�
 
 ```bash
 # 現在の npm リリース（推奨）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 開発／代替：GitHub から
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -123,7 +128,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-インストール後に `dsh web` を再起動します。実運用デプロイに対する検証:
+インストール後に既存の DSH Web プロセスを再起動します。実運用デプロイに対する検証:
 
 ```bash
 pnpm run verify:deployed            # 実 /api/llm.models + OAuth 状態の確認
@@ -146,15 +151,15 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
+      <a href="media/en/settings_accounts.png"><img src="media/en/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
       <sub>Accounts</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
+      <a href="media/en/settings_gateway.png"><img src="media/en/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
       <sub>Gateway</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
+      <a href="media/en/settings_capabilities.png"><img src="media/en/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
       <sub>Capabilities</sub>
     </td>
   </tr>

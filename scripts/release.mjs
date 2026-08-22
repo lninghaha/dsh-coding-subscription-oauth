@@ -47,7 +47,22 @@ function fail(message) {
 }
 
 function run(command, commandArgs, options = {}) {
-	const result = spawnSync(command, commandArgs, {
+	let executable = command;
+	let args = commandArgs;
+	if (process.platform === "win32" && command === "pnpm") {
+		const pnpmCli =
+			process.env.npm_execpath ??
+			(process.env.APPDATA === undefined
+				? undefined
+				: resolve(process.env.APPDATA, "npm/node_modules/pnpm/bin/pnpm.cjs"));
+		if (pnpmCli === undefined) fail("pnpm CLI path is unavailable on Windows");
+		executable = process.execPath;
+		args = [pnpmCli, ...commandArgs];
+	} else if (process.platform === "win32" && command === "npm") {
+		executable = process.execPath;
+		args = [resolve(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js"), ...commandArgs];
+	}
+	const result = spawnSync(executable, args, {
 		cwd: root,
 		encoding: "utf8",
 		stdio: options.capture === true ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -115,11 +130,12 @@ for (const required of [
 	"lib/client.js",
 	"lib/bin.js",
 	"lib/invariant.js",
+	"compatibility/dsh-bom.json",
 ]) {
 	if (!packed.has(required)) fail(`packed release is missing ${required}`);
 }
 const packedBin = report.files.find((entry) => entry.path === "lib/bin.js");
-if (typeof packedBin?.mode === "number" && (packedBin.mode & 0o111) === 0) {
+if (process.platform !== "win32" && typeof packedBin?.mode === "number" && (packedBin.mode & 0o111) === 0) {
 	fail(`packed CLI is not executable: lib/bin.js (${packedBin.mode.toString(8)})`);
 }
 const forbiddenFragments = [

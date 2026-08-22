@@ -6,6 +6,10 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+	registerAtomicallySynchronously as registerCoreAtomically,
+	setupAtomicallySynchronously as setupCoreAtomically,
+} from "dsh-coding-oauth-core";
 
 export interface PluginWebRoute {
 	readonly kind: "exact" | "prefix";
@@ -22,26 +26,7 @@ export function registerWebRouteSetupAtomically(
 	registry: PluginWebRouteRegistry,
 	setup: (tracked: PluginWebRouteRegistry) => unknown,
 ): () => void {
-	const releases: Array<() => void> = [];
-	const tracked: PluginWebRouteRegistry = {
-		register(route) {
-			const release = registry.register(route);
-			releases.push(release);
-			return release;
-		},
-	};
-	try {
-		setup(tracked);
-	} catch (error: unknown) {
-		releaseAll(releases);
-		throw error;
-	}
-	let disposed = false;
-	return () => {
-		if (disposed) return;
-		disposed = true;
-		releaseAll(releases);
-	};
+	return setupCoreAtomically(registry, setup);
 }
 
 /** Register all routes or leave the registry exactly as it was. */
@@ -49,27 +34,5 @@ export function registerWebRoutesAtomically(
 	registry: PluginWebRouteRegistry,
 	routes: readonly PluginWebRoute[],
 ): () => void {
-	const releases: Array<() => void> = [];
-	try {
-		for (const route of routes) releases.push(registry.register(route));
-	} catch (error: unknown) {
-		releaseAll(releases);
-		throw error;
-	}
-	let disposed = false;
-	return () => {
-		if (disposed) return;
-		disposed = true;
-		releaseAll(releases);
-	};
-}
-
-function releaseAll(releases: Array<() => void>): void {
-	for (const release of releases.splice(0).reverse()) {
-		try {
-			release();
-		} catch {
-			// One broken disposer must not strand any sibling route.
-		}
-	}
+	return registerCoreAtomically(registry, routes);
 }

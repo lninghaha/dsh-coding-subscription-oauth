@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.8 · ранее `dsh-grok-build`
+**v0.6.0 · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -17,6 +17,10 @@
 
 ---
 
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+
+---
+
 ## Смена имени
 
 Сначала репозиторий назывался **`dsh-grok-build`** (только Grok Build). Теперь это OAuth для SuperGrok / Codex / Kimi / Claude / Antigravity.
@@ -24,7 +28,7 @@
 | | Используйте | По-прежнему работает |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
-| npm | `dsh-coding-subscription-oauth@0.5.8` (текущая версия) | Старого npm-пакета не было |
+| npm | `dsh-coding-subscription-oauth@0.6.0` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |
 | HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
@@ -73,12 +77,13 @@
 
 ```bash
 # 1. установите текущую npm-версию в web-профиль
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
 
 # 3. перезапустите резидентный сервис dsh web
+# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
 systemctl --user restart dsh-web.service
 ```
 
@@ -114,7 +119,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # текущая npm-версия (рекомендуется)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # разработка/альтернатива: из GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -123,7 +128,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-После установки перезапустите `dsh web`. Проверка на реальном развёртывании:
+После установки перезапустите существующий процесс DSH Web. Проверка на реальном развёртывании:
 
 ```bash
 pnpm run verify:deployed            # проверяет реальный /api/llm.models + статус OAuth
@@ -146,15 +151,15 @@ pnpm run smoke:deployed             # реальные вызовы Codex/Kimi +
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
+      <a href="media/en/settings_accounts.png"><img src="media/en/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
       <sub>Accounts</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
+      <a href="media/en/settings_gateway.png"><img src="media/en/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
       <sub>Gateway</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
+      <a href="media/en/settings_capabilities.png"><img src="media/en/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
       <sub>Capabilities</sub>
     </td>
   </tr>

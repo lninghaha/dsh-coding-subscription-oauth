@@ -77,6 +77,7 @@ ctx.llm route
 - `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
 - `gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
+- `dsh-host-adapter.ts` / `web-origin.ts`: isolate the changing DSH service surface and prefer a host-native `ownerRequestPolicy`; the fallback constrains loopback/SSH Host and Origin, while HTTPS proxy access jointly verifies the real peer, exact Origin/Host, Fetch Metadata, owner proof, and independent CSRF. A throwing or malformed host policy is denied without escaping the route boundary.
 
 ## 4. Web API
 
@@ -109,6 +110,8 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses contain only status, authorization URL, device user code, model ids and a non-sensitive expiry; they never contain access/refresh tokens. JSON request bodies are capped at 64 KiB before parsing.
 
+Every Settings route shares `OwnerRequestPolicy`. `X-Forwarded-*` is forwarding metadata, never owner proof; a fallback policy missing any independent signal rejects remote requests. Status responses carry the server-derived `accessMode`, so the client does not infer SSH or proxy access from the hostname.
+
 `/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Seven flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
@@ -119,7 +122,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.5.8`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8`). GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.6.0`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0`). GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 
@@ -131,3 +134,5 @@ Stable on-disk / in-process identifiers (do not rename without a migration):
 - LLM routes: `grok-build`, `codex-oauth`, `kimi-code-oauth`, `claude-code-oauth`; optional `codex-oauth-fast` (v0.4.0, advertised only when a fresh live catalog lists `priority`)
 
 New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.
+
+Hub and this standalone participant pin the same `dsh-coding-oauth-core@0.1.0`. The core owns root-scoped owner election, reference-counted proxy policy, atomic registration helpers, provider/route/credential identifiers, the capability namespace, Gateway state filename, and all legacy/current management paths. Hub has priority while installed; this participant remains standby and resumes without renaming routes or resetting credentials after Hub unloads.

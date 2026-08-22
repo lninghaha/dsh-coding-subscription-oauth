@@ -30,7 +30,7 @@ import {
 	parseImagineMediaPath,
 	type TrustedImagineAuthz,
 } from "./media-store.ts";
-import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerRequestPolicy } from "./web-origin.ts";
 
 /** Hard ceiling for live exact download routes. Callers cannot raise this. */
 export const IMAGINE_ROUTE_MAX_ENTRIES = 64;
@@ -75,6 +75,7 @@ export interface ImagineRouteOptions {
 	readonly maxEntries?: number;
 	/** Capped at {@link IMAGINE_IMAGE_ROUTE_TTL_MS}. */
 	readonly imageTtlMs?: number;
+	readonly ownerRequestPolicy?: OwnerRequestPolicy;
 }
 
 export interface ImagineRouteRegistry {
@@ -114,6 +115,7 @@ export function registerImagineRoutes(ctx: ImagineRouteContext, options: Imagine
 	const now = options.now ?? Date.now;
 	const maxEntries = clampPositive(options.maxEntries, IMAGINE_ROUTE_MAX_ENTRIES);
 	const imageTtlMs = clampPositive(options.imageTtlMs, IMAGINE_IMAGE_ROUTE_TTL_MS);
+	const ownerRequestPolicy = options.ownerRequestPolicy ?? LOOPBACK_OWNER_REQUEST_POLICY;
 	const entries = new Map<string, RouteEntry>();
 	let disposed = false;
 
@@ -176,7 +178,7 @@ export function registerImagineRoutes(ctx: ImagineRouteContext, options: Imagine
 			json(res, 405, { error: "method not allowed" });
 			return;
 		}
-		if (!isTrustedLoopbackWebRequest(req)) {
+		if (!ownerRequestPolicy.authorize(req).authorized) {
 			json(res, 403, { error: "forbidden" });
 			return;
 		}

@@ -9,6 +9,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import {
+	OAUTH_IMPORT_CANCEL_PATH,
+	OAUTH_IMPORT_COMMIT_PATH,
+	OAUTH_IMPORT_PREVIEW_PATH,
+	OAUTH_IMPORT_SOURCES_PATH,
+} from "./ids.ts";
+import {
 	createOAuthImportSession,
 	isOAuthSourceError,
 	isOAuthSourceKind,
@@ -25,13 +31,15 @@ import {
 	type OAuthSourcePathOptions,
 } from "./oauth-sources.ts";
 import { safeMessage } from "./redact.ts";
-import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerRequestPolicy } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const OAUTH_IMPORT_SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
-export const OAUTH_IMPORT_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
-export const OAUTH_IMPORT_COMMIT_PATH = "/plugins/dsh-grok-build/oauth/sources/commit";
-export const OAUTH_IMPORT_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
+export {
+	OAUTH_IMPORT_CANCEL_PATH,
+	OAUTH_IMPORT_COMMIT_PATH,
+	OAUTH_IMPORT_PREVIEW_PATH,
+	OAUTH_IMPORT_SOURCES_PATH,
+} from "./ids.ts";
 
 export interface OAuthImportRouteContext {
 	webServer: {
@@ -66,6 +74,7 @@ export interface OAuthImportAppliedEvent {
 
 export interface OAuthImportRouteOptions extends OAuthImportSessionOptions, OAuthSourcePathOptions {
 	onImported?: (event: OAuthImportAppliedEvent) => void | Promise<void>;
+	ownerRequestPolicy?: OwnerRequestPolicy;
 }
 
 export interface OAuthImportSourcesResponse {
@@ -91,6 +100,7 @@ export function registerOAuthImportRoutes(
 		...(options.home === undefined ? {} : { home: options.home }),
 		...(options.env === undefined ? {} : { env: options.env }),
 	};
+	const ownerRequestPolicy = options.ownerRequestPolicy ?? LOOPBACK_OWNER_REQUEST_POLICY;
 
 	const attach = (): (() => void) =>
 		registerWebRouteSetupAtomically(ctx.webServer, (webServer) => [
@@ -99,7 +109,7 @@ export function registerOAuthImportRoutes(
 				path: OAUTH_IMPORT_SOURCES_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "GET") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						json(res, 200, await discoverSources(importer, pathOptions));
 					} catch (error: unknown) {
@@ -112,7 +122,7 @@ export function registerOAuthImportRoutes(
 				path: OAUTH_IMPORT_PREVIEW_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const kind = readExactKind(await readJsonRequest(req));
 						if (kind === undefined) {
@@ -129,7 +139,7 @@ export function registerOAuthImportRoutes(
 				path: OAUTH_IMPORT_COMMIT_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const parsed = readCommitBody(await readJsonRequest(req));
 						if (parsed.error !== undefined) {
@@ -160,7 +170,7 @@ export function registerOAuthImportRoutes(
 				path: OAUTH_IMPORT_CANCEL_PATH,
 				handler: async (req, res) => {
 					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
-					if (!isTrustedLoopbackWebRequest(req)) return json(res, 403, { error: "forbidden" });
+					if (!ownerRequestPolicy.authorize(req).authorized) return json(res, 403, { error: "forbidden" });
 					try {
 						const previewId = readPreviewId(await readJsonRequest(req));
 						if (previewId === undefined) {

@@ -15,6 +15,25 @@ const CSS = `
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@media (prefers-reduced-motion: reduce) {
+  [data-dsh-coding-oauth] *, [data-dsh-coding-oauth] *::before, [data-dsh-coding-oauth] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (max-width: 560px) {
+  [data-dsh-coding-oauth] button,
+  [data-dsh-coding-oauth] input,
+  [data-dsh-coding-oauth] [role="switch"] {
+    min-height: 44px;
+  }
+  [data-dsh-coding-oauth] [data-responsive-row] {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+}
 `;
 
 let injected = false;

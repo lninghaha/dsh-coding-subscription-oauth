@@ -1,5 +1,6 @@
 /** Accounts tab: provider cards, CLI tips, and pull preview. */
 
+import { Fragment, useEffect, useRef } from "react";
 import { PROVIDERS } from "../constants.ts";
 import { allOfficialCliMissing, anyOfficialCliAvailable } from "../display.ts";
 import {
@@ -97,6 +98,19 @@ export function AccountsTab({
 	onRefreshSources,
 	onDismissSourcesNotice,
 }: AccountsTabProps) {
+	const previousPreviewKind = useRef<ProviderSlug | undefined>(undefined);
+	useEffect(() => {
+		if (preview !== undefined) {
+			previousPreviewKind.current = preview.kind;
+			document.getElementById(`coding-oauth-source-preview-${preview.kind}`)?.focus();
+			return;
+		}
+		const trigger = previousPreviewKind.current;
+		if (trigger === undefined || sourcesBusy) return;
+		previousPreviewKind.current = undefined;
+		document.getElementById(`coding-oauth-source-pull-${trigger}`)?.focus();
+	}, [preview, sourcesBusy]);
+
 	if (status === undefined) {
 		return (
 			<div style={skeletonStyle} role="status" aria-busy="true">
@@ -146,47 +160,61 @@ export function AccountsTab({
 					const providerStatus = status.providers[definition.slug];
 					const expanded = providerStatus.status === "signing-in" || expandedProviders[definition.slug] === true;
 					return (
-						<ProviderCard
-							key={definition.slug}
-							t={t}
-							definition={definition}
-							providerStatus={providerStatus}
-							busy={busyProvider === definition.slug}
-							sourcesBusy={sourcesBusy}
-							remote={remote}
-							codeInput={codeInputs[definition.slug] ?? ""}
-							popupBlocked={popupBlocked[definition.slug] === true}
-							expanded={expanded}
-							source={sources?.find((entry) => entry.kind === definition.slug)}
-							showUsage={showUsage}
-							usage={usage}
-							usageError={usageError}
-							usageLoading={usageLoading}
-							onSignIn={(method) => {
-								onSignIn(definition.slug, method);
-							}}
-							onSignOut={() => {
-								onSignOut(definition.slug);
-							}}
-							onCancelLogin={() => {
-								onCancelLogin(definition.slug);
-							}}
-							onSubmitCode={() => {
-								onSubmitCode(definition.slug);
-							}}
-							onCodeChange={(value) => {
-								onCodeChange(definition.slug, value);
-							}}
-							onToggleExpanded={() => {
-								onToggleExpanded(definition.slug);
-							}}
-							onPreviewSource={() => {
-								onPreviewSource(definition.slug);
-							}}
-							onSaveModels={(selected) => {
-								onSaveModels(definition.slug, selected);
-							}}
-						/>
+						<Fragment key={definition.slug}>
+							<ProviderCard
+								t={t}
+								definition={definition}
+								providerStatus={providerStatus}
+								busy={busyProvider === definition.slug}
+								sourcesBusy={sourcesBusy}
+								remote={remote}
+								codeInput={codeInputs[definition.slug] ?? ""}
+								popupBlocked={popupBlocked[definition.slug] === true}
+								expanded={expanded}
+								source={sources?.find((entry) => entry.kind === definition.slug)}
+								showUsage={showUsage}
+								usage={usage}
+								usageError={usageError}
+								usageLoading={usageLoading}
+								onSignIn={(method) => {
+									onSignIn(definition.slug, method);
+								}}
+								onSignOut={() => {
+									onSignOut(definition.slug);
+								}}
+								onCancelLogin={() => {
+									onCancelLogin(definition.slug);
+								}}
+								onSubmitCode={() => {
+									onSubmitCode(definition.slug);
+								}}
+								onCodeChange={(value) => {
+									onCodeChange(definition.slug, value);
+								}}
+								onToggleExpanded={() => {
+									onToggleExpanded(definition.slug);
+								}}
+								onPreviewSource={() => {
+									onPreviewSource(definition.slug);
+								}}
+								onSaveModels={(selected) => {
+									onSaveModels(definition.slug, selected);
+								}}
+							/>
+							{preview?.kind === definition.slug ? (
+								<div style={{ gridColumn: "1 / -1", minWidth: 0 }}>
+									<CliPullPreview
+										t={t}
+										preview={preview}
+										confirmOverwrite={confirmOverwrite}
+										sourcesBusy={sourcesBusy}
+										onConfirmOverwriteChange={onConfirmOverwriteChange}
+										onCommit={onCommitSource}
+										onCancel={onCancelSourcePreview}
+									/>
+								</div>
+							) : null}
+						</Fragment>
 					);
 				})}
 				<div style={cardStyle}>
@@ -208,17 +236,6 @@ export function AccountsTab({
 					<code style={{ ...monoStyle, fontSize: 12, overflowWrap: "anywhere" }}>{t("antigravityCliCommand")}</code>
 				</div>
 			</div>
-			{preview === undefined ? null : (
-				<CliPullPreview
-					t={t}
-					preview={preview}
-					confirmOverwrite={confirmOverwrite}
-					sourcesBusy={sourcesBusy}
-					onConfirmOverwriteChange={onConfirmOverwriteChange}
-					onCommit={onCommitSource}
-					onCancel={onCancelSourcePreview}
-				/>
-			)}
 		</>
 	);
 }

@@ -6,13 +6,14 @@ export function buildGatewaySnippets(
 	openAiBaseUrl: string,
 	anthropicBaseUrl: string,
 	apiKeyPlaceholder: string,
+	model = "<gateway-model>",
 ): Record<GatewaySnippetId, string> {
 	const key = apiKeyPlaceholder.length > 0 ? apiKeyPlaceholder : "<your-gateway-key>";
 	return {
 		curl: `curl ${openAiBaseUrl}/chat/completions \\
   -H "Authorization: Bearer ${key}" \\
   -H "Content-Type: application/json" \\
-  -d '{"model":"codex-oauth/gpt-4.1","messages":[{"role":"user","content":"Hello"}]}'`,
+  -d '{"model":"${model}","messages":[{"role":"user","content":"Hello"}]}'`,
 		python: `from openai import OpenAI
 
 client = OpenAI(
@@ -21,7 +22,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="codex-oauth/gpt-4.1",
+    model="${model}",
     messages=[{"role": "user", "content": "Hello"}],
 )
 print(response.choices[0].message.content)`,

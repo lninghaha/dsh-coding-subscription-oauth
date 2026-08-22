@@ -25,7 +25,11 @@ export interface GatewayPublicStatus {
     running: boolean;
     bind: string;
     port: number;
+    model: string | null;
+    keyConfigured: boolean;
+    keyAvailable: boolean;
     keyHint: string;
+    models: string[];
     warning: string;
 }
 export interface CodingOAuthGatewayController {

@@ -2,7 +2,7 @@
  * Owner-only gateway API key file.
  * @module dsh-coding-subscription-oauth/gateway-auth
  */
-export declare const GATEWAY_KEY_FILENAME = ".coding-oauth-gateway.json";
+export { GATEWAY_KEY_FILENAME } from "./ids.js";
 declare const KEY_FORMAT_VERSION = 1;
 export interface GatewayKeyDocument {
     version: typeof KEY_FORMAT_VERSION;
@@ -18,5 +18,4 @@ export declare function loadGatewayKeyDocument(path: string): Promise<GatewayKey
 export declare function loadOrCreateGatewayApiKey(path: string, configured?: string): Promise<string>;
 export declare function persistGatewayApiKey(path: string, apiKey: string): Promise<void>;
 export declare function persistGatewayKeyDocument(path: string, document: GatewayKeyDocument): Promise<void>;
-export {};
 //# sourceMappingURL=gateway-auth.d.ts.map

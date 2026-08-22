@@ -1,33 +1,4 @@
-/** pi-ai provider ids used by login, refresh, and credential storage. */
-export declare const XAI_PI_PROVIDER = "xai";
-export declare const CODEX_PI_PROVIDER = "openai-codex";
-export declare const KIMI_PI_PROVIDER = "kimi-coding";
-export declare const CLAUDE_PI_PROVIDER = "anthropic";
-/** Harness LLM routes. OAuth aliases avoid the user's API-key route ids. */
-export declare const GROK_BUILD_ROUTE = "grok-build";
-export declare const CODEX_OAUTH_ROUTE = "codex-oauth";
-export declare const CODEX_OAUTH_FAST_ROUTE = "codex-oauth-fast";
-export declare const KIMI_CODE_OAUTH_ROUTE = "kimi-code-oauth";
-export declare const CLAUDE_CODE_OAUTH_ROUTE = "claude-code-oauth";
-export declare const ANTIGRAVITY_ROUTE = "agy";
-export declare const CODING_OAUTH_ROUTES: readonly ["grok-build", "codex-oauth", "kimi-code-oauth", "claude-code-oauth"];
-/** Opt-in routes the adapter can expose; not registered by the default plugin apply(). */
-export declare const CODING_OAUTH_OPTIONAL_ROUTES: readonly ["codex-oauth-fast"];
-export type CodingOAuthRoute = (typeof CODING_OAUTH_ROUTES)[number];
-export type CodingOAuthOptionalRoute = (typeof CODING_OAUTH_OPTIONAL_ROUTES)[number];
-export type CodingOAuthProviderSlug = "grok" | "codex" | "kimi" | "claude";
-/** Basenames of private OAuth documents inside the Harness home. */
-export declare const GROK_BUILD_AUTH_FILENAME = ".grok-build-auth.json";
-export declare const CODEX_OAUTH_AUTH_FILENAME = ".codex-oauth-auth.json";
-export declare const KIMI_CODE_OAUTH_AUTH_FILENAME = ".kimi-code-oauth-auth.json";
-export declare const CLAUDE_CODE_OAUTH_AUTH_FILENAME = ".claude-code-oauth-auth.json";
-/** Basenames of model selection/catalog caches inside the Harness home. */
-export declare const GROK_BUILD_MODELS_CACHE_FILENAME = ".grok-build-models.json";
-export declare const CODEX_OAUTH_MODELS_CACHE_FILENAME = ".codex-oauth-models.json";
-export declare const KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME = ".kimi-code-oauth-models.json";
-export declare const CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME = ".claude-code-oauth-models.json";
-/** Fallback model when no live Grok catalog listing is available. */
-export declare const DEFAULT_GROK_BUILD_MODEL = "grok-4.6";
-/** Provider idle ceiling used by every composite route. */
-export declare const GROK_BUILD_STREAM_IDLE_TIMEOUT_MS = 300000;
+/** Compatibility facade for stable identifiers owned by dsh-coding-oauth-core. */
+export type { CodingOAuthOptionalRoute, CodingOAuthProviderSlug, CodingOAuthRoute, } from "dsh-coding-oauth-core";
+export { ANTIGRAVITY_ROUTE, CAPABILITY_SETTINGS_NAMESPACE, CAPABILITY_SETTINGS_PATH, CLAUDE_CODE_OAUTH_AUTH_FILENAME, CLAUDE_CODE_OAUTH_MODELS_CACHE_FILENAME, CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER, CODEX_OAUTH_AUTH_FILENAME, CODEX_OAUTH_FAST_ROUTE, CODEX_OAUTH_MODELS_CACHE_FILENAME, CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER, CODEX_USAGE_PATH, CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MANAGEMENT_PATHS, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_OPTIONAL_ROUTES, CODING_OAUTH_ROUTES, CODING_OAUTH_STATE_SCHEMA_VERSION, CODING_OAUTH_STATUS_PATH, DEFAULT_GROK_BUILD_MODEL, GATEWAY_KEY_FILENAME, GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH, GROK_BUILD_AUTH_FILENAME, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_ROUTE, GROK_BUILD_STREAM_IDLE_TIMEOUT_MS, IMAGINE_CREDENTIAL_STATUS_PATH, IMAGINE_MEDIA_STORE_DIRNAME, KIMI_CODE_OAUTH_AUTH_FILENAME, KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME, KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER, OAUTH_IMPORT_CANCEL_PATH, OAUTH_IMPORT_COMMIT_PATH, OAUTH_IMPORT_PREVIEW_PATH, OAUTH_IMPORT_SOURCES_PATH, XAI_PI_PROVIDER, } from "dsh-coding-oauth-core";
 //# sourceMappingURL=ids.d.ts.map

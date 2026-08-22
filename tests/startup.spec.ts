@@ -1,5 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CODING_OAUTH_STATUS_PATH } from "../src/auth-routes.ts";
+import { CAPABILITY_SETTINGS_PATH } from "../src/capability-routes.ts";
 import type {
 	CapabilitySettingsPatch,
 	CapabilitySettingsScope,
@@ -14,6 +16,37 @@ import { GrokBuildSession } from "../src/session.ts";
 afterEach(() => {
 	vi.restoreAllMocks();
 });
+
+function runFiber(callback?: () => unknown) {
+	let startupError: unknown;
+	let cleanup: (() => void | Promise<void>) | undefined;
+	const startup = Promise.resolve()
+		.then(async () => {
+			const result = await callback?.();
+			if (typeof result === "function") cleanup = result as () => void | Promise<void>;
+		})
+		.catch((error) => {
+			startupError = error;
+		});
+	return {
+		async await() {
+			await startup;
+			if (startupError !== undefined) throw startupError;
+		},
+		async dispose() {
+			await startup;
+			await cleanup?.();
+		},
+	};
+}
+
+function requiredWebContext(): Context {
+	return {
+		webServer: { register: vi.fn(() => vi.fn()) },
+		get: vi.fn(() => undefined),
+		effect: vi.fn((setup: () => unknown) => setup()),
+	} as unknown as Context;
+}
 
 function liveSettings(initial: CapabilitySettingsPatch): {
 	service: CapabilitySettingsService;
@@ -48,12 +81,90 @@ function liveSettings(initial: CapabilitySettingsPatch): {
 }
 
 describe("plugin startup catalog initialization", () => {
-	it("applies composition capability defaults before an optional settings service exists", () => {
+	it("keeps owner Web routes alive across optional LLM activation, unload, and reload", async () => {
+		vi.spyOn(GrokBuildSession.prototype, "loadCachedCatalog").mockResolvedValue(undefined);
+		vi.spyOn(OAuthProviderSession.prototype, "loadCachedModels").mockResolvedValue(undefined);
+		vi.spyOn(GrokBuildSession.prototype, "refreshLiveCatalog").mockResolvedValue(undefined);
+		const routeDisposers: Array<() => void | Promise<void>> = [];
+		const llmDisposers: Array<() => void | Promise<void>> = [];
+		const registeredPaths = new Set<string>();
+		const register = vi.fn((route: { path: string }) => {
+			if (registeredPaths.has(route.path)) throw new Error(`duplicate route ${route.path}`);
+			registeredPaths.add(route.path);
+			return () => {
+				registeredPaths.delete(route.path);
+			};
+		});
+		const registration = Object.assign(vi.fn(), { replace: vi.fn() });
+		const registerAdapter = vi.fn(() => registration);
+		let activateLlm: ((ctx: Context) => unknown) | undefined;
+		const webCtx = {
+			webServer: { register },
+			effect: vi.fn((setup: () => (() => void | Promise<void>) | undefined) => {
+				const dispose = setup();
+				if (dispose !== undefined) routeDisposers.push(dispose);
+			}),
+		} as unknown as Context;
+		const llmCtx = {
+			llm: { registerAdapter, resolveModelInfo: vi.fn() },
+			get: vi.fn(() => undefined),
+			logger: () => ({ warn: vi.fn() }),
+			effect: vi.fn((setup: () => (() => void | Promise<void>) | undefined) => {
+				const dispose = setup();
+				if (dispose !== undefined) llmDisposers.push(dispose);
+			}),
+			inject: vi.fn(),
+		} as unknown as Context;
+		const ownerCtx = {
+			logger: () => ({ warn: vi.fn() }),
+			emit: vi.fn(),
+			effect: vi.fn((setup: () => (() => void | Promise<void>) | undefined) => setup()),
+			get: vi.fn(() => undefined),
+			inject: vi.fn((services: readonly string[], callback: (ctx: Context) => unknown) => {
+				if (services.length === 1 && services[0] === "llm") {
+					activateLlm = callback;
+					return runFiber();
+				}
+				if (services.length === 1 && services[0] === "webServer") return runFiber(() => callback(webCtx));
+				return runFiber();
+			}),
+		} as unknown as Context;
+		const context = {
+			...ownerCtx,
+			inject: vi.fn((services: readonly string[], callback: (ctx: Context) => unknown) => {
+				return services.length === 0 ? runFiber(() => callback(ownerCtx)) : runFiber();
+			}),
+		} as unknown as Context;
+
+		apply(context, {});
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		expect(registeredPaths).toContain(CODING_OAUTH_STATUS_PATH);
+		expect(registeredPaths).toContain(CAPABILITY_SETTINGS_PATH);
+		expect(registerAdapter).not.toHaveBeenCalled();
+		const webRouteCount = registeredPaths.size;
+
+		activateLlm?.(llmCtx);
+		expect(registerAdapter).toHaveBeenCalledOnce();
+		expect(registeredPaths.size).toBe(webRouteCount);
+
+		await Promise.all(llmDisposers.map((dispose) => dispose()));
+		expect(registration).toHaveBeenCalledOnce();
+		expect(registeredPaths.size).toBe(webRouteCount);
+
+		llmDisposers.length = 0;
+		activateLlm?.(llmCtx);
+		expect(registerAdapter).toHaveBeenCalledTimes(2);
+		expect(registeredPaths.size).toBe(webRouteCount);
+		await Promise.all(routeDisposers.map((dispose) => dispose()));
+	});
+
+	it("applies composition capability defaults before an optional settings service exists", async () => {
 		vi.spyOn(GrokBuildSession.prototype, "loadCachedCatalog").mockResolvedValue(undefined);
 		vi.spyOn(OAuthProviderSession.prototype, "loadCachedModels").mockResolvedValue(undefined);
 		vi.spyOn(GrokBuildSession.prototype, "refreshLiveCatalog").mockResolvedValue(undefined);
 		const registration = Object.assign(vi.fn(), { replace: vi.fn() });
 		const registerSearchProvider = vi.fn(() => vi.fn());
+		const requiredWeb = requiredWebContext();
 		const child = {
 			get: vi.fn((name: string) => (name === "web" ? { registerSearchProvider } : undefined)),
 			effect: vi.fn((setup: () => unknown) => setup()),
@@ -65,15 +176,20 @@ describe("plugin startup catalog initialization", () => {
 			llm: { registerAdapter: vi.fn(() => registration) },
 			get: vi.fn(() => undefined),
 			inject: vi.fn((services: readonly string[], callback: (ctx: unknown) => void) => {
-				if (services.length === 1 && services[0] === "web") callback(child);
+				if (services.length === 0) return runFiber(() => callback(context));
+				if (services.length === 1 && services[0] === "llm") return runFiber(() => callback(context));
+				if (services.length === 1 && services[0] === "web") return runFiber(() => callback(child));
+				if (services.length === 1 && services[0] === "webServer") return runFiber(() => callback(requiredWeb));
+				return runFiber();
 			}),
 		} as unknown as Context;
 
 		apply(context, { capabilities: { codexSearch: true, searchResults: 3 } });
+		await new Promise<void>((resolve) => setImmediate(resolve));
 		expect(registerSearchProvider).toHaveBeenCalledOnce();
 	});
 
-	it("releases an obsolete settings watcher before reinjection and restores composition defaults on dispose", () => {
+	it("releases an obsolete settings watcher before reinjection and restores composition defaults on dispose", async () => {
 		vi.spyOn(GrokBuildSession.prototype, "loadCachedCatalog").mockResolvedValue(undefined);
 		vi.spyOn(OAuthProviderSession.prototype, "loadCachedModels").mockResolvedValue(undefined);
 		vi.spyOn(GrokBuildSession.prototype, "refreshLiveCatalog").mockResolvedValue(undefined);
@@ -84,6 +200,7 @@ describe("plugin startup catalog initialization", () => {
 			searchReleases.push(release);
 			return release;
 		});
+		const requiredWeb = requiredWebContext();
 		let settingsInjection: ((ctx: Context) => void) | undefined;
 		const webCtx = {
 			get: vi.fn((service: string) => (service === "web" ? { registerSearchProvider } : undefined)),
@@ -96,12 +213,20 @@ describe("plugin startup catalog initialization", () => {
 			llm: { registerAdapter: vi.fn(() => registration) },
 			get: vi.fn(() => undefined),
 			inject: vi.fn((services: readonly string[], callback: (ctx: Context) => void) => {
-				if (services.length === 1 && services[0] === "settings") settingsInjection = callback;
-				if (services.length === 1 && services[0] === "web") callback(webCtx);
+				if (services.length === 0) return runFiber(() => callback(context));
+				if (services.length === 1 && services[0] === "llm") return runFiber(() => callback(context));
+				if (services.length === 1 && services[0] === "settings") {
+					settingsInjection = callback;
+					return runFiber();
+				}
+				if (services.length === 1 && services[0] === "web") return runFiber(() => callback(webCtx));
+				if (services.length === 1 && services[0] === "webServer") return runFiber(() => callback(requiredWeb));
+				return runFiber();
 			}),
 		} as unknown as Context;
 
 		apply(context, { capabilities: { codexSearch: false } });
+		await new Promise<void>((resolve) => setImmediate(resolve));
 		expect(settingsInjection).toBeDefined();
 		expect(registerSearchProvider).not.toHaveBeenCalled();
 
@@ -198,15 +323,19 @@ describe("plugin startup catalog initialization", () => {
 			},
 			get: vi.fn(() => undefined),
 			inject: vi.fn((requested: readonly string[], callback: (ctx: Context) => unknown) => {
-				if (requested.join(",") !== "tools,attachments,credentials,webServer") return;
-				const result = callback(toolCtx);
-				if (result instanceof Promise) pending.push(result);
+				if (requested.length === 0) return runFiber(() => callback(context));
+				if (requested.length === 1 && requested[0] === "llm") return runFiber(() => callback(context));
+				if (requested.length === 1 && requested[0] === "webServer") return runFiber(() => callback(toolCtx));
+				if (requested.join(",") !== "tools,attachments,credentials,webServer") return runFiber();
+				const fiber = runFiber(() => callback(toolCtx));
+				pending.push(fiber.await());
+				return fiber;
 			}),
 		} as unknown as Context;
 
 		apply(context, {});
-		await Promise.all(pending);
 		await new Promise<void>((resolve) => setImmediate(resolve));
+		await Promise.all(pending);
 		order.length = 0;
 		expect(effects.some((effect) => effect.label?.includes("imagine download routes") === true)).toBe(true);
 		const lifetime = effects.find((effect) => effect.label?.includes("Imagine client and media lifetime") === true);
@@ -226,16 +355,23 @@ describe("plugin startup catalog initialization", () => {
 		const warn = vi.fn();
 		const registration = Object.assign(vi.fn(), { replace: vi.fn() });
 		const registerAdapter = vi.fn(() => registration);
+		const requiredWeb = requiredWebContext();
 		const context = {
 			logger: () => ({ warn }),
 			emit: vi.fn(),
 			effect: vi.fn((setup: () => unknown) => setup()),
 			llm: { registerAdapter },
 			get: vi.fn(() => undefined),
-			inject: vi.fn(),
+			inject: vi.fn((requested: readonly string[], callback: (ctx: Context) => unknown) => {
+				if (requested.length === 0) return runFiber(() => callback(context));
+				if (requested.length === 1 && requested[0] === "llm") return runFiber(() => callback(context));
+				if (requested.length === 1 && requested[0] === "webServer") return runFiber(() => callback(requiredWeb));
+				return runFiber();
+			}),
 		} as unknown as Context;
 
 		apply(context, {});
+		await new Promise<void>((resolve) => setImmediate(resolve));
 		expect(registerAdapter).toHaveBeenCalledOnce();
 
 		await new Promise<void>((resolve) => setImmediate(resolve));

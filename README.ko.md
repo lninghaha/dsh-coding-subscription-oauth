@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.8 · 이전 이름 `dsh-grok-build`
+**v0.6.0 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -17,13 +17,17 @@
 
 ---
 
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+
+---
+
 ## 이름 변경
 
 처음에는 Grok Build 전용 **`dsh-grok-build`** 였습니다. 지금은 SuperGrok / Codex / Kimi / Claude / Antigravity 코딩 구독 OAuth입니다.
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
-| npm | `dsh-coding-subscription-oauth@0.5.8`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
+| npm | `dsh-coding-subscription-oauth@0.6.0`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
 | 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
@@ -73,12 +77,13 @@
 
 ```bash
 # 1. web 프로필에 플러그인 설치 (현재 npm 릴리스)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
 
 # 3. 상주하는 dsh web 서비스 재시작
+# Local service-manager example only; `dsh web` is the official CLI alias for the web profile.
 systemctl --user restart dsh-web.service
 ```
 
@@ -114,7 +119,7 @@ DeepSeek Harness `0.1.0-rc.6+` 및 Node.js 22.19+가 필요합니다. 자세한 
 
 ```bash
 # 현재 npm 릴리스 (권장)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 개발/대안: GitHub에서
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -123,7 +128,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-설치 후 `dsh web`을 재시작합니다. 실제 배포 검증:
+설치 후 기존 DSH Web 프로세스를 재시작합니다. 실제 배포 검증:
 
 ```bash
 pnpm run verify:deployed            # 실제 /api/llm.models + OAuth 상태 확인
@@ -146,15 +151,15 @@ pnpm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
+      <a href="media/en/settings_accounts.png"><img src="media/en/settings_accounts.png" alt="Coding OAuth Accounts tab" width="280" /></a><br />
       <sub>Accounts</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
+      <a href="media/en/settings_gateway.png"><img src="media/en/settings_gateway.png" alt="Coding OAuth Gateway tab" width="280" /></a><br />
       <sub>Gateway</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
+      <a href="media/en/settings_capabilities.png"><img src="media/en/settings_capabilities.png" alt="Coding OAuth Capabilities tab" width="280" /></a><br />
       <sub>Capabilities</sub>
     </td>
   </tr>

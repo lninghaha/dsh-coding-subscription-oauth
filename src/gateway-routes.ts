@@ -7,13 +7,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CodingOAuthGatewayController } from "./gateway.ts";
 import { assertGatewayPort } from "./gateway-config.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
+import { GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH } from "./ids.ts";
 import { safeMessage } from "./redact.ts";
-import { isTrustedLoopbackWebRequest } from "./web-origin.ts";
+import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerRequestPolicy } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
-export const GATEWAY_SETTINGS_PATH = "/plugins/dsh-grok-build/gateway";
-export const GATEWAY_REVEAL_PATH = "/plugins/dsh-grok-build/gateway/reveal";
-export const GATEWAY_ROTATE_PATH = "/plugins/dsh-grok-build/gateway/rotate";
+export { GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH } from "./ids.ts";
 
 export interface GatewayRouteContext {
 	readonly webServer: {
@@ -26,24 +25,28 @@ export interface GatewayRouteContext {
 	effect(callback: () => () => void | Promise<void>, label?: string): unknown;
 }
 
-export function registerGatewayRoutes(ctx: GatewayRouteContext, controller: CodingOAuthGatewayController): () => void {
+export function registerGatewayRoutes(
+	ctx: GatewayRouteContext,
+	controller: CodingOAuthGatewayController,
+	ownerRequestPolicy: OwnerRequestPolicy = LOOPBACK_OWNER_REQUEST_POLICY,
+): () => void {
 	let dispose = (): void => undefined;
 	ctx.effect(() => {
 		dispose = registerWebRouteSetupAtomically(ctx.webServer, (webServer) => {
 			webServer.register({
 				kind: "exact",
 				path: GATEWAY_SETTINGS_PATH,
-				handler: (req, res) => handleGatewaySettings(req, res, controller),
+				handler: (req, res) => handleGatewaySettings(req, res, controller, ownerRequestPolicy),
 			});
 			webServer.register({
 				kind: "exact",
 				path: GATEWAY_REVEAL_PATH,
-				handler: (req, res) => handleGatewayReveal(req, res, controller),
+				handler: (req, res) => handleGatewayReveal(req, res, controller, ownerRequestPolicy),
 			});
 			webServer.register({
 				kind: "exact",
 				path: GATEWAY_ROTATE_PATH,
-				handler: (req, res) => handleGatewayRotate(req, res, controller),
+				handler: (req, res) => handleGatewayRotate(req, res, controller, ownerRequestPolicy),
 			});
 		});
 		return dispose;
@@ -55,8 +58,9 @@ async function handleGatewaySettings(
 	req: IncomingMessage,
 	res: ServerResponse,
 	controller: CodingOAuthGatewayController,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -105,8 +109,9 @@ async function handleGatewayReveal(
 	req: IncomingMessage,
 	res: ServerResponse,
 	controller: CodingOAuthGatewayController,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -125,8 +130,9 @@ async function handleGatewayRotate(
 	req: IncomingMessage,
 	res: ServerResponse,
 	controller: CodingOAuthGatewayController,
+	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!isTrustedLoopbackWebRequest(req)) {
+	if (!ownerRequestPolicy.authorize(req).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}

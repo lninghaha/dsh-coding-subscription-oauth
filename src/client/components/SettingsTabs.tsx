@@ -59,7 +59,7 @@ export function SettingsTabs({ t, activeTab, onChange, hints }: SettingsTabsProp
 						type="button"
 						role="tab"
 						aria-selected={selected}
-						aria-controls={`coding-oauth-panel-${tab.id}`}
+						aria-controls={selected ? `coding-oauth-panel-${tab.id}` : undefined}
 						tabIndex={selected ? 0 : -1}
 						style={selected ? segmentedTabActiveStyle : segmentedTabStyle}
 						onClick={() => {

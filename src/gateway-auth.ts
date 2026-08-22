@@ -8,9 +8,11 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
+import { GATEWAY_KEY_FILENAME } from "./ids.ts";
 import { OAuthSourceError, readHardenedOAuthSourceFile } from "./oauth-sources.ts";
 
-export const GATEWAY_KEY_FILENAME = ".coding-oauth-gateway.json";
+export { GATEWAY_KEY_FILENAME } from "./ids.ts";
+
 const KEY_FORMAT_VERSION = 1;
 
 export interface GatewayKeyDocument {

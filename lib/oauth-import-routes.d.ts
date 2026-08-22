@@ -7,10 +7,8 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { type OAuthImportCommitAction, type OAuthImportSessionOptions, type OAuthSourceCredential, type OAuthSourceDiscovery, type OAuthSourceKind, type OAuthSourcePathOptions } from "./oauth-sources.js";
-export declare const OAUTH_IMPORT_SOURCES_PATH = "/plugins/dsh-grok-build/oauth/sources";
-export declare const OAUTH_IMPORT_PREVIEW_PATH = "/plugins/dsh-grok-build/oauth/sources/preview";
-export declare const OAUTH_IMPORT_COMMIT_PATH = "/plugins/dsh-grok-build/oauth/sources/commit";
-export declare const OAUTH_IMPORT_CANCEL_PATH = "/plugins/dsh-grok-build/oauth/sources/cancel";
+import { type OwnerRequestPolicy } from "./web-origin.js";
+export { OAUTH_IMPORT_CANCEL_PATH, OAUTH_IMPORT_COMMIT_PATH, OAUTH_IMPORT_PREVIEW_PATH, OAUTH_IMPORT_SOURCES_PATH, } from "./ids.js";
 export interface OAuthImportRouteContext {
     webServer: {
         register(route: {
@@ -38,6 +36,7 @@ export interface OAuthImportAppliedEvent {
 }
 export interface OAuthImportRouteOptions extends OAuthImportSessionOptions, OAuthSourcePathOptions {
     onImported?: (event: OAuthImportAppliedEvent) => void | Promise<void>;
+    ownerRequestPolicy?: OwnerRequestPolicy;
 }
 export interface OAuthImportSourcesResponse {
     sources: OAuthSourceDiscovery[];

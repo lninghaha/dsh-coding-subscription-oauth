@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.5.8** · 原名 `dsh-grok-build`
+**v0.6.0** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -17,13 +17,17 @@
 
 ---
 
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.0` is their shared npm dependency, not a separate DSH plugin.
+
+---
+
 ## 项目更名
 
 最初只做 Grok Build，仓库名是 **`dsh-grok-build`**。现在覆盖 SuperGrok / Grok Build、ChatGPT Plus Codex、Kimi Code、Claude Code 和 Google Antigravity，因此改为现名。
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.5.8`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.6.0`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -75,12 +79,13 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
 
 # 3. 重启常驻的 dsh web 服务
+# 仅示范本机服务管理器；官方 `dsh web` 是启动 web profile 的 CLI 别名，不是 systemd 单元名。
 systemctl --user restart dsh-web.service
 ```
 
@@ -116,7 +121,7 @@ systemctl --user restart dsh-web.service
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.5.8
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.0
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -125,7 +130,7 @@ dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
 # dsh plugin --profile web add ./dsh-coding-subscription-oauth
 ```
 
-安装后重启 `dsh web`。维护者可在源码 checkout 中对实际部署做验证（npm 安装不包含这些脚本）：
+安装后重启现有 DSH Web 进程。维护者可在源码 checkout 中对实际部署做验证（npm 安装不包含这些脚本）：
 
 ```bash
 pnpm run verify:deployed            # 核对真实 /api/llm.models 与 OAuth 状态
@@ -143,18 +148,20 @@ pnpm run smoke:deployed             # 真实 Codex/Kimi tool-call + 第二个用
 
 打开 **设置 → 编码 OAuth**。页面采用分段标签：**Accounts**、**Gateway**、**Capabilities**、**About**，并带有实时状态提示、语义化徽章与骨架屏加载。远程（非 loopback）主机上，Accounts 会优先设备码登录，并把嘈杂的 CLI 缺失提示收成一条；已登录供应商卡片默认折叠，展开后可搜索/筛选模型、查看配额进度条或使用 CLI 拉取；Gateway 提供 cURL / Python / IDE 快速配置片段，Capabilities 使用开关联动（含依赖项置灰）并显示 Imagine 状态。
 
+DSH Web 仍只绑定 loopback。远程 Settings 必须经 SSH 隧道，或经已完成属主认证的 HTTPS 反向代理。插件优先使用 DSH 原生 `ownerRequestPolicy`；fallback 同时要求真实可信 TCP peer、精确 HTTPS Origin/Host、同源 Fetch Metadata、代理注入的 owner proof，以及变更请求独立的 CSRF proof。`X-Forwarded-*` 不能授权，配置不完整会 fail closed。配置方法见 [INSTALL.md](INSTALL.md#安全访问远程-settings)。
+
 <table>
   <tr>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_accounts.png"><img src="media/settings_accounts.png" alt="编码 OAuth · Accounts 标签" width="280" /></a><br />
+      <a href="media/zh-CN/settings_accounts.png"><img src="media/zh-CN/settings_accounts.png" alt="编码 OAuth · Accounts 标签" width="280" /></a><br />
       <sub>Accounts</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_gateway.png"><img src="media/settings_gateway.png" alt="编码 OAuth · Gateway 标签" width="280" /></a><br />
+      <a href="media/zh-CN/settings_gateway.png"><img src="media/zh-CN/settings_gateway.png" alt="编码 OAuth · Gateway 标签" width="280" /></a><br />
       <sub>Gateway</sub>
     </td>
     <td align="center" valign="top" width="33%">
-      <a href="media/settings_capabilities.png"><img src="media/settings_capabilities.png" alt="编码 OAuth · Capabilities 标签" width="280" /></a><br />
+      <a href="media/zh-CN/settings_capabilities.png"><img src="media/zh-CN/settings_capabilities.png" alt="编码 OAuth · Capabilities 标签" width="280" /></a><br />
       <sub>Capabilities</sub>
     </td>
   </tr>

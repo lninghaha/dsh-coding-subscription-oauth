@@ -6,9 +6,8 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { type CapabilitySettings, type CapabilitySettingsPatch, type CapabilitySettingsSnapshot } from "./capability-settings.js";
-export declare const CAPABILITY_SETTINGS_PATH = "/plugins/dsh-grok-build/capabilities";
-export declare const CODEX_USAGE_PATH = "/plugins/dsh-grok-build/codex/usage";
-export declare const IMAGINE_CREDENTIAL_STATUS_PATH = "/plugins/dsh-grok-build/imagine/credential-status";
+import { type OwnerRequestPolicy } from "./web-origin.js";
+export { CAPABILITY_SETTINGS_PATH, CODEX_USAGE_PATH, IMAGINE_CREDENTIAL_STATUS_PATH } from "./ids.js";
 /** Structural `ctx.webServer` + `ctx.effect` surface used by the registrar. */
 export interface CapabilityRouteContext {
     readonly webServer: {
@@ -37,6 +36,7 @@ export interface CapabilityRouteOptions {
     readonly controller: CapabilityRouteController;
     readonly usage?: () => unknown | Promise<unknown>;
     readonly credentialInfo?: () => unknown | Promise<unknown>;
+    readonly ownerRequestPolicy?: OwnerRequestPolicy;
 }
 /** Register the plugin-owned capability routes. Owns and returns the route disposer. */
 export declare function registerCapabilityRoutes(ctx: CapabilityRouteContext, options: CapabilityRouteOptions): () => void;

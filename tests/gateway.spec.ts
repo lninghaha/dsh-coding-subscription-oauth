@@ -237,8 +237,10 @@ describe("startCodingOAuthGateway", () => {
 		});
 		servers.push({ close: () => controller.stop() });
 		expect((await controller.status()).running).toBe(false);
+		expect((await controller.status()).models).toEqual(["grok-4.6", "gpt-5.3-codex", "kimi-k2.5", "claude-opus-4-6"]);
 		const enabled = await controller.setEnabled(true);
 		expect(enabled.running).toBe(true);
+		expect(enabled.keyConfigured).toBe(true);
 		expect(enabled.keyHint).toContain("aaaa");
 		const rotated = await controller.rotateKey();
 		expect(rotated.apiKey).not.toBe("first-key-value-aaaa");

@@ -20,6 +20,12 @@ import { OAUTH_PROVIDER_DEFINITIONS } from "../src/oauth-providers.ts";
 import { OAuthProviderSession } from "../src/oauth-session.ts";
 import { GrokBuildSession } from "../src/session.ts";
 import { GrokBuildCredentialStore, OAuthCredentialFileStore } from "../src/store.ts";
+import {
+	createOwnerRequestPolicy,
+	OWNER_CSRF_HEADER,
+	OWNER_PROOF_HEADER,
+	type OwnerRequestPolicy,
+} from "../src/web-origin.ts";
 
 interface RegisteredRoute {
 	path: string;
@@ -41,12 +47,17 @@ class TestResponse {
 	}
 }
 
-function request(body: string, headers: IncomingMessage["headers"] = {}, method = "POST"): IncomingMessage {
+function request(
+	body: string,
+	headers: IncomingMessage["headers"] = {},
+	method = "POST",
+	remoteAddress = "127.0.0.1",
+): IncomingMessage {
 	const stream = Readable.from([body]) as unknown as IncomingMessage;
 	Object.defineProperties(stream, {
 		method: { value: method, configurable: true },
 		headers: { value: { host: "127.0.0.1:3080", ...headers }, configurable: true },
-		socket: { value: { remoteAddress: "127.0.0.1" }, configurable: true },
+		socket: { value: { remoteAddress }, configurable: true },
 	});
 	return stream;
 }
@@ -87,6 +98,7 @@ async function loginHandler(): Promise<RegisteredRoute["handler"]> {
 
 async function codingStatusHandler(
 	listProviders: () => readonly { id: string }[],
+	ownerRequestPolicy?: OwnerRequestPolicy,
 ): Promise<RegisteredRoute["handler"]> {
 	const directory = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-status-"));
 	temporaryDirectories.push(directory);
@@ -120,6 +132,7 @@ async function codingStatusHandler(
 		context,
 		new GrokBuildSession(new GrokBuildCredentialStore(join(directory, "grok-auth.json"))),
 		subscriptions,
+		ownerRequestPolicy,
 	);
 	const handler = routes.get(CODING_OAUTH_STATUS_PATH);
 	if (handler === undefined) throw new Error("status route was not registered");
@@ -161,6 +174,7 @@ describe("Coding OAuth Antigravity status", () => {
 			const response = new TestResponse();
 			await handler(request("", {}, "GET"), response as unknown as ServerResponse);
 			expect(response.status).toBe(200);
+			expect(JSON.parse(response.body).accessMode).toBe("loopback");
 			expect(JSON.parse(response.body).antigravity).toEqual({
 				installed,
 				route: "agy",
@@ -181,6 +195,38 @@ describe("Coding OAuth Antigravity status", () => {
 			route: "agy",
 			management: "cli",
 		});
+	});
+
+	it("returns trusted-https-proxy accessMode only after the full owner proof succeeds", async () => {
+		const handler = await codingStatusHandler(
+			() => [],
+			createOwnerRequestPolicy({
+				trustedProxy: {
+					peers: ["10.0.0.8"],
+					origins: ["https://dsh.example.test"],
+					ownerProof: "owner-proof-secret",
+					csrfToken: "csrf-proof-secret",
+				},
+			}),
+		);
+		const response = new TestResponse();
+		await handler(
+			request(
+				"",
+				{
+					host: "dsh.example.test",
+					origin: "https://dsh.example.test",
+					"sec-fetch-site": "same-origin",
+					[OWNER_PROOF_HEADER]: "owner-proof-secret",
+					[OWNER_CSRF_HEADER]: "csrf-proof-secret",
+				},
+				"GET",
+				"10.0.0.8",
+			),
+			response as unknown as ServerResponse,
+		);
+		expect(response.status).toBe(200);
+		expect(JSON.parse(response.body).accessMode).toBe("trusted-https-proxy");
 	});
 });
 
