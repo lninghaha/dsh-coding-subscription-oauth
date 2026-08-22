@@ -19,7 +19,7 @@ const trackStyle = (checked: boolean, disabled: boolean): CSSProperties => ({
 	borderRadius: 11,
 	flex: "0 0 auto",
 	background: checked
-		? "var(--dsw-alias-brand-primary, #315fc7)"
+		? "var(--dsw-alias-button-primary-fill)"
 		: "var(--dsw-alias-border-l4, rgba(127, 127, 127, 0.45))",
 	opacity: disabled ? 0.5 : 1,
 	cursor: disabled ? "not-allowed" : "pointer",
@@ -35,7 +35,9 @@ const thumbStyle = (checked: boolean): CSSProperties => ({
 	width: 18,
 	height: 18,
 	borderRadius: "50%",
-	background: "#ffffff",
+	// Match DSH primary fill/foreground pairing so the thumb stays visible when
+	// dark theme inverts brand-primary to near-white.
+	background: checked ? "var(--dsw-alias-label-primary-foreground)" : "var(--dsw-alias-button-elevated-fill, #ffffff)",
 	boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
 	transition: TRANSITION,
 });

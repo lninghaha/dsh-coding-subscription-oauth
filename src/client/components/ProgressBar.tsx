@@ -11,7 +11,7 @@ export interface ProgressBarProps {
 
 function barColor(percent: number): string {
 	if (percent >= 90) return "var(--dsw-alias-state-error-primary, #d92d20)";
-	if (percent >= 75) return "var(--dsw-alias-state-warning-primary, #e06c00)";
+	if (percent >= 75) return "var(--dsw-alias-state-warn-primary, #e06c00)";
 	return "var(--dsw-alias-brand-primary, #1677ff)";
 }
 

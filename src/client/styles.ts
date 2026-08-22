@@ -61,9 +61,11 @@ export const buttonStyle: CSSProperties = {
 };
 export const primaryButtonStyle: CSSProperties = {
 	...buttonStyle,
-	borderColor: "var(--dsw-alias-brand-primary, #315fc7)",
-	background: "var(--dsw-alias-brand-primary, #315fc7)",
-	color: "#ffffff",
+	// DSH dark theme flips brand-primary to near-white; use the button/foreground
+	// pair so primary CTAs stay readable in both light and dark mode.
+	border: "none",
+	background: "var(--dsw-alias-button-primary-fill)",
+	color: "var(--dsw-alias-label-primary-foreground)",
 	boxShadow: "0 1px 3px rgba(0, 0, 0, 0.28)",
 	fontWeight: 600,
 };
@@ -234,9 +236,9 @@ export const stepNumberStyle: CSSProperties = {
 };
 export const stepNumberActiveStyle: CSSProperties = {
 	...stepNumberStyle,
-	background: "var(--dsw-alias-brand-primary, #315fc7)",
-	borderColor: "var(--dsw-alias-brand-primary, #315fc7)",
-	color: "#ffffff",
+	background: "var(--dsw-alias-button-primary-fill)",
+	borderColor: "var(--dsw-alias-button-primary-fill)",
+	color: "var(--dsw-alias-label-primary-foreground)",
 };
 
 export type StatusTone = "success" | "error" | "warning" | "info" | "neutral";
@@ -248,11 +250,15 @@ export function statusToneColor(tone: StatusTone): string {
 		case "error":
 			return "var(--dsw-alias-state-error-primary, #d92d20)";
 		case "warning":
-			return "var(--dsw-alias-state-warning-primary, #e06c00)";
+			// DSH token is `state-warn-*` (not `state-warning-*`).
+			return "var(--dsw-alias-state-warn-primary, #e06c00)";
 		case "info":
+			// Accent/text color (not a solid fill + white text pair).
 			return "var(--dsw-alias-brand-primary, #1677ff)";
 		default:
-			return "var(--dsw-alias-label-dimmed, #9aa0a6)";
+			// Prefer tertiary over dimmed: dimmed is near-invisible on light cards
+			// and too dark on dark cards.
+			return "var(--dsw-alias-label-tertiary, #81858c)";
 	}
 }
 
@@ -279,14 +285,14 @@ export function dotStyle(
 	installed = true,
 ): CSSProperties {
 	const color = !installed
-		? "var(--dsw-alias-label-dimmed, #9aa0a6)"
+		? "var(--dsw-alias-label-tertiary, #81858c)"
 		: status === "signed-in" || status === "available"
 			? "var(--dsw-alias-state-success-primary, #22a06b)"
 			: status === "error"
 				? "var(--dsw-alias-state-error-primary, #d92d20)"
 				: status === "signing-in" || status === "loading"
 					? "var(--dsw-alias-brand-primary, #1677ff)"
-					: "var(--dsw-alias-label-dimmed, #9aa0a6)";
+					: "var(--dsw-alias-label-tertiary, #81858c)";
 	return { width: 9, height: 9, borderRadius: "50%", flex: "0 0 auto", background: color };
 }
 
