@@ -25,7 +25,7 @@ The `artifacts`, `package`, `inspect`, and `isolated-install` targets cover gene
 
 ### Isolated Web preview
 
-`docker/run-preview.sh` is the only supported interactive preview launcher. It builds `web-preview` offline from two auditable inputs: this checkout's committed `lib/` and a BuildKit named context containing an installed `@deepseek-ai/dsh@0.1.0-rc.6` **program package**. Point `DSH_INSTALL_DIR` at that package directory, never at a DSH home/profile or any credential directory:
+`docker/run-preview.sh` is the only supported interactive preview launcher. It builds `web-preview` offline from two auditable inputs: this checkout's committed `lib/` and a BuildKit named context containing an installed `@deepseek-ai/dsh` **program package** (any audited version whose peer tree satisfies this plugin). Point `DSH_INSTALL_DIR` at that package directory, never at a DSH home/profile or any credential directory:
 
 ```bash
 export DSH_INSTALL_DIR=/path/to/node_modules/@deepseek-ai/dsh
@@ -96,6 +96,17 @@ History is part of the review. The maintainer counterpart — tags, clean-tree r
 - A PR that changes public behaviour must not be merged without its README/changelog updates.
 - Do not force-push `main` or a published release tag. Feature-branch force-pushes still need explicit approval (see above).
 - Maintainers run the release loop (`docs/00-project-rules.md` §3–4 and §7) after merging a substantive change: clean working tree, bump version, annotated tag `v<version>`, publish to npm, and keep the GitHub milestone/release updated.
+
+### npm Trusted Publishing (required for tag releases)
+
+Tag pushes run `.github/workflows/release.yml`, which publishes with `npm publish --provenance` via OIDC (no long-lived `NPM_TOKEN`). Before the first automated publish of a package (or after moving the GitHub repo), a maintainer must bind Trusted Publishing on npm:
+
+1. Sign in at [npmjs.com](https://www.npmjs.com/) as the package owner.
+2. Open **Package → Settings → Trusted Publisher → GitHub Actions**.
+3. Set **Organization or user** to `lninghaha`, **Repository** to `dsh-coding-subscription-oauth`, **Workflow filename** to `release.yml`, and leave the environment blank unless you add one.
+4. Save. Pushing `v*` must then create/update the GitHub Release and publish (or skip if that exact version is already on the registry).
+
+If Trusted Publishing is missing or mis-bound, `npm publish` returns registry `404` after provenance signing. Fix the binding and re-run the failed Release workflow (or publish that one version manually, then rely on CI for later tags).
 
 ## Reporting security issues
 

@@ -1,5 +1,6 @@
-# Tag-triggered release. Do not push a v* tag until npm Trusted Publishing
-# is bound for this repository and a maintainer has approved the version.
+# Tag-triggered release. Do not push a v* tag until a maintainer has approved
+# the version. npm Trusted Publishing (OIDC) must be bound for this repository
+# so provenance publish can succeed without a long-lived NPM_TOKEN.
 name: Release
 
 on:
@@ -12,7 +13,7 @@ permissions:
   id-token: write
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: "1"
@@ -29,24 +30,43 @@ jobs:
             --tag test-dsh-coding-oauth:release-verify \
             .
 
-      - name: Publish GitHub Release
+  github-release:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           version="${tag#v}"
-          gh release create "${tag}" \
-            --title "dsh-coding-subscription-oauth ${tag}" \
-            --notes "Install or update:
+          notes="$(printf '%s\n' \
+            'Install or update:' \
+            '' \
+            '```bash' \
+            "dsh plugin --profile web add dsh-coding-subscription-oauth@${version}" \
+            'dsh plugin --profile web update dsh-coding-subscription-oauth' \
+            '```' \
+            '' \
+            'Restart an existing `dsh web` process and hard-refresh the browser.' \
+            '' \
+            "See CHANGELOG.md for the folded ${tag} notes.")"
+          title="dsh-coding-subscription-oauth ${tag}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            printf 'Release %s already exists; updating title and notes.\n' "${tag}"
+            gh release edit "${tag}" --title "${title}" --notes "${notes}"
+          else
+            gh release create "${tag}" --title "${title}" --notes "${notes}"
+          fi
 
-          \`\`\`bash
-          dsh plugin --profile web add dsh-coding-subscription-oauth@${version}
-          dsh plugin --profile web update dsh-coding-subscription-oauth
-          \`\`\`
-
-          Restart an existing \`dsh web\` process and hard-refresh the browser.
-
-          See CHANGELOG.md for the folded ${tag} notes."
+  npm-publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -54,6 +74,35 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       # Requires this GitHub repo to be bound as an npm Trusted Publisher.
-      # Do not push v* tags until that binding exists.
-      - name: Publish to npm with provenance
-        run: npm publish --access public --provenance --ignore-scripts
+      - name: Publish to npm with provenance (skip if version already exists)
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          tag="${GITHUB_REF_NAME}"
+          expected="${tag#v}"
+          if [[ "${version}" != "${expected}" ]]; then
+            echo "package.json version (${version}) does not match tag (${expected})" >&2
+            exit 1
+          fi
+          if npm view "dsh-coding-subscription-oauth@${version}" version >/dev/null 2>&1; then
+            echo "dsh-coding-subscription-oauth@${version} is already on the registry; skipping publish."
+          else
+            npm publish --access public --provenance --ignore-scripts
+          fi
+
+      - name: Verify published npm version
+        run: |
+          set -euo pipefail
+          expected="$(node -p 'require("./package.json").version')"
+          # Registry propagation can lag briefly after a fresh publish.
+          for attempt in 1 2 3 4 5 6; do
+            actual="$(npm view dsh-coding-subscription-oauth version 2>/dev/null || true)"
+            if [[ "${actual}" == "${expected}" ]]; then
+              echo "npm latest is ${actual}"
+              exit 0
+            fi
+            echo "waiting for npm latest (got '${actual}', want '${expected}'); attempt ${attempt}"
+            sleep 5
+          done
+          echo "npm latest did not reach ${expected}" >&2
+          exit 1
