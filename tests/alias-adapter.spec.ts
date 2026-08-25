@@ -7,7 +7,7 @@ import type {
 } from "@deepseek-ai/dsh-llm";
 import { LlmAdapter } from "@deepseek-ai/dsh-llm";
 import { describe, expect, it } from "vitest";
-import { AliasLlmAdapter } from "../src/alias-adapter.ts";
+import { AliasLlmAdapter, normalizeReplayForRoute } from "../src/alias-adapter.ts";
 
 class FakeAdapter extends LlmAdapter {
 	seenProvider: string | undefined;
@@ -37,6 +37,16 @@ class FakeAdapter extends LlmAdapter {
 }
 
 describe("AliasLlmAdapter", () => {
+	it("keeps the rc.2 replay envelope opaque while restoring the native provider", () => {
+		const replayState = { response: { provider: "openai-codex", opaque: { value: 1 } } };
+		const sameRoute = normalizeReplayForRoute(
+			{ role: "assistant", source: { kind: "model", provider: "codex-oauth", model: "gpt", replayState } } as never,
+			"codex-oauth",
+			"openai-codex",
+		) as never as { source: { provider: string; replayState: unknown } };
+		expect(sameRoute.source.provider).toBe("openai-codex");
+		expect(sameRoute.source.replayState).toBe(replayState);
+	});
 	it("maps public route metadata while preserving native dispatch", async () => {
 		const inner = new FakeAdapter();
 		const adapter = new AliasLlmAdapter(inner, new Map([["codex-oauth", "openai-codex"]]));
@@ -73,7 +83,7 @@ describe("AliasLlmAdapter", () => {
 			{
 				type: "finish",
 				reason: { kind: "stop" },
-				replayState: { kind: "pi-ai", version: 1, provider: "openai-codex", model: "m1" },
+				replayState: { response: { provider: "openai-codex", model: "m1" } },
 			},
 		]);
 		const adapter = new AliasLlmAdapter(
@@ -83,7 +93,7 @@ describe("AliasLlmAdapter", () => {
 				["kimi-code-oauth", "kimi-coding"],
 			]),
 		);
-		const sameRouteReplay = { kind: "pi-ai", version: 1, provider: "openai-codex", model: "m1" };
+		const sameRouteReplay = { response: { provider: "openai-codex", model: "m1" } };
 		const messages = [
 			{
 				id: "assistant-1",
@@ -99,7 +109,7 @@ describe("AliasLlmAdapter", () => {
 					kind: "model",
 					provider: "kimi-code-oauth",
 					model: "k3",
-					replayState: { kind: "pi-ai", version: 1, provider: "kimi-coding", model: "k3" },
+					replayState: { response: { provider: "kimi-coding", model: "k3" } },
 				},
 			},
 		] as unknown as GenerateOptions["messages"];
@@ -114,17 +124,17 @@ describe("AliasLlmAdapter", () => {
 
 		expect(inner.seenProvider).toBe("openai-codex");
 		expect(inner.seenOptions?.messages[0]?.source).toMatchObject({
-			provider: "codex-oauth",
-			replayState: { kind: "pi-ai", provider: "codex-oauth", model: "m1" },
+			provider: "openai-codex",
+			replayState: sameRouteReplay,
 		});
 		expect(inner.seenOptions?.messages[1]?.source).not.toHaveProperty("replayState");
 		expect(chunks).toMatchObject([
 			{
 				type: "finish",
-				replayState: { kind: "pi-ai", provider: "codex-oauth", model: "m1" },
+				replayState: sameRouteReplay,
 			},
 		]);
-		expect(sameRouteReplay.provider).toBe("openai-codex");
+		expect(sameRouteReplay.response.provider).toBe("openai-codex");
 	});
 
 	it("filters an authenticated catalog to includeModel matches only", async () => {
@@ -241,7 +251,7 @@ describe("AliasLlmAdapter", () => {
 			{
 				type: "finish",
 				reason: { kind: "error", failure: { message: "401 authentication_error", code: "AUTH" } },
-				replayState: { kind: "pi-ai", version: 1, provider: "openai-codex", model: "gpt" },
+				replayState: { response: { provider: "openai-codex", model: "gpt" } },
 			},
 		]);
 		let calls = 0;
@@ -272,7 +282,7 @@ describe("AliasLlmAdapter", () => {
 			{
 				type: "finish",
 				reason: { kind: "error", failure: { code: "AUTH" } },
-				replayState: { kind: "pi-ai", provider: "codex-oauth", model: "gpt" },
+				replayState: { response: { provider: "openai-codex", model: "gpt" } },
 			},
 		]);
 	});

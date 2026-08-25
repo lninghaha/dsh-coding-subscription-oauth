@@ -36,16 +36,10 @@ export interface AliasLlmRoutePolicy {
 	onAuthFailure?: () => Promise<void>;
 }
 
-function routePiAiReplayState(value: unknown, route: string): unknown {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
-	const state = value as Record<string, unknown>;
-	if (state["kind"] !== "pi-ai" || state["provider"] === route) return value;
-	return { ...state, provider: route };
-}
-
-function normalizeReplayForRoute(
+export function normalizeReplayForRoute(
 	message: GenerateOptions["messages"][number],
 	route: string,
+	nativeReplayProvider: string,
 ): GenerateOptions["messages"][number] {
 	if (message.role !== "assistant" || message.source.kind !== "model") return message;
 	if (message.source.provider !== route) {
@@ -53,9 +47,10 @@ function normalizeReplayForRoute(
 		const { replayState: _foreignReplay, ...source } = message.source;
 		return { ...message, source };
 	}
-	const replayState = routePiAiReplayState(message.source.replayState, route);
-	if (replayState === message.source.replayState) return message;
-	return { ...message, source: { ...message.source, replayState } };
+	// The rc.2 envelope stays entirely opaque. PiAiAdapter only keys replay
+	// validation from source.provider, so restore the native provider identity
+	// without inspecting or changing replayState.
+	return { ...message, source: { ...message.source, provider: nativeReplayProvider } };
 }
 
 /**
@@ -67,6 +62,7 @@ export class AliasLlmAdapter extends LlmAdapter {
 		private readonly inner: LlmAdapter,
 		private readonly aliases: ReadonlyMap<string, string>,
 		private readonly policies: ReadonlyMap<string, AliasLlmRoutePolicy> = new Map(),
+		private readonly replayProviders: ReadonlyMap<string, string> = aliases,
 	) {
 		super();
 	}
@@ -113,7 +109,9 @@ export class AliasLlmAdapter extends LlmAdapter {
 	async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
 		const route = options.provider;
 		const native = this.nativeProvider(route);
-		const messages = options.messages.map((message) => normalizeReplayForRoute(message, route));
+		const messages = options.messages.map((message) =>
+			normalizeReplayForRoute(message, route, this.replayProviders.get(route) ?? native),
+		);
 		let authFailureNotified = false;
 		for await (const raw of this.inner.stream({ ...options, provider: native, messages })) {
 			const chunk =
@@ -143,11 +141,7 @@ export class AliasLlmAdapter extends LlmAdapter {
 					}
 				}
 			}
-			if (chunk.type === "finish" && chunk.replayState !== undefined) {
-				yield { ...chunk, replayState: routePiAiReplayState(chunk.replayState, route) };
-			} else {
-				yield chunk;
-			}
+			yield chunk;
 		}
 	}
 }
