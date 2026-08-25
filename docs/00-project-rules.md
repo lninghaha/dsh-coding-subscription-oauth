@@ -143,7 +143,7 @@ node scripts/release.mjs --pack
 
 For every release candidate, the assistant must proactively hand the maintainer an exact PowerShell command before any registry write. The handoff must name the verified candidate `.tgz`, include its expected SHA-256, use the public npm registry, and include a post-publish `npm view` check. The assistant must not run `npm publish`, `npm login`, or copy npm credentials.
 
-The maintainer runs the handoff command, reports the resulting published version and `latest` dist-tag, and only then does the assistant continue with registry verification, PR merge, annotated tag/GitHub Release work, and issue evidence replies. A failed or ambiguous publish keeps the release and issues open. The exact release gate still requires a clean tree, successful Docker verification, independent PR approval, and explicit maintainer release approval; publishing an unverified or dirty candidate is prohibited.
+The maintainer runs the handoff command, reports the resulting published version and `latest` dist-tag, and only then does the assistant continue with registry verification, PR merge, annotated tag/GitHub Release work, and issue evidence replies. A failed or ambiguous publish keeps the release and issues open. The exact release gate still requires a clean tree, successful Docker verification, a maintainer decision, and explicit maintainer release approval; publishing an unverified or dirty candidate is prohibited.
 
 The standard handoff shape is:
 
