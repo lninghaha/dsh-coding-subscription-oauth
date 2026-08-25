@@ -97,16 +97,14 @@ History is part of the review. The maintainer counterpart — tags, clean-tree r
 - Do not force-push `main` or a published release tag. Feature-branch force-pushes still need explicit approval (see above).
 - Maintainers run the release loop (`docs/00-project-rules.md` §3–4 and §7) after merging a substantive change: clean working tree, bump version, annotated tag `v<version>`, publish to npm, and keep the GitHub milestone/release updated.
 
-### npm Trusted Publishing (required for tag releases)
+### npm release verification
 
-Tag pushes run `.github/workflows/release.yml`, which publishes with `npm publish --provenance` via OIDC (no long-lived `NPM_TOKEN`). Before the first automated publish of a package (or after moving the GitHub repo), a maintainer must bind Trusted Publishing on npm:
-
-1. Sign in at [npmjs.com](https://www.npmjs.com/) as the package owner.
-2. Open **Package → Settings → Trusted Publisher → GitHub Actions**.
-3. Set **Organization or user** to `lninghaha`, **Repository** to `dsh-coding-subscription-oauth`, **Workflow filename** to `release.yml`, and leave the environment blank unless you add one.
-4. Save. Pushing `v*` must then create/update the GitHub Release and publish (or skip if that exact version is already on the registry).
-
-If Trusted Publishing is missing or mis-bound, `npm publish` returns registry `404` after provenance signing. Fix the binding and re-run the failed Release workflow (or publish that one version manually, then rely on CI for later tags).
+Maintainers publish the verified candidate manually using the handoff rules in
+`docs/00-project-rules.md` §4.1. Tag pushes run `.github/workflows/release.yml`,
+which only verifies that the tagged version and the `latest` dist-tag already
+exist on the public npm registry before creating or updating the GitHub Release;
+the workflow never publishes a second copy. A missing version or mismatched
+`latest` tag fails the workflow and prevents the GitHub Release.
 
 ## Reporting security issues
 

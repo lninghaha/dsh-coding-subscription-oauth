@@ -1,6 +1,6 @@
-# Tag-triggered release. Do not push a v* tag until a maintainer has approved
-# the version. npm Trusted Publishing (OIDC) must be bound for this repository
-# so provenance publish can succeed without a long-lived NPM_TOKEN.
+# Tag-triggered release. A maintainer publishes the verified candidate before
+# pushing a v* tag; this workflow verifies that registry state before creating
+# the GitHub Release.
 name: Release
 
 on:
@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   version-preflight:
@@ -53,7 +52,7 @@ jobs:
             .
 
   github-release:
-    needs: [version-preflight, verify]
+    needs: [version-preflight, verify, npm-verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,8 +83,8 @@ jobs:
             gh release create "${tag}" --title "${title}" --notes "${notes}"
           fi
 
-  npm-publish:
-    needs: [version-preflight, verify]
+  npm-verify:
+    needs: version-preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,36 +94,12 @@ jobs:
           node-version: "22.19.0"
           registry-url: "https://registry.npmjs.org"
 
-      # Requires this GitHub repo to be bound as an npm Trusted Publisher.
-      - name: Publish to npm with provenance (skip if version already exists)
+      - name: Verify the maintainer-published npm version and latest dist-tag
         run: |
           set -euo pipefail
-          version="$(node -p 'require("./package.json").version')"
           tag="${GITHUB_REF_NAME}"
           expected="${tag#v}"
-          if [[ "${version}" != "${expected}" ]]; then
-            echo "package.json version (${version}) does not match tag (${expected})" >&2
-            exit 1
-          fi
-          if npm view "dsh-coding-subscription-oauth@${version}" version >/dev/null 2>&1; then
-            echo "dsh-coding-subscription-oauth@${version} is already on the registry; skipping publish."
-          else
-            npm publish --access public --provenance --ignore-scripts
-          fi
-
-      - name: Verify published npm version
-        run: |
-          set -euo pipefail
-          expected="$(node -p 'require("./package.json").version')"
-          # Registry propagation can lag briefly after a fresh publish.
-          for attempt in 1 2 3 4 5 6; do
-            actual="$(npm view dsh-coding-subscription-oauth version 2>/dev/null || true)"
-            if [[ "${actual}" == "${expected}" ]]; then
-              echo "npm latest is ${actual}"
-              exit 0
-            fi
-            echo "waiting for npm latest (got '${actual}', want '${expected}'); attempt ${attempt}"
-            sleep 5
-          done
-          echo "npm latest did not reach ${expected}" >&2
-          exit 1
+          actual="$(npm view "dsh-coding-subscription-oauth@${expected}" version --registry=https://registry.npmjs.org/)"
+          latest="$(npm view dsh-coding-subscription-oauth dist-tags.latest --registry=https://registry.npmjs.org/)"
+          test "${actual}" = "${expected}"
+          test "${latest}" = "${expected}"
