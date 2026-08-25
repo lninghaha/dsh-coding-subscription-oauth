@@ -116,6 +116,7 @@ describe("plugin startup catalog initialization", () => {
 			inject: vi.fn(),
 		} as unknown as Context;
 		const ownerCtx = {
+			webServer: webCtx.webServer,
 			logger: () => ({ warn: vi.fn() }),
 			emit: vi.fn(),
 			effect: vi.fn((setup: () => (() => void | Promise<void>) | undefined) => setup()),
@@ -170,6 +171,7 @@ describe("plugin startup catalog initialization", () => {
 			effect: vi.fn((setup: () => unknown) => setup()),
 		};
 		const context = {
+			webServer: requiredWeb.webServer,
 			logger: () => ({ warn: vi.fn() }),
 			emit: vi.fn(),
 			effect: vi.fn((setup: () => unknown) => setup()),
@@ -357,6 +359,7 @@ describe("plugin startup catalog initialization", () => {
 		const registerAdapter = vi.fn(() => registration);
 		const requiredWeb = requiredWebContext();
 		const context = {
+			webServer: requiredWeb.webServer,
 			logger: () => ({ warn }),
 			emit: vi.fn(),
 			effect: vi.fn((setup: () => unknown) => setup()),

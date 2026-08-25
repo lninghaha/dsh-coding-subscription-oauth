@@ -12,6 +12,8 @@ const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
 assert.match(manifest.version, /^\d+\.\d+\.\d+/, "release manifest must use semver");
+const clientConstants = await readFile(resolve(root, "src/client/constants.ts"), "utf8");
+assert.match(clientConstants, new RegExp(`PLUGIN_VERSION\\s*=\\s*["']${manifest.version}["']`));
 assert.deepEqual(manifest.bin, {
 	"dsh-coding-oauth": "lib/bin.js",
 	"dsh-grok-build": "lib/bin.js",
@@ -43,6 +45,7 @@ for (const path of [manifest.main, manifest.types, manifest.exports?.["."]?.defa
 	await access(resolve(root, path));
 }
 assert.equal(manifest.exports?.["./client"], "./lib/client.js");
+assert.equal(manifest.exports?.["./package.json"], "./package.json");
 await assert.rejects(access(resolve(root, "lib/client.cjs")), { code: "ENOENT" });
 
 // Host externals must stay external; undici must be inlined. Only genuine
@@ -102,11 +105,12 @@ const plugin = await import(`${pathToFileURL(resolve(root, "lib/index.js")).href
 assert.equal(plugin.name, "llm-grok-build-oauth");
 assert.equal(typeof plugin.apply, "function");
 assert.ok(Array.isArray(plugin.inject));
-assert.deepEqual(plugin.inject, [], "optional host services must stay out of the top-level inject contract");
+assert.deepEqual(plugin.inject, ["webServer"], "webServer is the sole required top-level host service");
 assert.equal(plugin.XAI_API_KEY_CREDENTIAL, "XAI_API_KEY");
 assert.equal(plugin.IMAGINE_MEDIA_STORE_DIRNAME, ".dsh-coding-subscription-oauth-media");
 
 const clientSource = await readFile(resolve(root, "lib/client.js"), "utf8");
+assert.ok(clientSource.includes(manifest.version), "client bundle must include the manifest version");
 assert.match(
 	clientSource.slice(0, 500),
 	/window\.__ModuleLoader__\.load\(\{id:["']dsh-coding-subscription-oauth["'],factory:/,

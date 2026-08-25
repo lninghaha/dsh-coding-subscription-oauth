@@ -4,11 +4,19 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
-## v0.6.1 - 2026-08-22
+## v0.6.2 - 2026-08-25
+
+`0.6.1` was never published or packed; its unreleased changes are folded into this release.
 
 ### Fixed
 
 - Probe optional DSH host services without eagerly reading Cordis properties, so a missing injection degrades safely instead of failing the complete plugin tree during startup.
+- Require only `webServer` at plugin activation and register owner OAuth, capability, gateway, and import routes directly so optional services may arrive and leave independently.
+- Inject rc.2-required pi-ai credential storage/auth context through the existing owner-locked OAuth files, fail closed for unknown provider writes, and retain image attachments under the provider request policy.
+
+### Changed
+
+- Verify the exact DeepSeek Harness `0.1.1-rc.2` BOM and resolve `dsh-coding-oauth-core@0.1.0` from npm rather than a sibling workspace path.
 
 ## v0.6.0 - 2026-08-22
 

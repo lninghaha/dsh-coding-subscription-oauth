@@ -92,7 +92,7 @@ History is part of the review. The maintainer counterpart — tags, clean-tree r
 
 ## Review & merging
 
-- At least one other person's approval is needed to merge.
+- The maintainer may self-approve and merge; additional review is optional.
 - A PR that changes public behaviour must not be merged without its README/changelog updates.
 - Do not force-push `main` or a published release tag. Feature-branch force-pushes still need explicit approval (see above).
 - Maintainers run the release loop (`docs/00-project-rules.md` §3–4 and §7) after merging a substantive change: clean working tree, bump version, annotated tag `v<version>`, publish to npm, and keep the GitHub milestone/release updated.

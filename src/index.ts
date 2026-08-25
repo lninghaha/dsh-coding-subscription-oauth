@@ -240,7 +240,7 @@ function fixedCredentialRef(value: string): CredentialRef {
 export { IMAGINE_MEDIA_STORE_DIRNAME } from "./ids.ts";
 
 /** Optional host services are acquired inside the elected child fiber. */
-export const inject = [] as const;
+export const inject = ["webServer"] as const;
 
 /** Plugin configuration; every field is optional. */
 export interface Config {
@@ -571,36 +571,26 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		return () => gateway.stop();
 	}, "dsh-coding-subscription-oauth: local API gateway");
 
-	let webRoutesMounted = false;
-	const webRoutesFiber = ctx.inject(["webServer"], (webCtx) => {
-		registerCapabilityRoutes(webCtx, {
-			controller: capabilityRoutesController,
-			usage: () => usage.read(),
-			credentialInfo: () => describeImagineCredential(webCtx.get("credentials") as CredentialProvider | undefined),
-			ownerRequestPolicy,
-		});
-		registerGatewayRoutes(webCtx, gateway, ownerRequestPolicy);
-		registerCodingOAuthRoutes(webCtx, grok, subscriptions, ownerRequestPolicy, (accessMode) =>
-			host.compatibility({
-				accessMode,
-				uiOwner: "standalone",
-				diagnostics: ownerRequestPolicy.diagnostics(),
-			}),
-		);
-		registerOAuthImportRoutes(webCtx, oauthImportDestinations(grok, subscriptions), {
-			ownerRequestPolicy,
-			onImported: (event) => {
-				if (event.kind === "codex") invalidateOptionalAuthState();
-				notifyCatalogChange();
-			},
-		});
-		webRoutesMounted = true;
-		webCtx.effect(
-			() => () => {
-				webRoutesMounted = false;
-			},
-			"dsh-coding-subscription-oauth: required web route readiness",
-		);
+	registerCapabilityRoutes(ctx, {
+		controller: capabilityRoutesController,
+		usage: () => usage.read(),
+		credentialInfo: () => describeImagineCredential(ctx.get("credentials") as CredentialProvider | undefined),
+		ownerRequestPolicy,
+	});
+	registerGatewayRoutes(ctx, gateway, ownerRequestPolicy);
+	registerCodingOAuthRoutes(ctx, grok, subscriptions, ownerRequestPolicy, (accessMode) =>
+		host.compatibility({
+			accessMode,
+			uiOwner: "standalone",
+			diagnostics: ownerRequestPolicy.diagnostics(),
+		}),
+	);
+	registerOAuthImportRoutes(ctx, oauthImportDestinations(grok, subscriptions), {
+		ownerRequestPolicy,
+		onImported: (event) => {
+			if (event.kind === "codex") invalidateOptionalAuthState();
+			notifyCatalogChange();
+		},
 	});
 
 	const search = createCodexSearchProvider({
@@ -693,9 +683,6 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 	ctx.inject(["llm"], (llmCtx) =>
 		applyOwnedLlm(llmCtx, config, { grok, subscriptions, runtime, codexAuth, codexModels, logger }),
 	);
-
-	await webRoutesFiber.await();
-	if (!webRoutesMounted) throw new Error("required DSH webServer routes did not activate");
 }
 
 interface OwnedLlmDependencies {

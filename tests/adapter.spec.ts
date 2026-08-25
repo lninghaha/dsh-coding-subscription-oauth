@@ -1,8 +1,9 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AttachmentId } from "@deepseek-ai/dsh-attachment";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCodingOAuthAdapter, preferredGrokBuildModel } from "../src/adapter.ts";
+import { createCodingOAuthAdapter, createGrokBuildAdapter, preferredGrokBuildModel } from "../src/adapter.ts";
 import {
 	CODEX_ROUTING_HINT_HEADER,
 	type CodexFastStreamOptions,
@@ -116,6 +117,65 @@ describe("GrokBuildSession.provider", () => {
 });
 
 describe("createCodingOAuthAdapter model discovery", () => {
+	it("injects the owner-scoped OAuth stores and image policy into every pi-ai profile", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-auth-injection-"));
+		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
+		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
+			(definition) =>
+				new OAuthProviderSession(
+					definition,
+					undefined,
+					new OAuthCredentialFileStore(
+						definition.nativeProviderId,
+						join(dir, `${definition.slug}.json`),
+						definition.route,
+					),
+					join(dir, `${definition.slug}-models.json`),
+				),
+		);
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined);
+		const inner = (
+			adapter as unknown as { inner: { config: { profiles(): ReadonlyMap<string, unknown>; auth: unknown } } }
+		).inner;
+		const profiles = inner.config.profiles();
+		for (const profile of profiles.values()) {
+			expect(profile).toMatchObject({
+				maxRequestImageBytes: 20 * 1024 * 1024,
+				requestImagePixelBudget: 2048 * 2048,
+				requestImageMaxBytes: 1024 * 1024,
+			});
+		}
+		const auth = inner.config.auth as {
+			credentials: {
+				read(providerId: string): Promise<unknown>;
+				modify(providerId: string, fn: (current: unknown) => Promise<unknown>): Promise<unknown>;
+			};
+			authContext: { env(name: string): Promise<string | undefined>; fileExists(path: string): Promise<boolean> };
+		};
+		await auth.credentials.modify(XAI_PI_PROVIDER, async () => ({
+			type: "oauth",
+			access: "grok-access",
+			refresh: "grok-refresh",
+			expires: Date.now() + 3_600_000,
+		}));
+		expect(await grok.store.read(XAI_PI_PROVIDER)).toMatchObject({ access: "grok-access" });
+		expect(await auth.credentials.read(XAI_PI_PROVIDER)).toMatchObject({ access: "grok-access" });
+		await expect(auth.credentials.modify("unknown-provider", async () => undefined)).rejects.toThrow(
+			/refusing credential write/u,
+		);
+		expect(await auth.authContext.env("XAI_API_KEY")).toBeUndefined();
+		expect(await auth.authContext.fileExists("~/.xai/auth.json")).toBe(false);
+
+		const grokOnly = createGrokBuildAdapter(grok, () => undefined) as unknown as {
+			config: { profiles(): ReadonlyMap<string, unknown> };
+		};
+		expect(grokOnly.config.profiles().get(GROK_BUILD_ROUTE)).toMatchObject({
+			maxRequestImageBytes: 20 * 1024 * 1024,
+			requestImagePixelBudget: 2048 * 2048,
+			requestImageMaxBytes: 1024 * 1024,
+		});
+	});
+
 	it("lists only authenticated OAuth routes and marks provider names", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-adapter-"));
 		const grokStore = new GrokBuildCredentialStore(join(dir, "grok.json"));
@@ -290,6 +350,13 @@ describe("createCodingOAuthAdapter model discovery", () => {
 	});
 
 	it("injects Fast routing only on the Fast profile while keeping native wire identity", async () => {
+		const attachmentPolicies: Array<{ maxPixels?: number; maxBytes?: number }> = [];
+		const attachments = {
+			readImageRequest: async (_ref: unknown, policy: { maxPixels?: number; maxBytes?: number }) => {
+				attachmentPolicies.push(policy);
+				return { type: "image", data: new Uint8Array([137, 80, 78, 71]), mediaType: "image/png" };
+			},
+		};
 		const dir = await mkdtemp(join(tmpdir(), "dsh-coding-oauth-fast-stream-"));
 		const grok = new GrokBuildSession(new GrokBuildCredentialStore(join(dir, "grok.json")));
 		const subscriptions = OAUTH_PROVIDER_DEFINITIONS.map(
@@ -309,23 +376,23 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		const template = codex.availableModels()[0]!;
 		const eligibleId = "gpt-fast-eligible";
 		const ineligibleId = "gpt-fast-ineligible";
-		const seen: Array<{ model: CodexStreamModel; options?: CodexFastStreamOptions }> = [];
+		const seen: Array<{ model: CodexStreamModel; context?: unknown; options?: CodexFastStreamOptions }> = [];
 		const real = codex.provider();
 		vi.spyOn(codex, "provider").mockImplementation(() => {
 			const models = [
-				{ ...template, id: eligibleId, provider: CODEX_PI_PROVIDER },
-				{ ...template, id: ineligibleId, provider: CODEX_PI_PROVIDER },
+				{ ...template, id: eligibleId, provider: CODEX_PI_PROVIDER, input: ["text", "image"] },
+				{ ...template, id: ineligibleId, provider: CODEX_PI_PROVIDER, input: ["text", "image"] },
 			];
 			return {
 				...real,
 				id: CODEX_PI_PROVIDER,
 				getModels: () => models,
-				stream: (model: CodexStreamModel, _context: unknown, options?: CodexFastStreamOptions) => {
-					seen.push({ model, ...(options === undefined ? {} : { options }) });
+				stream: (model: CodexStreamModel, context: unknown, options?: CodexFastStreamOptions) => {
+					seen.push({ model, context, ...(options === undefined ? {} : { options }) });
 					throw new Error("fixture-stop");
 				},
-				streamSimple: (model: CodexStreamModel, _context: unknown, options?: CodexFastStreamOptions) => {
-					seen.push({ model, ...(options === undefined ? {} : { options }) });
+				streamSimple: (model: CodexStreamModel, context: unknown, options?: CodexFastStreamOptions) => {
+					seen.push({ model, context, ...(options === undefined ? {} : { options }) });
 					throw new Error("fixture-stop");
 				},
 			} as unknown as typeof real;
@@ -336,9 +403,13 @@ describe("createCodingOAuthAdapter model discovery", () => {
 			refresh: "codex-refresh",
 			expires: Date.now() + 3_600_000,
 		}));
-		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => undefined, undefined, {
+		const adapter = createCodingOAuthAdapter(grok, subscriptions, () => attachments as never, undefined, {
 			codexFast: { isEligible: (id) => id === eligibleId },
 		});
+		const replayDegrade = vi.fn();
+		(
+			adapter as unknown as { inner: { config: { onReplayDegrade?: typeof replayDegrade } } }
+		).inner.config.onReplayDegrade = replayDegrade;
 		expect(await adapter.listModels(CODEX_OAUTH_FAST_ROUTE)).toEqual([
 			expect.objectContaining({ id: eligibleId, provider: CODEX_OAUTH_FAST_ROUTE }),
 		]);
@@ -347,7 +418,24 @@ describe("createCodingOAuthAdapter model discovery", () => {
 			for await (const _chunk of adapter.stream({
 				provider,
 				model,
-				messages: [],
+				messages: [
+					{
+						id: "user-image",
+						role: "user",
+						content: [
+							{
+								type: "image",
+								attachment: {
+									attachmentId: AttachmentId("attachment-policy"),
+									mediaType: "image/png",
+									bytes: 4,
+									width: 1,
+									height: 1,
+								},
+							},
+						],
+					},
+				],
 			} as never)) {
 				// Drain; the fixture stream throws after recording options.
 			}
@@ -366,6 +454,92 @@ describe("createCodingOAuthAdapter model discovery", () => {
 		await expect(fast?.options?.onPayload?.({ model: eligibleId }, { id: eligibleId })).resolves.toMatchObject({
 			service_tier: "priority",
 		});
+		expect(attachmentPolicies).toEqual([
+			{ maxPixels: 2048 * 2048, maxBytes: 1024 * 1024 },
+			{ maxPixels: 2048 * 2048, maxBytes: 1024 * 1024 },
+		]);
+		const replayState = {
+			response: {
+				kind: "pi-ai",
+				version: 2,
+				api: template.api,
+				provider: CODEX_PI_PROVIDER,
+				model: eligibleId,
+				stopReason: "stop",
+			},
+			blocks: [{ type: "text" }],
+		};
+		const replaySnapshot = structuredClone(replayState);
+		for await (const _chunk of adapter.stream({
+			provider: CODEX_OAUTH_ROUTE,
+			model: eligibleId,
+			messages: [
+				{
+					id: "assistant-replay",
+					role: "assistant",
+					content: [{ type: "text", text: "done" }],
+					source: { kind: "model", provider: CODEX_OAUTH_ROUTE, model: eligibleId, replayState },
+				},
+			],
+		} as never)) {
+		}
+		expect(replayDegrade).not.toHaveBeenCalled();
+		for await (const _chunk of adapter.stream({
+			provider: CODEX_OAUTH_ROUTE,
+			model: eligibleId,
+			messages: [
+				{
+					id: "bad-replay",
+					role: "assistant",
+					content: [{ type: "text", text: "bad" }],
+					source: {
+						kind: "model",
+						provider: CODEX_OAUTH_ROUTE,
+						model: eligibleId,
+						replayState: { ...replayState, response: { ...replayState.response, provider: "mismatch" } },
+					},
+				},
+			],
+		} as never)) {
+		}
+		expect(replayDegrade).toHaveBeenCalledOnce();
+		replayDegrade.mockClear();
+		expect(JSON.stringify(seen.at(-1)?.context)).not.toContain("foreign-sentinel");
+		const foreignReplay = { response: { provider: "foreign-sentinel" } };
+		for await (const _chunk of adapter.stream({
+			provider: CODEX_OAUTH_ROUTE,
+			model: eligibleId,
+			messages: [
+				{
+					id: "foreign",
+					role: "assistant",
+					content: [{ type: "text", text: "foreign" }],
+					source: { kind: "model", provider: "foreign-route", model: "foreign", replayState: foreignReplay },
+				},
+			],
+		} as never)) {
+		}
+		expect(replayDegrade).not.toHaveBeenCalled();
+		expect(replayState).toEqual(replaySnapshot);
+		for await (const _chunk of adapter.stream({
+			provider: CODEX_OAUTH_FAST_ROUTE,
+			model: eligibleId,
+			messages: [
+				{
+					id: "assistant-fast-replay",
+					role: "assistant",
+					content: [{ type: "text", text: "done" }],
+					source: {
+						kind: "model",
+						provider: CODEX_OAUTH_FAST_ROUTE,
+						model: eligibleId,
+						replayState,
+					},
+				},
+			],
+		} as never)) {
+		}
+		expect(replayDegrade).not.toHaveBeenCalled();
 	});
 
 	it("uses the refreshed stored token when Kimi OAuth resolves header-only auth", async () => {
