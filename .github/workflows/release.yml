@@ -13,7 +13,20 @@ permissions:
   id-token: write
 
 jobs:
+  version-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require tag, manifest, and CHANGELOG versions to agree
+        run: |
+          set -euo pipefail
+          expected="${GITHUB_REF_NAME#v}"
+          actual="$(node -p 'require("./package.json").version')"
+          test "${actual}" = "${expected}"
+          grep -q "^## v${expected} " CHANGELOG.md
+
   verify:
+    needs: version-preflight
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: "1"
@@ -29,9 +42,18 @@ jobs:
             --resource cpu-quota=200000 \
             --tag test-dsh-coding-oauth:release-verify \
             .
+      - name: Verify the registry DSH 0.1.1-rc.2 compatibility profile
+        run: |
+          docker build \
+            --target rc2-compatibility \
+            --build-arg NODE_VERSION=22.19.0 \
+            --resource memory=3g \
+            --resource cpu-quota=200000 \
+            --tag test-dsh-coding-oauth:release-rc2 \
+            .
 
   github-release:
-    needs: verify
+    needs: [version-preflight, verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +85,7 @@ jobs:
           fi
 
   npm-publish:
-    needs: verify
+    needs: [version-preflight, verify]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

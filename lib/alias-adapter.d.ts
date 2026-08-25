@@ -24,6 +24,7 @@ export interface AliasLlmRoutePolicy {
      */
     onAuthFailure?: () => Promise<void>;
 }
+export declare function normalizeReplayForRoute(message: GenerateOptions["messages"][number], route: string, nativeReplayProvider: string): GenerateOptions["messages"][number];
 /**
  * Keeps pi-ai model.provider identities native while exposing collision-free
  * Harness route names. Every public operation translates exactly once.
@@ -32,7 +33,8 @@ export declare class AliasLlmAdapter extends LlmAdapter {
     private readonly inner;
     private readonly aliases;
     private readonly policies;
-    constructor(inner: LlmAdapter, aliases: ReadonlyMap<string, string>, policies?: ReadonlyMap<string, AliasLlmRoutePolicy>);
+    private readonly replayProviders;
+    constructor(inner: LlmAdapter, aliases: ReadonlyMap<string, string>, policies?: ReadonlyMap<string, AliasLlmRoutePolicy>, replayProviders?: ReadonlyMap<string, string>);
     private nativeProvider;
     providerInfo(provider: string): LlmProviderInfo;
     providerRetryPolicy(provider: string): ResolvedRetryPolicy | undefined;

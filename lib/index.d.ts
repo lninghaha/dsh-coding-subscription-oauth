@@ -45,7 +45,7 @@ export declare const XAI_API_KEY_CREDENTIAL = "XAI_API_KEY";
 /** Owner-private artifact directory below the resolved DSH home. */
 export { IMAGINE_MEDIA_STORE_DIRNAME } from "./ids.js";
 /** Optional host services are acquired inside the elected child fiber. */
-export declare const inject: readonly [];
+export declare const inject: readonly ["webServer"];
 /** Plugin configuration; every field is optional. */
 export interface Config {
     /** HTTP(S) proxy URL for the audited coding-subscription host allowlist. */

@@ -36,3 +36,12 @@ jobs:
             --resource cpu-quota=200000 \
             --tag test-dsh-coding-oauth:install-${{ matrix.node }} \
             .
+      - name: Verify the registry DSH 0.1.1-rc.2 compatibility profile
+        run: |
+          docker build \
+            --target rc2-compatibility \
+            --build-arg NODE_VERSION=${{ matrix.node }} \
+            --resource memory=3g \
+            --resource cpu-quota=200000 \
+            --tag test-dsh-coding-oauth:rc2-${{ matrix.node }} \
+            .

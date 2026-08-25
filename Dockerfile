@@ -16,11 +16,28 @@ FROM toolchain AS dependencies
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
+FROM toolchain AS lockfile
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --no-frozen-lockfile \
+    && mkdir -p /tmp/export \
+    && cp pnpm-lock.yaml /tmp/export/pnpm-lock.yaml
+
+FROM scratch AS lockfile-export
+COPY --from=lockfile /tmp/export/ /
+
 FROM dependencies AS source
 COPY --chown=node:node . .
 
 FROM source AS check-next
 RUN --network=none pnpm run check:next
+
+# The Windows checkout intentionally keeps CRLF. Normalize only this throwaway
+# stage so Biome validates syntax/style without broad unrelated line-ending
+# changes in the working tree.
+FROM source AS lint-normalized
+RUN find src tests build docker scripts -type f -exec sed -i 's/\r$//' {} + \
+	&& sed -i 's/\r$//' package.json pnpm-workspace.yaml Dockerfile biome.json \
+    && pnpm run lint
 
 FROM source AS check
 RUN --network=none cp -a lib /tmp/committed-lib \
@@ -53,6 +70,30 @@ RUN --network=none cp -a lib /tmp/committed-lib \
 FROM scratch AS package
 COPY --from=package-build /tmp/export/ /
 
+# A registry-only DSH runtime shared by preview and the rc.2 compatibility
+# smoke. It is deliberately outside the workspace so no sibling dependency or
+# symlink can enter either profile.
+FROM node:${NODE_VERSION}-bookworm-slim AS dsh-installed
+ENV CI=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_LOGLEVEL=info
+RUN npm config get registry \
+    && npm ping --registry=https://registry.npmjs.org/ \
+    && npm view @deepseek-ai/dsh@0.1.1-rc.2 version --registry=https://registry.npmjs.org/ \
+    && mkdir -p /opt/dsh \
+    && printf '{"name":"dsh-rc2-smoke","private":true}\n' > /opt/dsh/package.json \
+    && npm install --prefix /opt/dsh --ignore-scripts --loglevel=verbose --registry=https://registry.npmjs.org/ @deepseek-ai/dsh@0.1.1-rc.2 \
+    && npm install --global pnpm@11.21.0 --ignore-scripts --loglevel=info
+
+FROM dsh-installed AS rc2-compatibility
+ENV DSH_HOME=/tmp/dsh-rc2-home \
+    DSH_RC2_PORT=17802
+COPY --from=package-build /tmp/export/ /tmp/candidate/
+COPY docker/rc2-compatibility.mjs docker/rc2-http-status.mjs /opt/dsh/
+COPY docker/rc2-compatibility.test.mjs /opt/dsh/rc2-compatibility.test.mjs
+RUN node --test /opt/dsh/rc2-compatibility.test.mjs \
+    && node /opt/dsh/rc2-compatibility.mjs
+
 FROM source AS isolated-install
 RUN --network=none cp -a lib /tmp/committed-lib \
     && rm -rf lib \
@@ -69,12 +110,20 @@ RUN --network=none cp -a lib /tmp/committed-lib \
 
 FROM source AS verify
 RUN --network=none cp -a lib /tmp/committed-lib \
-    && rm -rf lib \
-    && cp -a /tmp/committed-lib lib \
+    && find src tests build docker scripts -type f -exec sed -i 's/\r$//' {} + \
+    && sed -i 's/\r$//' package.json pnpm-workspace.yaml Dockerfile biome.json \
+    && pnpm run release:build \
     && pnpm run check \
     && node --test docker/preview-proxy.test.mjs \
-    && diff -ru /tmp/committed-lib lib \
+    && node build/compare-lib.mjs /tmp/committed-lib lib \
+    && cp -a lib /tmp/drift-proof-lib \
+    && printf '\nintentional artifact drift\n' >> /tmp/drift-proof-lib/index.js \
+    && ! node build/compare-lib.mjs /tmp/committed-lib /tmp/drift-proof-lib \
     && pnpm run release:dry
+
+FROM verify AS verify-artifact-drift-negative
+RUN printf '\nintentional artifact drift\n' >> lib/index.js \
+    && ! node build/compare-lib.mjs /tmp/committed-lib lib
 
 FROM node:${NODE_VERSION}-bookworm-slim AS web-preview
 ENV DSH_HOME=/opt/dsh-seed
