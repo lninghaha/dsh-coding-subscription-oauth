@@ -139,6 +139,23 @@ node scripts/release.mjs --pack
 
 > Publishing and remote Git writes are intentionally outside the script.
 
+### 4.1 Maintainer-run npm publish handoff
+
+For every release candidate, the assistant must proactively hand the maintainer an exact PowerShell command before any registry write. The handoff must name the verified candidate `.tgz`, include its expected SHA-256, use the public npm registry, and include a post-publish `npm view` check. The assistant must not run `npm publish`, `npm login`, or copy npm credentials.
+
+The maintainer runs the handoff command, reports the resulting published version and `latest` dist-tag, and only then does the assistant continue with registry verification, PR merge, annotated tag/GitHub Release work, and issue evidence replies. A failed or ambiguous publish keeps the release and issues open. The exact release gate still requires a clean tree, successful Docker verification, independent PR approval, and explicit maintainer release approval; publishing an unverified or dirty candidate is prohibited.
+
+The standard handoff shape is:
+
+```powershell
+$candidate = ".\\output\\<package>-<version>.tgz"
+if ((Get-FileHash $candidate -Algorithm SHA256).Hash -ne "<verified-sha256>") { throw "candidate hash mismatch" }
+npm publish $candidate --access public --ignore-scripts --registry=https://registry.npmjs.org/
+npm view <package>@<version> version dist-tags --json --registry=https://registry.npmjs.org/
+```
+
+The assistant must not treat a local pack or a user-reported command start as a successful release; success requires the registry result to show the exact version and expected `latest` tag.
+
 ---
 
 ## 5. Keeping the Project Active
