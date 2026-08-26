@@ -71,6 +71,13 @@ export interface CodexImageSessionContext {
 	route?: CodexImageRoute;
 }
 
+/**
+ * Route gate for the image tools. `codex-capable` (default) requires a Codex
+ * OAuth route that declares image input; `any` lets any model route call the
+ * tools while the ChatGPT subscription backend still performs the work.
+ */
+export type CodexImageRoutePolicy = "codex-capable" | "any";
+
 export interface CodexImageGenerateInput {
 	readonly prompt: string;
 	readonly n?: number;
@@ -101,6 +108,8 @@ export interface CodexImageControllerOptions {
 	readonly auth: CodexAuthSession;
 	readonly attachments: CodexImageAttachmentStore;
 	readonly session: CodexImageSessionContext;
+	/** Route gate; defaults to `codex-capable`. Set `any` to allow non-Codex routes. */
+	readonly routePolicy?: CodexImageRoutePolicy;
 	readonly http?: CodexHttpClient;
 	readonly fetchImpl?: CodexFetch;
 	readonly originator?: string;
@@ -301,7 +310,9 @@ async function prepareRequest(
 	imageIds: readonly string[] | undefined,
 	signal?: AbortSignal,
 ): Promise<PreparedImageRequest> {
-	assertCodexImageCapableRoute(options.session.route);
+	if (options.routePolicy !== "any") {
+		assertCodexImageCapableRoute(options.session.route);
+	}
 	const prompt = input.prompt.trim();
 	if (prompt.length === 0) {
 		throw new LlmError("Codex image generation requires a non-empty prompt", "INVALID_ARGS");

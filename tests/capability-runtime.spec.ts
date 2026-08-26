@@ -205,8 +205,11 @@ describe("CapabilityRuntimeState", () => {
 		const enabled = state.set(settings({ codexSearch: true }));
 		expect(enabled.codexSearch).toBe(true);
 		expect(seen).toHaveLength(2);
-		expect(state.set(settings({ codexSearch: true }))).toBe(state.current());
-		expect(seen).toHaveLength(2);
+		const anyModel = state.set(settings({ codexSearch: true, codexImagesAnyModel: true }));
+		expect(anyModel.codexImagesAnyModel).toBe(true);
+		expect(seen).toHaveLength(3);
+		expect(state.set(settings({ codexSearch: true, codexImagesAnyModel: true }))).toBe(state.current());
+		expect(seen).toHaveLength(3);
 		unsubscribe();
 	});
 

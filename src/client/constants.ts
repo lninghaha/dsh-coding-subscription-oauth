@@ -117,6 +117,12 @@ export const CAPABILITY_TOGGLES: readonly {
 	{ key: "codexSearch", label: "capCodexSearch", hint: "capCodexSearchHint" },
 	{ key: "codexImages", label: "capCodexImages", hint: "capCodexImagesHint" },
 	{ key: "codexImageEdits", label: "capCodexImageEdits", hint: "capCodexImageEditsHint", requiresImages: true },
+	{
+		key: "codexImagesAnyModel",
+		label: "capCodexImagesAnyModel",
+		hint: "capCodexImagesAnyModelHint",
+		requiresImages: true,
+	},
 	{ key: "codexUsage", label: "capCodexUsage", hint: "capCodexUsageHint" },
 	{ key: "codexFast", label: "capCodexFast", hint: "capCodexFastHint" },
 	{ key: "grokImagineImage", label: "capGrokImagineImage", hint: "capGrokImagineImageHint" },

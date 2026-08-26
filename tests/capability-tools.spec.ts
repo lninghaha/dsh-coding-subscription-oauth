@@ -13,6 +13,7 @@ import {
 	CODEX_IMAGE_GENERATE_TOOL,
 	type CreateCodexImageController,
 	callingRouteIdentity,
+	codexImageRoutePolicy,
 	createCapabilityTools,
 	resolveCodexImageRouteFromLlm,
 } from "../src/capability-tools.ts";
@@ -224,6 +225,12 @@ describe("createCapabilityTools", () => {
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_IMAGE_TOOL)?.timeoutMs).toBeUndefined();
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_VIDEO_TOOL)?.timeoutMs).toBeUndefined();
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_VIDEO_STATUS_TOOL)?.timeoutMs).toBeUndefined();
+	});
+
+	it("relaxes the Codex route gate when codexImagesAnyModel is on", () => {
+		expect(codexImageRoutePolicy(enabledSettings())).toBe("codex-capable");
+		expect(codexImageRoutePolicy(enabledSettings({ codexImagesAnyModel: true }))).toBe("any");
+		expect(codexImageRoutePolicy(DEFAULT_CAPABILITY_SETTINGS)).toBe("codex-capable");
 	});
 
 	it("denies every capability while settings stay default-off", async () => {
@@ -622,6 +629,27 @@ describe("Codex image route resolution", () => {
 			),
 		).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
 		expect(attachments.saveImage).not.toHaveBeenCalled();
+	});
+
+	it("passes the live any-model policy per execution and restores the strict gate immediately", async () => {
+		let current = enabledSettings({ codexImagesAnyModel: true });
+		const policies: string[] = [];
+		const tools = await createCapabilityTools({
+			current: () => current,
+			auth: fakeAuth(),
+			attachments: fakeAttachments(),
+			imagine: fakeImagine(),
+			createCodexController: (_session, policy) => {
+				policies.push(policy);
+				return fakeCodexController();
+			},
+			resolveCodexImageRoute: async () => ({ provider: "deepseek", model: "deepseek-v4", inputModalities: ["text"] }),
+		});
+		const generate = toolByName(tools, CODEX_IMAGE_GENERATE_TOOL);
+		await generate.execute({ prompt: "allowed" }, fakeExec());
+		current = enabledSettings({ codexImagesAnyModel: false });
+		await generate.execute({ prompt: "strict" }, fakeExec());
+		expect(policies).toEqual(["any", "codex-capable"]);
 	});
 
 	it("forwards the resolved route without inventing modalities and keeps edit ownership", async () => {

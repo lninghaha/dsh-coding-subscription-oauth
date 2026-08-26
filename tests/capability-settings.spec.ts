@@ -157,6 +157,7 @@ describe("capability settings schema", () => {
 			codexSearch: false,
 			codexImages: false,
 			codexImageEdits: false,
+			codexImagesAnyModel: false,
 			codexUsage: false,
 			codexFast: false,
 			grokImagineImage: false,

@@ -21,6 +21,7 @@ export type CapabilityFlagKey =
 	| "codexSearch"
 	| "codexImages"
 	| "codexImageEdits"
+	| "codexImagesAnyModel"
 	| "codexUsage"
 	| "codexFast"
 	| "grokImagineImage"
@@ -121,6 +122,7 @@ export interface CapabilityFlags {
 	codexSearch: boolean;
 	codexImages: boolean;
 	codexImageEdits: boolean;
+	codexImagesAnyModel: boolean;
 	codexUsage: boolean;
 	codexFast: boolean;
 	grokImagineImage: boolean;
