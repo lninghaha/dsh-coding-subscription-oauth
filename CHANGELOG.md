@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Added
+
+- Add a default-off `codexImagesAnyModel` capability that lets non-Codex model routes call Codex image generate/edit tools without bypassing Codex authentication, capability gates, current-session attachment ownership, or edit authorization.
+
 ### Documentation
 
 - Align the Hub co-install matrix in `INSTALL.md` to Hub `1.10.0` with Subscription `0.6.2` and `dsh-coding-oauth-core@0.1.0`.

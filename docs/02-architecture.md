@@ -67,7 +67,7 @@ ctx.llm route
 - `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
 - `capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
 - `capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
-- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time.
+- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time. The default-off any-model image policy relaxes only the calling-route gate and retains Codex auth, session, attachment ownership, and edit authorization.
 - `codex-http.ts`: opt-in private `chatgpt.com/backend-api` client (HTTPS-only, first-party host).
 - `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`: opt-in search, quota, and fixed `gpt-image-2` generate/edit (edits require current-session top-level attachment ownership).
 - `codex-model-capabilities.ts`: live Codex service-tier cache; fail-closed Fast eligibility; injects `service_tier: priority` and the routing hint.

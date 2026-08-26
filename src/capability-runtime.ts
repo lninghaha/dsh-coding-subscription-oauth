@@ -302,6 +302,7 @@ function sameSettings(left: CapabilitySettings, right: CapabilitySettings): bool
 		left.codexSearch === right.codexSearch &&
 		left.codexImages === right.codexImages &&
 		left.codexImageEdits === right.codexImageEdits &&
+		left.codexImagesAnyModel === right.codexImagesAnyModel &&
 		left.codexUsage === right.codexUsage &&
 		left.codexFast === right.codexFast &&
 		left.grokImagineImage === right.grokImagineImage &&

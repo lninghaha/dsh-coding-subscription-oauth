@@ -22,6 +22,7 @@ import {
 	type CodexImageQuality,
 	type CodexImageResult,
 	type CodexImageRoute,
+	type CodexImageRoutePolicy,
 	type CodexImageSessionContext,
 	type CodexImageSize,
 	createCodexImageController,
@@ -72,7 +73,18 @@ const IMAGINE_MEDIA_PREFIX = "/plugins/dsh-grok-build/imagine/media/";
 export type CapabilityImagineClient = Pick<GrokImagineClient, "generateImage" | "startVideo" | "videoStatus">;
 
 /** Per-exec Codex controller factory. Tests inject a fake; production binds auth + attachments. */
-export type CreateCodexImageController = (session: CodexImageSessionContext) => CodexImageController;
+export type CreateCodexImageController = (
+	session: CodexImageSessionContext,
+	routePolicy: CodexImageRoutePolicy,
+) => CodexImageController;
+
+/**
+ * Route gate for the Codex image tools. `codexImagesAnyModel` relaxes the
+ * Codex-route requirement; otherwise the gate stays `codex-capable`.
+ */
+export function codexImageRoutePolicy(settings: CapabilitySettings): CodexImageRoutePolicy {
+	return settings.codexImagesAnyModel ? "any" : "codex-capable";
+}
 
 /** Resolve authoritative host model metadata for the calling route. */
 export type ResolveCodexImageRoute = (exec: ToolRunContext) => Promise<CodexImageRoute | undefined>;
@@ -390,11 +402,12 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 	const { defineTool } = await import("@deepseek-ai/dsh-tools");
 	const createController: CreateCodexImageController =
 		options.createCodexController ??
-		((session) =>
+		((session, routePolicy) =>
 			createCodexImageController({
 				auth: options.auth,
 				attachments: options.attachments,
 				session,
+				routePolicy,
 			}));
 
 	const generate = defineTool({
@@ -438,7 +451,10 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 			const settings = options.current();
 			if (!settings.codexImages) disabled(CODEX_IMAGE_GENERATE_TOOL);
 			const n = resolveImageCount(args.n, settings);
-			const result = await createController(await generateSession(exec, options.resolveCodexImageRoute)).generate(
+			const result = await createController(
+				await generateSession(exec, options.resolveCodexImageRoute),
+				codexImageRoutePolicy(settings),
+			).generate(
 				{
 					prompt: args.prompt,
 					n,
@@ -499,7 +515,10 @@ export async function createCapabilityTools(options: CapabilityToolsOptions): Pr
 			const settings = options.current();
 			if (!settings.codexImageEdits || !settings.codexImages) disabled(CODEX_IMAGE_EDIT_TOOL);
 			const n = resolveImageCount(args.n, settings);
-			const result = await createController(await requireEditSession(exec, options.resolveCodexImageRoute)).edit(
+			const result = await createController(
+				await requireEditSession(exec, options.resolveCodexImageRoute),
+				codexImageRoutePolicy(settings),
+			).edit(
 				{
 					prompt: args.prompt,
 					imageIds: args.imageIds,

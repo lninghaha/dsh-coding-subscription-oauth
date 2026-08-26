@@ -67,7 +67,7 @@ ctx.llm route
 - `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
 - `capability-routes.ts`：无密钥的能力快照，以及可选的 Codex 用量和 Imagine 凭据状态路由。
 - `capability-runtime.ts`：按 live 开关绑定/解绑搜索、工具，以及仅在最新 priority catalog 后发布 Fast 路由。
-- `capability-tools.ts`：可选 Codex / Grok Imagine 工具定义；执行时重新读取开关。
+- `capability-tools.ts`：可选 Codex / Grok Imagine 工具定义；执行时重新读取开关。默认关闭的任意模型图像策略只放宽调用路由门禁，Codex 登录、会话、附件归属和编辑授权保持不变。
 - `codex-http.ts`：需打开的私有 `chatgpt.com/backend-api` 客户端（仅 HTTPS、仅第一方主机）。
 - `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`：可选搜索、配额，以及固定 `gpt-image-2` 生成/编辑（编辑要求当前会话顶层附件所有权）。
 - `codex-model-capabilities.ts`：live Codex service-tier 缓存；Fast 资格失败关闭；注入 `service_tier: priority` 与路由提示。

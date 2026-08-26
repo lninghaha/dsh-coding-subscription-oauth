@@ -44,7 +44,7 @@ Empezó como **`dsh-grok-build`** (solo Grok Build). Ahora cubre SuperGrok / Cod
 - 🌐 **Consciente de proxy** — solo hace proxy de dominios de suscripción revisados y confiables.
 - 📥 **CLI Pull manual** — la configuración descubre los archivos OAuth oficiales de los CLI Grok/Codex/Kimi/Claude permitidos, en modo solo lectura; extraes una copia unidireccional tras previsualizar y confirmar la sobrescritura.
 - 🗂️ **Configuración en pestañas** — Accounts, Gateway, Capabilities y About; en hosts remotos se prioriza el device code y se reduce el ruido de CLI missing; las tarjetas conectadas permanecen contraídas hasta expandirlas.
-- 🎛️ **Capacidades opcionales, desactivadas por defecto** — búsqueda de Codex, uso/cuota, generación/edición de imágenes, Fast y Grok Imagine se aplican en vivo al activarlas.
+- 🎛️ **Capacidades opcionales, desactivadas por defecto** — búsqueda de Codex, uso/cuota, generación/edición de imágenes, Fast y Grok Imagine se aplican en vivo al activarlas. Otro interruptor, también desactivado por defecto, permite que rutas de modelos no Codex usen las herramientas de imagen Codex sin omitir inicio de sesión, sesión ni propiedad de adjuntos.
 - 🔌 **Gateway de API local opt-in** — servidor loopback compatible con OpenAI/Anthropic, desactivado por defecto; para tus propias herramientas, nunca un relé público.
 
 ## Problemas de integración que resuelve este plugin

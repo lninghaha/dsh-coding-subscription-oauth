@@ -43,7 +43,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 - 🌐 **Proxy-bewusst** — nur geprüfte, vertrauenswürdige Abonnement-Domänen werden über den Proxy geleitet.
 - 📥 **Manueller CLI-Pull** — die Einstellungen entdecken erlaubte offizielle Grok-/Codex-/Kimi-/Claude-CLI-OAuth-Dateien schreibgeschützt; nach Vorschau und Überschreibbestätigung ziehen Sie eine Einweg-Kopie.
 - 🗂️ **Einstellungen mit Tabs** — Accounts, Gateway, Capabilities und About; Remote-Hosts bevorzugen Device-Code mit ruhigeren CLI-Missing-Hinweisen; angemeldete Karten bleiben eingeklappt, bis sie erweitert werden.
-- 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten.
+- 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten. Ein zusätzlicher, standardmäßig deaktivierter Schalter erlaubt Nicht-Codex-Modellrouten die Codex-Bildwerkzeuge, ohne Codex-Anmeldung, Sitzung oder Anhangseigentum zu umgehen.
 - 🔌 **Opt-in lokales API-Gateway** — standardmäßig ausgeschalteter Loopback-Server, OpenAI-/Anthropic-kompatibel; für Ihre eigenen Werkzeuge, niemals ein öffentliches Relay.
 
 ## Integrationsprobleme, die dieses Plugin löst
