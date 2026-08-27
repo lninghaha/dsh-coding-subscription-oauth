@@ -349,7 +349,7 @@ describe("createCodexImageController", () => {
 		await expect(crossSession.edit({ prompt: "steal", imageIds: ["owned"] })).rejects.toMatchObject({
 			code: "INVALID_ARGS",
 		});
-		expect(attachments.readImage).toHaveBeenCalledOnce();
+		expect(attachments.readImage).not.toHaveBeenCalled();
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
