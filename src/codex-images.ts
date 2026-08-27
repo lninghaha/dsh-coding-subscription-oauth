@@ -292,6 +292,12 @@ function enumValue<const T extends string>(value: T | undefined, allowed: readon
 	return value;
 }
 
+async function assertSignedIn(auth: CodexAuthSession): Promise<void> {
+	if ((await auth.resolve()) === undefined) {
+		throw new LlmError("Codex image tools require a signed-in Codex account", "MISSING_CREDENTIAL");
+	}
+}
+
 function imageEnvelopeLimit(maxImageBytes: number, n: number): number {
 	return Math.ceil(maxImageBytes / 3) * 4 * Math.max(1, n) + 128 * 1024;
 }
@@ -478,6 +484,7 @@ export function createCodexImageController(options: CodexImageControllerOptions)
 		imageIds: readonly string[] | undefined,
 		signal?: AbortSignal,
 	): Promise<CodexImageResult> => {
+		await assertSignedIn(options.auth);
 		const prepared = await prepareRequest(options, input, imageIds, signal);
 		const payload = await http.requestJson({
 			url: prepared.operation === "generate" ? CODEX_IMAGE_GENERATION_URL : CODEX_IMAGE_EDIT_URL,
