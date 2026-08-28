@@ -178,7 +178,7 @@ pnpm run smoke:deployed             # реальные вызовы Codex/Kimi +
 
 ## Дополнительные возможности
 
-Все семь переключателей `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` и `grokImagineVideo` по умолчанию выключены и применяются без перезапуска. Ограничения: `searchResults` (1–20, по умолчанию 5), `imageCount` (1–4, по умолчанию 1) и `videoArtifactTtlMs` (1 час–7 дней, по умолчанию 7 дней; в интерфейсе 1–168 часов). Уменьшение срока сразу сокращает и очищает существующие артефакты; увеличение действует только на новые.
+Все восемь переключателей `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` и `grokImagineVideo` по умолчанию выключены и применяются без перезапуска. Ограничения: `searchResults` (1–20, по умолчанию 5), `imageCount` (1–4, по умолчанию 1) и `videoArtifactTtlMs` (1 час–7 дней, по умолчанию 7 дней; в интерфейсе 1–168 часов). Уменьшение срока сразу сокращает и очищает существующие артефакты; увеличение действует только на новые.
 
 ## Локальный API-шлюз
 

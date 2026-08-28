@@ -178,7 +178,7 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 
 ## オプション機能
 
-7 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
+8 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
 
 ## ローカル API ゲートウェイ
 

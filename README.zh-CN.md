@@ -182,7 +182,7 @@ DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供�
 
 ## 可选能力
 
-七项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
+八项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
 
 `codex-oauth-fast` 仅在**最新一次 live catalog** 标明至少有一个 `priority` 可用模型后才会出现。请求会发送 `service_tier: priority` 和路由提示。界面写的是 **已请求 Fast**，不保证延迟，也不保证上游会兑现。
 

@@ -178,7 +178,7 @@ El selector solo lista rutas que completaron la autenticación; los proveedores 
 
 ## Capacidades opcionales
 
-Los siete controles `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` y `grokImagineVideo` empiezan desactivados y se aplican en vivo, sin reinicio. Los límites son `searchResults` (1–20, predeterminado 5), `imageCount` (1–4, predeterminado 1) y `videoArtifactTtlMs` (1 hora–7 días, predeterminado 7 días; la interfaz muestra 1–168 horas). Reducir la retención acorta y limpia los artefactos existentes de inmediato; aumentarla solo afecta a los nuevos.
+Los ocho controles `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` y `grokImagineVideo` empiezan desactivados y se aplican en vivo, sin reinicio. Los límites son `searchResults` (1–20, predeterminado 5), `imageCount` (1–4, predeterminado 1) y `videoArtifactTtlMs` (1 hora–7 días, predeterminado 7 días; la interfaz muestra 1–168 horas). Reducir la retención acorta y limpia los artefactos existentes de inmediato; aumentarla solo afecta a los nuevos.
 
 ## Gateway de API local
 

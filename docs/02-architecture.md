@@ -112,7 +112,7 @@ Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses c
 
 Every Settings route shares `OwnerRequestPolicy`. `X-Forwarded-*` is forwarding metadata, never owner proof; a fallback policy missing any independent signal rejects remote requests. Status responses carry the server-derived `accessMode`, so the client does not infer SSH or proxy access from the hostname.
 
-`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Seven flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
+`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Eight flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
 
