@@ -17,7 +17,7 @@
 
 ---
 
-> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.3` 包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。`dsh-coding-oauth-core@0.1.0` 仍是共享 npm 依赖，不是需要单独安装的 DSH 插件。
+> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.3` 新增默认关闭的 `codexImagesAnyModel` 开关。`0.6.2` 及之后版本已包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。`dsh-coding-oauth-core@0.1.0` 仍是共享 npm 依赖，不是需要单独安装的 DSH 插件。
 
 ---
 
@@ -182,7 +182,7 @@ DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供�
 
 ## 可选能力
 
-八项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
+八项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。`codexImagesAnyModel` 仅放宽调用模型路由限制；仍要求已登录 Codex、开启 `codexImages`（编辑还需 edits 开关），并保留当前会话附件归属和编辑授权检查。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
 
 `codex-oauth-fast` 仅在**最新一次 live catalog** 标明至少有一个 `priority` 可用模型后才会出现。请求会发送 `service_tier: priority` 和路由提示。界面写的是 **已请求 Fast**，不保证延迟，也不保证上游会兑现。
 

@@ -178,7 +178,7 @@ pnpm run smoke:deployed             # 실제 Codex/Kimi 도구 호출 + 두 번�
 
 ## 선택적 기능
 
-8개 스위치 `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage`, `grokImagineVideo`는 모두 기본적으로 꺼져 있으며 재시작 없이 즉시 적용됩니다. 숫자 설정은 `searchResults`(1–20, 기본 5), `imageCount`(1–4, 기본 1), `videoArtifactTtlMs`(1시간–7일, 기본 7일, UI에서는 1–168시간)입니다. 보존 시간을 낮추면 기존 아티팩트도 즉시 단축·정리되며, 높인 값은 이후 생성된 아티팩트에만 적용됩니다.
+8개 스위치 `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage`, `grokImagineVideo`는 모두 기본적으로 꺼져 있으며 재시작 없이 즉시 적용됩니다. `codexImagesAnyModel`은 호출 모델 라우트 게이트만 완화합니다. 여전히 Codex 로그인, `codexImages`(편집 시 edits 플래그), 세션 첨부 소유권 및 편집 인가가 필요합니다. 숫자 설정은 `searchResults`(1–20, 기본 5), `imageCount`(1–4, 기본 1), `videoArtifactTtlMs`(1시간–7일, 기본 7일, UI에서는 1–168시간)입니다. 보존 시간을 낮추면 기존 아티팩트도 즉시 단축·정리되며, 높인 값은 이후 생성된 아티팩트에만 적용됩니다.
 
 ## 로컬 API 게이트웨이
 

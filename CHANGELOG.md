@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Documentation
+
+- Correct the README upgrade callout so Cordis/DSH `0.1.1-rc.2` support is attributed to `0.6.2+`, and name `0.6.3` for default-off `codexImagesAnyModel`; add the any-model route-gate boundary sentence across README translations and an `INSTALL.md` `0.6.2` → `0.6.3` upgrade note.
+
 ## v0.6.3 - 2026-08-28
 
 ### Added
