@@ -92,7 +92,7 @@ docker build --target verify --build-arg NODE_VERSION=22.19.0 \
 
 ## 待办 / 未做
 
-- [ ] 在既有 Harness Web profile 安装并验证；部署只能复用现有服务与 URL，不启动替代服务器。
+- [ ] 在既有 Harness Web profile 安装并验证；部署只能复用现有服务与 URL，不启动替代服务器。沙箱侧证据（Docker `isolated-install` 消费者安装、`rc2-compatibility` 真实 DSH rc.2 运行时冒烟）已绿；真机步骤与命令见 `CONTRIBUTING.md`「New DSH release smoke checklist」第 2–5 步，由维护者在已登录的部署上执行后勾掉本项。
 - [x] `scripts/release.mjs` 已改成仅验证/本地打包，不再自动 bump、commit、tag、push 或 publish。
 - [ ] 将来同步构建模板时，以模板的已验证工作区为参考，重点核对 build-client 的 PLATFORM_MODULES、verify/promote 断言、devDeps/engines。
 

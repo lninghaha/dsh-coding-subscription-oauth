@@ -106,6 +106,17 @@ exist on the public npm registry before creating or updating the GitHub Release;
 the workflow never publishes a second copy. A missing version or mismatched
 `latest` tag fails the workflow and prevents the GitHub Release.
 
+## New DSH release smoke checklist
+
+The plugin verifies an exact DeepSeek Harness BOM (`compatibility/dsh-bom.json`). A new DSH rc/stable is **unverified by default**, and lifecycle drift has broken activation before (#17), so run this checklist before moving the pin — in order, stopping at the first failure:
+
+1. **Sandbox first.** Point the registry-only runtime stages in `Dockerfile` (`dsh-installed` / `rc2-compatibility`) at the candidate DSH version and build them green. This catches activation/lifecycle breakage without touching a real profile.
+2. **Real profile install (maintainer machine).** Install the candidate tarball into an existing `dsh web` profile and restart that process once; the plugin must activate with only `webServer` required and no Cordis injection failures in the logs.
+3. **Settings surface.** Settings → Coding OAuth renders all four tabs (Accounts / Gateway / Capabilities / About).
+4. **Credentials survive.** Every previously signed-in provider card (Grok / Codex / Kimi / Claude) still shows signed-in — an upgrade must never migrate or reset OAuth credential files.
+5. **Live routes.** `DSH_WEB_URL=http://127.0.0.1:3080 pnpm run verify:deployed` (status route + catalog + registered routes), then `smoke:deployed` with `DSH_RESTORE_PROVIDER` / `DSH_RESTORE_MODEL` set for one streamed reply per credentialed OAuth route.
+6. **Then move the pin.** Update `compatibility/dsh-bom.json`, the `dsh.compatibility` block in `package.json`, and the README compatibility notes in the same commit.
+
 ## Reporting security issues
 
 Do not open a public issue for a credential or account-safety problem. Follow the compliance/safety policy in `README.md`; for anything sensitive, contact a maintainer directly rather than pasting tokens or credentials anywhere.
