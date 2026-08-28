@@ -278,11 +278,15 @@ export function resolveCapabilitySettings(
  */
 export function normalizeCapabilitySettings(input?: unknown): CapabilitySettings {
 	const patch = normalizeCapabilitySettingsPatch(input);
+	const codexImages = patch.codexImages ?? DEFAULT_CAPABILITY_SETTINGS.codexImages;
 	return Object.freeze({
 		codexSearch: patch.codexSearch ?? DEFAULT_CAPABILITY_SETTINGS.codexSearch,
-		codexImages: patch.codexImages ?? DEFAULT_CAPABILITY_SETTINGS.codexImages,
+		codexImages,
 		codexImageEdits: patch.codexImageEdits ?? DEFAULT_CAPABILITY_SETTINGS.codexImageEdits,
-		codexImagesAnyModel: patch.codexImagesAnyModel ?? DEFAULT_CAPABILITY_SETTINGS.codexImagesAnyModel,
+		// any-model is meaningless without images; clear at admit so UI cascade alone cannot leave it on
+		codexImagesAnyModel: codexImages
+			? (patch.codexImagesAnyModel ?? DEFAULT_CAPABILITY_SETTINGS.codexImagesAnyModel)
+			: false,
 		codexUsage: patch.codexUsage ?? DEFAULT_CAPABILITY_SETTINGS.codexUsage,
 		codexFast: patch.codexFast ?? DEFAULT_CAPABILITY_SETTINGS.codexFast,
 		grokImagineImage: patch.grokImagineImage ?? DEFAULT_CAPABILITY_SETTINGS.grokImagineImage,

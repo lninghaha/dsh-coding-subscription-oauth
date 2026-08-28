@@ -217,6 +217,24 @@ describe("capability settings schema", () => {
 			searchResults: 7,
 		});
 	});
+
+	it("clears codexImagesAnyModel whenever resolved codexImages is false", () => {
+		expect(normalizeCapabilitySettings({ codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: false,
+			codexImagesAnyModel: false,
+		});
+		expect(normalizeCapabilitySettings({ codexImages: false, codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: false,
+			codexImagesAnyModel: false,
+		});
+		expect(normalizeCapabilitySettings({ codexImages: true, codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: true,
+			codexImagesAnyModel: true,
+		});
+	});
 });
 
 describe("CapabilitySettingsController without a provider", () => {
