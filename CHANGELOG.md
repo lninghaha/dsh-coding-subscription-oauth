@@ -4,6 +4,11 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Documentation
+
+- Align the Hub co-install matrix in `INSTALL.md` to Hub `1.10.0` with Subscription `0.6.2` and `dsh-coding-oauth-core@0.1.0`.
+- Add a maintainer smoke checklist for new DeepSeek Harness releases in `CONTRIBUTING.md`, and point the open migration profile-verification todo at that checklist plus the green Docker `isolated-install` / `rc2-compatibility` sandbox evidence.
+
 ## v0.6.2 - 2026-08-25
 
 `0.6.1` was never published or packed; its unreleased changes are folded into this release.
