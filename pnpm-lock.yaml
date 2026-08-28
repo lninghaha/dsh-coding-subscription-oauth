@@ -15,8 +15,8 @@ importers:
         specifier: 0.1.0
         version: 0.1.0
       undici:
-        specifier: ^7.24.8
-        version: 7.29.0
+        specifier: ^8.9.0
+        version: 8.9.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.8
@@ -1617,9 +1617,9 @@ packages:
     resolution: {integrity: sha512-6KQ/+QxK49Z/p3HO6E5ZCZWNnCasyZLa5ExaVYyvPxUwKtbCPMKELJOqh7EqOle0t9cH/7d2TaaTRRa6Nhs4YQ==}
     engines: {node: '>=20.18.1'}
 
-  undici@7.29.0:
-    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
-    engines: {node: '>=20.18.1'}
+  undici@8.9.0:
+    resolution: {integrity: sha512-aWZpUj7XoGonMClx4gdDRfgBjqeA+F473aDmROQQbM9n6PRfK/u1q/a0X4wMTgcHfT8H6fpbt98PFuDUwFg2YA==}
+    engines: {node: '>=22.19.0'}
 
   use-sync-external-store@1.2.0:
     resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
@@ -3261,7 +3261,7 @@ snapshots:
 
   undici@7.24.8: {}
 
-  undici@7.29.0: {}
+  undici@8.9.0: {}
 
   use-sync-external-store@1.2.0(react@18.3.1):
     dependencies:
