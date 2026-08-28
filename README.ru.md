@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2 · ранее `dsh-grok-build`
+**v0.6.3 · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -28,7 +28,7 @@
 | | Используйте | По-прежнему работает |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.2` (текущая версия) | Старого npm-пакета не было |
+| npm | `dsh-coding-subscription-oauth@0.6.3` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |
 | HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
@@ -44,7 +44,7 @@
 - 🌐 **С учётом прокси** — проксируется только проверенные доверенные домены подписок.
 - 📥 **Ручной CLI Pull** — настройки обнаруживают разрешённые официальные OAuth-файлы CLI Grok/Codex/Kimi/Claude только для чтения; вы забираете одностороннюю копию после предпросмотра и подтверждения перезаписи.
 - 🗂️ **Настройки во вкладках** — Accounts, Gateway, Capabilities и About; на удалённых хостах предпочтителен device code и меньше шума CLI missing; вошедшие карточки свёрнуты, пока их не развернёшь.
-- 🎛️ **Опциональные возможности, по умолчанию выключены** — поиск Codex, использование/квота, генерация/редактирование изображений, Fast и Grok Imagine применяются сразу при включении.
+- 🎛️ **Опциональные возможности, по умолчанию выключены** — поиск Codex, использование/квота, генерация/редактирование изображений, Fast и Grok Imagine применяются сразу при включении. Дополнительный выключенный по умолчанию переключатель разрешает маршрутам не-Codex моделей вызывать инструменты изображений Codex, не обходя вход Codex, сессию и проверку владения вложениями.
 - 🔌 **Локальный API-шлюз по opt-in** — по умолчанию выключенный loopback-сервер, совместимый с OpenAI/Anthropic; для ваших собственных инструментов, а не публичный relay.
 
 ## Какие проблемы подключения закрывает этот плагин
@@ -77,7 +77,7 @@
 
 ```bash
 # 1. установите текущую npm-версию в web-профиль
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ```bash
 # текущая npm-версия (рекомендуется)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # разработка/альтернатива: из GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -178,7 +178,7 @@ pnpm run smoke:deployed             # реальные вызовы Codex/Kimi +
 
 ## Дополнительные возможности
 
-Все семь переключателей `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` и `grokImagineVideo` по умолчанию выключены и применяются без перезапуска. Ограничения: `searchResults` (1–20, по умолчанию 5), `imageCount` (1–4, по умолчанию 1) и `videoArtifactTtlMs` (1 час–7 дней, по умолчанию 7 дней; в интерфейсе 1–168 часов). Уменьшение срока сразу сокращает и очищает существующие артефакты; увеличение действует только на новые.
+Все восемь переключателей `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` и `grokImagineVideo` по умолчанию выключены и применяются без перезапуска. Ограничения: `searchResults` (1–20, по умолчанию 5), `imageCount` (1–4, по умолчанию 1) и `videoArtifactTtlMs` (1 час–7 дней, по умолчанию 7 дней; в интерфейсе 1–168 часов). Уменьшение срока сразу сокращает и очищает существующие артефакты; увеличение действует только на новые.
 
 ## Локальный API-шлюз
 

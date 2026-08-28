@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2 · 旧名 `dsh-grok-build`
+**v0.6.3 · 旧名 `dsh-grok-build`
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
@@ -27,7 +27,7 @@
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
-| npm | `dsh-coding-subscription-oauth@0.6.2`（現在のリリース） | 旧 npm パッケージは公開されていない |
+| npm | `dsh-coding-subscription-oauth@0.6.3`（現在のリリース） | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
 | 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
@@ -43,7 +43,7 @@
 - 🌐 **プロキシ対応** — レビュー済みの信頼できるサブスクリプションドメインのみをプロキシします。
 - 📥 **手動 CLI Pull** — 設定ページが許可リストにある公式 Grok/Codex/Kimi/Claude CLI の OAuth ファイルを読み取り専用で検出。プレビューと上書き確認の後、ワンウェイコピーを取り込みます。
 - 🗂️ **タブ分けされた設定** — Accounts・Gateway・Capabilities・About。リモートホストではデバイスコード優先と CLI missing の静かな案内；サインイン済みカードは展開するまで折りたたまれます。
-- 🎛️ **オプション機能（既定オフ）** — Codex の検索・使用量/クォータ・画像生成/編集・Fast、Grok Imagine はスイッチをオンにすると即時適用されます。
+- 🎛️ **オプション機能（既定オフ）** — Codex の検索・使用量/クォータ・画像生成/編集・Fast、Grok Imagine はスイッチをオンにすると即時適用されます。追加の既定オフのスイッチで非 Codex モデルルートから Codex 画像ツールを利用できますが、Codex ログイン、セッション、添付ファイル所有権の検証は維持されます。
 - 🔌 **オプトインのローカル API ゲートウェイ** — 既定オフのループバック OpenAI/Anthropic 互換サーバー。自分のツール専用で、公開リレーではありません。
 
 ## このプラグインが解く接続の問題
@@ -77,7 +77,7 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 
 ```bash
 # 1. web プロファイルにプラグインをインストール（現在の npm リリース）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. 任意 — Google Antigravity（レビュー済みの固定バージョン）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ DeepSeek Harness `0.1.1-rc.2` と Node.js 22.19+ が前提です。詳細は[イ
 
 ```bash
 # 現在の npm リリース（推奨）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 開発／代替：GitHub から
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -178,7 +178,7 @@ pnpm run smoke:deployed             # 実際の Codex/Kimi ツール呼び出し
 
 ## オプション機能
 
-7 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
+8 つのスイッチ `codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo` はすべて既定でオフで、変更は再起動なしで反映されます。数値設定は `searchResults`（1–20、既定 5）、`imageCount`（1–4、既定 1）、`videoArtifactTtlMs`（1 時間–7 日、既定 7 日、UI は 1–168 時間）です。保持期間を短くすると既存の成果物も直ちに短縮・削除され、長くした場合は以後の成果物にのみ適用されます。
 
 ## ローカル API ゲートウェイ
 

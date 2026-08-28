@@ -18,6 +18,7 @@ export const CAPABILITY_FLAG_KEYS = [
 	"codexSearch",
 	"codexImages",
 	"codexImageEdits",
+	"codexImagesAnyModel",
 	"codexUsage",
 	"codexFast",
 	"grokImagineImage",
@@ -39,6 +40,8 @@ export interface CapabilitySettings {
 	readonly codexSearch: boolean;
 	readonly codexImages: boolean;
 	readonly codexImageEdits: boolean;
+	/** Allow non-Codex-route models to use the Codex image generate/edit tools. */
+	readonly codexImagesAnyModel: boolean;
 	readonly codexUsage: boolean;
 	readonly codexFast: boolean;
 	readonly grokImagineImage: boolean;
@@ -67,6 +70,7 @@ export const DEFAULT_CAPABILITY_SETTINGS: CapabilitySettings = Object.freeze({
 	codexSearch: false,
 	codexImages: false,
 	codexImageEdits: false,
+	codexImagesAnyModel: false,
 	codexUsage: false,
 	codexFast: false,
 	grokImagineImage: false,
@@ -84,6 +88,7 @@ export const CapabilitySettingsSchema = Schema.object({
 	codexSearch: Schema.boolean().default(false),
 	codexImages: Schema.boolean().default(false),
 	codexImageEdits: Schema.boolean().default(false),
+	codexImagesAnyModel: Schema.boolean().default(false),
 	codexUsage: Schema.boolean().default(false),
 	codexFast: Schema.boolean().default(false),
 	grokImagineImage: Schema.boolean().default(false),
@@ -238,6 +243,7 @@ export function capabilityFlags(settings: CapabilitySettings): Pick<CapabilitySe
 		codexSearch: settings.codexSearch,
 		codexImages: settings.codexImages,
 		codexImageEdits: settings.codexImageEdits,
+		codexImagesAnyModel: settings.codexImagesAnyModel,
 		codexUsage: settings.codexUsage,
 		codexFast: settings.codexFast,
 		grokImagineImage: settings.grokImagineImage,
@@ -272,10 +278,15 @@ export function resolveCapabilitySettings(
  */
 export function normalizeCapabilitySettings(input?: unknown): CapabilitySettings {
 	const patch = normalizeCapabilitySettingsPatch(input);
+	const codexImages = patch.codexImages ?? DEFAULT_CAPABILITY_SETTINGS.codexImages;
 	return Object.freeze({
 		codexSearch: patch.codexSearch ?? DEFAULT_CAPABILITY_SETTINGS.codexSearch,
-		codexImages: patch.codexImages ?? DEFAULT_CAPABILITY_SETTINGS.codexImages,
+		codexImages,
 		codexImageEdits: patch.codexImageEdits ?? DEFAULT_CAPABILITY_SETTINGS.codexImageEdits,
+		// any-model is meaningless without images; clear at admit so UI cascade alone cannot leave it on
+		codexImagesAnyModel: codexImages
+			? (patch.codexImagesAnyModel ?? DEFAULT_CAPABILITY_SETTINGS.codexImagesAnyModel)
+			: false,
 		codexUsage: patch.codexUsage ?? DEFAULT_CAPABILITY_SETTINGS.codexUsage,
 		codexFast: patch.codexFast ?? DEFAULT_CAPABILITY_SETTINGS.codexFast,
 		grokImagineImage: patch.grokImagineImage ?? DEFAULT_CAPABILITY_SETTINGS.grokImagineImage,
@@ -296,6 +307,7 @@ export function normalizeCapabilitySettingsPatch(input?: unknown): CapabilitySet
 		codexSearch?: boolean;
 		codexImages?: boolean;
 		codexImageEdits?: boolean;
+		codexImagesAnyModel?: boolean;
 		codexUsage?: boolean;
 		codexFast?: boolean;
 		grokImagineImage?: boolean;
@@ -308,6 +320,7 @@ export function normalizeCapabilitySettingsPatch(input?: unknown): CapabilitySet
 	assignFlag(patch, "codexSearch", flags["codexSearch"]);
 	assignFlag(patch, "codexImages", flags["codexImages"]);
 	assignFlag(patch, "codexImageEdits", flags["codexImageEdits"]);
+	assignFlag(patch, "codexImagesAnyModel", flags["codexImagesAnyModel"]);
 	assignFlag(patch, "codexUsage", flags["codexUsage"]);
 	assignFlag(patch, "codexFast", flags["codexFast"]);
 	assignFlag(patch, "grokImagineImage", flags["grokImagineImage"]);

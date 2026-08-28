@@ -67,7 +67,7 @@ ctx.llm route
 - `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
 - `capability-routes.ts`: secret-free capability snapshot plus optional Codex usage and Imagine credential-status routes.
 - `capability-runtime.ts`: live bind/unbind of search, tools, and the Fast route after a fresh priority catalog.
-- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time.
+- `capability-tools.ts`: optional Codex / Grok Imagine tool definitions; flags re-read at execute time. The default-off any-model image policy relaxes only the calling-route gate and retains Codex auth, session, attachment ownership, and edit authorization.
 - `codex-http.ts`: opt-in private `chatgpt.com/backend-api` client (HTTPS-only, first-party host).
 - `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`: opt-in search, quota, and fixed `gpt-image-2` generate/edit (edits require current-session top-level attachment ownership).
 - `codex-model-capabilities.ts`: live Codex service-tier cache; fail-closed Fast eligibility; injects `service_tier: priority` and the routing hint.
@@ -112,7 +112,7 @@ Write endpoints take `provider: grok|codex|kimi|claude` in the body. Responses c
 
 Every Settings route shares `OwnerRequestPolicy`. `X-Forwarded-*` is forwarding metadata, never owner proof; a fallback policy missing any independent signal rejects remote requests. Status responses carry the server-derived `accessMode`, so the client does not infer SSH or proxy access from the hostname.
 
-`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Seven flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
+`/oauth/sources` is read-only discovery. Preview/commit is the explicit one-way Pull (tickets one-use, five minutes, max 32). Capability writes are secret-free compare-and-swap snapshots in the `coding-subscription-oauth` settings section and apply live. Eight flags default off; `searchResults` is 1–20 (default 5), `imageCount` is 1–4 (default 1), and `videoArtifactTtlMs` is 1 hour–7 days (default 7 days; UI 1–168 hours); decreases rewrite/clean existing expiries immediately, while increases affect only new artifacts. Imagine download routes are same-origin loopback GETs; they never return a signed upstream URL.
 
 The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reuse the same Grok controller.
 
@@ -122,7 +122,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.6.2`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2`), verified against DSH **`0.1.1-rc.2`**. GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.6.3`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3`), verified against DSH **`0.1.1-rc.2`**. GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 

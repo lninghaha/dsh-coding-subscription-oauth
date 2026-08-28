@@ -157,6 +157,7 @@ describe("capability settings schema", () => {
 			codexSearch: false,
 			codexImages: false,
 			codexImageEdits: false,
+			codexImagesAnyModel: false,
 			codexUsage: false,
 			codexFast: false,
 			grokImagineImage: false,
@@ -214,6 +215,24 @@ describe("capability settings schema", () => {
 			codexSearch: true,
 			grokImagineImage: true,
 			searchResults: 7,
+		});
+	});
+
+	it("clears codexImagesAnyModel whenever resolved codexImages is false", () => {
+		expect(normalizeCapabilitySettings({ codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: false,
+			codexImagesAnyModel: false,
+		});
+		expect(normalizeCapabilitySettings({ codexImages: false, codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: false,
+			codexImagesAnyModel: false,
+		});
+		expect(normalizeCapabilitySettings({ codexImages: true, codexImagesAnyModel: true })).toEqual({
+			...DEFAULT_CAPABILITY_SETTINGS,
+			codexImages: true,
+			codexImagesAnyModel: true,
 		});
 	});
 });

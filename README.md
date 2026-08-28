@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2** · formerly `dsh-grok-build`
+**v0.6.3** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.2` includes the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. `dsh-coding-oauth-core@0.1.0` remains a shared npm dependency, not a separate DSH plugin.
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.3` includes the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. `dsh-coding-oauth-core@0.1.0` remains a shared npm dependency, not a separate DSH plugin.
 
 ---
 
@@ -27,7 +27,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| npm (recommended) | Current release is `0.6.2`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2` | No legacy npm package was published |
+| npm (recommended) | Current release is `0.6.3`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3` | No legacy npm package was published |
 | GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
@@ -44,7 +44,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🌐 **Proxy-aware** — proxies only reviewed subscription domains; Kimi China stays direct by default.
 - 📥 **Manual CLI Pull** — Settings discovers allowlisted official Grok/Codex/Kimi/Claude CLI OAuth files read-only; you pull a one-way copy after preview and overwrite confirmation.
 - 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About; remote hosts prefer device-code sign-in with quieter CLI-missing tips; signed-in cards stay collapsed until expanded.
-- 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on.
+- 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on. An additional default-off switch lets non-Codex model routes call Codex image tools while preserving Codex sign-in, session, and attachment-ownership checks.
 - 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
 
 ## Problems this plugin solves
@@ -81,7 +81,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -122,7 +122,7 @@ Requires DeepSeek Harness `0.1.1-rc.2` and Node.js 22.19+. Full details in the [
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -184,7 +184,7 @@ The selector only lists routes that completed authentication; unauthenticated pr
 
 ## Optional capabilities
 
-All seven switches start **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage`, and `grokImagineVideo`. Numeric controls are `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), and `videoArtifactTtlMs` (1 hour–7 days, default 7 days; the UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` settings section override that base, and omitting it keeps every switch off.
+All eight switches start **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage`, and `grokImagineVideo`. Numeric controls are `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), and `videoArtifactTtlMs` (1 hour–7 days, default 7 days; the UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` settings section override that base, and omitting it keeps every switch off.
 
 `codex-oauth-fast` is advertised only after a **fresh live catalog** lists at least one `priority`-eligible model. Those requests send `service_tier: priority` plus a routing hint. The UI says **Fast requested** and never guarantees latency or that upstream will honor the request.
 

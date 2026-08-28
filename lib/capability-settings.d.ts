@@ -11,11 +11,11 @@ import { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.js";
 /** Settings namespace owned by this plugin. */
 export { CAPABILITY_SETTINGS_NAMESPACE } from "./ids.js";
 /** Default-off capability flags. Presence in the user section marks an override. */
-export declare const CAPABILITY_FLAG_KEYS: readonly ["codexSearch", "codexImages", "codexImageEdits", "codexUsage", "codexFast", "grokImagineImage", "grokImagineVideo"];
+export declare const CAPABILITY_FLAG_KEYS: readonly ["codexSearch", "codexImages", "codexImageEdits", "codexImagesAnyModel", "codexUsage", "codexFast", "grokImagineImage", "grokImagineVideo"];
 /** Conservative numeric limits persisted beside the flags. */
 export declare const CAPABILITY_LIMIT_KEYS: readonly ["searchResults", "imageCount", "videoArtifactTtlMs"];
 /** Every key the controller admits into secret-free state. */
-export declare const CAPABILITY_SETTINGS_KEYS: readonly ["codexSearch", "codexImages", "codexImageEdits", "codexUsage", "codexFast", "grokImagineImage", "grokImagineVideo", "searchResults", "imageCount", "videoArtifactTtlMs"];
+export declare const CAPABILITY_SETTINGS_KEYS: readonly ["codexSearch", "codexImages", "codexImageEdits", "codexImagesAnyModel", "codexUsage", "codexFast", "grokImagineImage", "grokImagineVideo", "searchResults", "imageCount", "videoArtifactTtlMs"];
 export type CapabilityFlagKey = (typeof CAPABILITY_FLAG_KEYS)[number];
 export type CapabilityLimitKey = (typeof CAPABILITY_LIMIT_KEYS)[number];
 export type CapabilitySettingsKey = (typeof CAPABILITY_SETTINGS_KEYS)[number];
@@ -24,6 +24,8 @@ export interface CapabilitySettings {
     readonly codexSearch: boolean;
     readonly codexImages: boolean;
     readonly codexImageEdits: boolean;
+    /** Allow non-Codex-route models to use the Codex image generate/edit tools. */
+    readonly codexImagesAnyModel: boolean;
     readonly codexUsage: boolean;
     readonly codexFast: boolean;
     readonly grokImagineImage: boolean;
@@ -62,6 +64,7 @@ export declare const CapabilitySettingsSchema: Schema<Schemastery.ObjectS<{
     codexSearch: Schema<boolean, boolean>;
     codexImages: Schema<boolean, boolean>;
     codexImageEdits: Schema<boolean, boolean>;
+    codexImagesAnyModel: Schema<boolean, boolean>;
     codexUsage: Schema<boolean, boolean>;
     codexFast: Schema<boolean, boolean>;
     grokImagineImage: Schema<boolean, boolean>;
@@ -73,6 +76,7 @@ export declare const CapabilitySettingsSchema: Schema<Schemastery.ObjectS<{
     codexSearch: Schema<boolean, boolean>;
     codexImages: Schema<boolean, boolean>;
     codexImageEdits: Schema<boolean, boolean>;
+    codexImagesAnyModel: Schema<boolean, boolean>;
     codexUsage: Schema<boolean, boolean>;
     codexFast: Schema<boolean, boolean>;
     grokImagineImage: Schema<boolean, boolean>;
@@ -86,6 +90,7 @@ export declare const CAPABILITY_SETTINGS_SCHEMA_JSON: Schema<Schemastery.ObjectS
     codexSearch: Schema<boolean, boolean>;
     codexImages: Schema<boolean, boolean>;
     codexImageEdits: Schema<boolean, boolean>;
+    codexImagesAnyModel: Schema<boolean, boolean>;
     codexUsage: Schema<boolean, boolean>;
     codexFast: Schema<boolean, boolean>;
     grokImagineImage: Schema<boolean, boolean>;
@@ -97,6 +102,7 @@ export declare const CAPABILITY_SETTINGS_SCHEMA_JSON: Schema<Schemastery.ObjectS
     codexSearch: Schema<boolean, boolean>;
     codexImages: Schema<boolean, boolean>;
     codexImageEdits: Schema<boolean, boolean>;
+    codexImagesAnyModel: Schema<boolean, boolean>;
     codexUsage: Schema<boolean, boolean>;
     codexFast: Schema<boolean, boolean>;
     grokImagineImage: Schema<boolean, boolean>;

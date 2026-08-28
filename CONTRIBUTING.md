@@ -110,7 +110,7 @@ the workflow never publishes a second copy. A missing version or mismatched
 
 The plugin verifies an exact DeepSeek Harness BOM (`compatibility/dsh-bom.json`). A new DSH rc/stable is **unverified by default**, and lifecycle drift has broken activation before (#17), so run this checklist before moving the pin — in order, stopping at the first failure:
 
-1. **Sandbox first.** Point the registry-only runtime stages in `Dockerfile` (`dsh-installed` / `rc2-compatibility`) at the candidate DSH version and build them green. This catches activation/lifecycle breakage without touching a real profile.
+1. **Sandbox first.** Edit the hardcoded `@deepseek-ai/dsh@0.1.1-rc.2` pin in `Dockerfile` (`dsh-installed` / `rc2-compatibility` stages — there is no build-arg) to the candidate DSH version, then build those targets green. This catches activation/lifecycle breakage without touching a real profile.
 2. **Real profile install (maintainer machine).** Install the candidate tarball into an existing `dsh web` profile and restart that process once; the plugin must activate with only `webServer` required and no Cordis injection failures in the logs.
 3. **Settings surface.** Settings → Coding OAuth renders all four tabs (Accounts / Gateway / Capabilities / About).
 4. **Credentials survive.** Every previously signed-in provider card (Grok / Codex / Kimi / Claude) still shows signed-in — an upgrade must never migrate or reset OAuth credential files.

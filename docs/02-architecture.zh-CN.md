@@ -67,7 +67,7 @@ ctx.llm route
 - `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
 - `capability-routes.ts`：无密钥的能力快照，以及可选的 Codex 用量和 Imagine 凭据状态路由。
 - `capability-runtime.ts`：按 live 开关绑定/解绑搜索、工具，以及仅在最新 priority catalog 后发布 Fast 路由。
-- `capability-tools.ts`：可选 Codex / Grok Imagine 工具定义；执行时重新读取开关。
+- `capability-tools.ts`：可选 Codex / Grok Imagine 工具定义；执行时重新读取开关。默认关闭的任意模型图像策略只放宽调用路由门禁，Codex 登录、会话、附件归属和编辑授权保持不变。
 - `codex-http.ts`：需打开的私有 `chatgpt.com/backend-api` 客户端（仅 HTTPS、仅第一方主机）。
 - `codex-search.ts` / `codex-usage.ts` / `codex-images.ts`：可选搜索、配额，以及固定 `gpt-image-2` 生成/编辑（编辑要求当前会话顶层附件所有权）。
 - `codex-model-capabilities.ts`：live Codex service-tier 缓存；Fast 资格失败关闭；注入 `service_tier: priority` 与路由提示。
@@ -112,7 +112,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 所有 Settings 路由共用 `OwnerRequestPolicy`。`X-Forwarded-*` 只属于转发元数据，不能成为属主证明；fallback 配置缺少任一独立信号时拒绝远程请求。状态响应携带经服务端判定的 `accessMode`，客户端不根据 hostname 猜测 SSH 或反代环境。
 
-`/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入位于 `coding-subscription-oauth` 设置区，是无密钥的 compare-and-swap 快照并立即生效。七项开关默认关闭；`searchResults` 为 1–20（默认 5），`imageCount` 为 1–4（默认 1），`videoArtifactTtlMs` 为 1 小时–7 天（默认 7 天；界面显示 1–168 小时）；降低时立即改写/清理已有 expiry，提高只影响新产物。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
+`/oauth/sources` 是只读发现。预览/提交是显式单向拉取（票据一次性、五分钟、最多 32 张）。能力写入位于 `coding-subscription-oauth` 设置区，是无密钥的 compare-and-swap 快照并立即生效。八项开关默认关闭；`searchResults` 为 1–20（默认 5），`imageCount` 为 1–4（默认 1），`videoArtifactTtlMs` 为 1 小时–7 天（默认 7 天；界面显示 1–168 小时）；降低时立即改写/清理已有 expiry，提高只影响新产物。Imagine 下载路由是同源 loopback GET，从不返回上游签名 URL。
 
 旧 `/plugins/dsh-grok-build/auth/*` 继续注册并复用同一个 Grok 控制器。
 
@@ -122,7 +122,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 ## 6. 兼容性
 
-正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.6.2`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2`），精确验证 DSH **`0.1.1-rc.2`**。GitHub 与本地 tarball 安装仍然有效。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.6.3`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3`），精确验证 DSH **`0.1.1-rc.2`**。GitHub 与本地 tarball 安装仍然有效。
 
 以下标识保持稳定（无迁移方案前不要改名）：
 

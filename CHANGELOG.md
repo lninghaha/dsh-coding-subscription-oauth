@@ -4,10 +4,21 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.6.3 - 2026-08-28
+
+### Added
+
+- Add a default-off `codexImagesAnyModel` capability that lets non-Codex model routes call Codex image generate/edit tools without bypassing Codex authentication, capability gates, current-session attachment ownership, or edit authorization.
+
+### Fixed
+
+- Clear `codexImagesAnyModel` in `normalizeCapabilitySettings` whenever resolved `codexImages` is false, so the any-model flag cannot remain on after images are disabled at the admit layer (UI cascade alone is insufficient).
+
 ### Documentation
 
-- Align the Hub co-install matrix in `INSTALL.md` to Hub `1.10.0` with Subscription `0.6.2` and `dsh-coding-oauth-core@0.1.0`.
+- Align the Hub co-install matrix in `INSTALL.md` to `dsh-hub-oauth-gateway@1.10.0` with Subscription `0.6.3` and `dsh-coding-oauth-core@0.1.0`.
 - Add a maintainer smoke checklist for new DeepSeek Harness releases in `CONTRIBUTING.md`, and point the open migration profile-verification todo at that checklist plus the green Docker `isolated-install` / `rc2-compatibility` sandbox evidence.
+- Sync capability inventory lines to eight switches (`codexImagesAnyModel` included) across README translations and architecture docs; document editing the hardcoded DSH pin in `Dockerfile` for smoke builds.
 
 ## v0.6.2 - 2026-08-25
 

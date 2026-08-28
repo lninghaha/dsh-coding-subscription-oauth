@@ -139,6 +139,9 @@ export const en = {
 	capCodexImagesHint: "Generate images with ChatGPT/Codex quota.",
 	capCodexImageEdits: "Codex image edits",
 	capCodexImageEditsHint: "Edit images; requires Codex images.",
+	capCodexImagesAnyModel: "Allow any model to use image tools",
+	capCodexImagesAnyModelHint:
+		"Let non-Codex routes also call image generate/edit. Still uses your ChatGPT/Codex quota and requires Codex sign-in.",
 	capCodexUsage: "Show Codex quota",
 	capCodexUsageHint: "Show remaining quota on the Codex account card when available.",
 	capCodexFast: "Fast requested",
@@ -404,6 +407,8 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	capCodexImagesHint: "用 ChatGPT/Codex 配额出图。",
 	capCodexImageEdits: "Codex 改图",
 	capCodexImageEditsHint: "改图；需先打开 Codex 出图。",
+	capCodexImagesAnyModel: "允许任意模型调用出图工具",
+	capCodexImagesAnyModelHint: "非 Codex 渠道的模型也可调用图片生成/编辑。仍消耗 ChatGPT/Codex 配额，且需登录 Codex。",
 	capCodexUsage: "显示 Codex 额度",
 	capCodexUsageHint: "有数据时在 Codex 账户卡片上显示剩余额度。",
 	capCodexFast: "已请求 Fast",

@@ -13,11 +13,17 @@ import {
 	CODEX_IMAGE_GENERATE_TOOL,
 	type CreateCodexImageController,
 	callingRouteIdentity,
+	codexImageRoutePolicy,
 	createCapabilityTools,
 	resolveCodexImageRouteFromLlm,
 } from "../src/capability-tools.ts";
 import type { CodexAuthSession } from "../src/codex-http.ts";
-import { CODEX_IMAGE_MODEL, type CodexImageController, type CodexImageSessionContext } from "../src/codex-images.ts";
+import {
+	assertCodexImageCapableRoute,
+	CODEX_IMAGE_MODEL,
+	type CodexImageController,
+	type CodexImageSessionContext,
+} from "../src/codex-images.ts";
 import {
 	GROK_IMAGINE_IMAGE_MODEL,
 	GROK_IMAGINE_IMAGE_TOOL,
@@ -224,6 +230,12 @@ describe("createCapabilityTools", () => {
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_IMAGE_TOOL)?.timeoutMs).toBeUndefined();
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_VIDEO_TOOL)?.timeoutMs).toBeUndefined();
 		expect(tools.find((tool) => tool.name === GROK_IMAGINE_VIDEO_STATUS_TOOL)?.timeoutMs).toBeUndefined();
+	});
+
+	it("relaxes the Codex route gate when codexImagesAnyModel is on", () => {
+		expect(codexImageRoutePolicy(enabledSettings())).toBe("codex-capable");
+		expect(codexImageRoutePolicy(enabledSettings({ codexImagesAnyModel: true }))).toBe("any");
+		expect(codexImageRoutePolicy(DEFAULT_CAPABILITY_SETTINGS)).toBe("codex-capable");
 	});
 
 	it("denies every capability while settings stay default-off", async () => {
@@ -622,6 +634,40 @@ describe("Codex image route resolution", () => {
 			),
 		).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
 		expect(attachments.saveImage).not.toHaveBeenCalled();
+	});
+
+	it("passes the live any-model policy per execution and restores the strict gate immediately", async () => {
+		let current = enabledSettings({ codexImagesAnyModel: true });
+		const generate = vi.fn<CodexImageController["generate"]>(async () => ({
+			operation: "generate",
+			model: CODEX_IMAGE_MODEL,
+			images: [imageRef("generated")],
+			references: [],
+			warnings: [],
+		}));
+		const tools = await createCapabilityTools({
+			current: () => current,
+			auth: fakeAuth(),
+			attachments: fakeAttachments(),
+			imagine: fakeImagine(),
+			createCodexController: (session, policy) => {
+				if (policy !== "any") assertCodexImageCapableRoute(session.route);
+				return fakeCodexController({ generate });
+			},
+			resolveCodexImageRoute: async () => ({
+				provider: "deepseek",
+				model: "deepseek-v4",
+				inputModalities: ["text"],
+			}),
+		});
+		const tool = toolByName(tools, CODEX_IMAGE_GENERATE_TOOL);
+		await tool.execute({ prompt: "allowed" }, fakeExec());
+		expect(generate).toHaveBeenCalledOnce();
+		current = enabledSettings({ codexImagesAnyModel: false });
+		await expect(tool.execute({ prompt: "strict" }, fakeExec())).rejects.toMatchObject({
+			code: "UNSUPPORTED_CONTENT",
+		});
+		expect(generate).toHaveBeenCalledOnce();
 	});
 
 	it("forwards the resolved route without inventing modalities and keeps edit ownership", async () => {

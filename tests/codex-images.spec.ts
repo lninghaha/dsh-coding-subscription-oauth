@@ -292,4 +292,111 @@ describe("createCodexImageController", () => {
 		await expect(identityOnly.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
+
+	it("allows any route when routePolicy is any", async () => {
+		const fetchImpl = mockFetch(async () => jsonResponse(200, { data: [{ b64_json: PNG.toString("base64") }] }));
+		const controller = createCodexImageController({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-img") }),
+				invalidate: async () => {},
+			},
+			attachments: memoryAttachments(),
+			session: {
+				deriveMessages: () => [],
+				route: { provider: "deepseek", model: "deepseek-v4-flash", inputModalities: ["text"] },
+			},
+			routePolicy: "any",
+			fetchImpl,
+			sleep: async () => {},
+		});
+		const result = await controller.generate({ prompt: "works" });
+		expect(result.images).toHaveLength(1);
+		expect(fetchImpl).toHaveBeenCalledOnce();
+	});
+
+	it("keeps auth mandatory and session attachment ownership isolated under the any-route policy", async () => {
+		const attachments = memoryAttachments();
+		const fetchImpl = mockFetch();
+		const unsigned = createCodexImageController({
+			auth: { resolve: async () => undefined, invalidate: async () => {} },
+			attachments,
+			session: {
+				deriveMessages: () => [{ content: [{ type: "image", attachment: imageRef("owned") }] }],
+				route: { provider: "deepseek", model: "deepseek-v4", inputModalities: ["text"] },
+			},
+			routePolicy: "any",
+			fetchImpl,
+		});
+		await expect(unsigned.generate({ prompt: "no login" })).rejects.toMatchObject({ code: "MISSING_CREDENTIAL" });
+		await expect(unsigned.edit({ prompt: "no login", imageIds: ["owned"] })).rejects.toMatchObject({
+			code: "MISSING_CREDENTIAL",
+		});
+		expect(attachments.readImage).not.toHaveBeenCalled();
+		expect(fetchImpl).not.toHaveBeenCalled();
+
+		const crossSession = createCodexImageController({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-img") }),
+				invalidate: async () => {},
+			},
+			attachments,
+			session: {
+				deriveMessages: () => [{ content: [{ type: "image", attachment: imageRef("other-session") }] }],
+				route: { provider: "deepseek", model: "deepseek-v4", inputModalities: ["text"] },
+			},
+			routePolicy: "any",
+			fetchImpl,
+		});
+		await expect(crossSession.edit({ prompt: "steal", imageIds: ["owned"] })).rejects.toMatchObject({
+			code: "INVALID_ARGS",
+		});
+		expect(attachments.readImage).not.toHaveBeenCalled();
+		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it("edits a current-session attachment from a non-Codex route when enabled", async () => {
+		const attachments = memoryAttachments();
+		const fetchImpl = mockFetch(async () => jsonResponse(200, { data: [{ b64_json: PNG.toString("base64") }] }));
+		const controller = createCodexImageController({
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-img") }),
+				invalidate: async () => {},
+			},
+			attachments,
+			session: {
+				deriveMessages: () => [{ content: [{ type: "image", attachment: imageRef("owned") }] }],
+				route: { provider: "deepseek", model: "deepseek-v4", inputModalities: ["text"] },
+			},
+			routePolicy: "any",
+			fetchImpl,
+			sleep: async () => {},
+		});
+		const result = await controller.edit({ prompt: "blue", imageIds: ["image:owned"] });
+		expect(result.operation).toBe("edit");
+		expect(result.references.map((ref) => String(ref.attachmentId))).toEqual(["owned"]);
+		expect(fetchImpl.mock.calls[0]?.[0]).toBe(CODEX_IMAGE_EDIT_URL);
+		expect(attachments.readImage).toHaveBeenCalledOnce();
+		expect(attachments.saveImage).toHaveBeenCalledOnce();
+	});
+
+	it("keeps the codex-capable gate when routePolicy is codex-capable or absent", async () => {
+		const fetchImpl = mockFetch();
+		const base = {
+			auth: {
+				resolve: async () => ({ accessToken: jwtWithAccount("acct-img") }),
+				invalidate: async () => {},
+			},
+			attachments: memoryAttachments(),
+			session: {
+				deriveMessages: () => [],
+				route: { provider: "openai", inputModalities: ["image"] },
+			},
+			fetchImpl,
+		};
+		const explicit = createCodexImageController({ ...base, routePolicy: "codex-capable" });
+		const absent = createCodexImageController(base);
+		await expect(explicit.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		await expect(absent.generate({ prompt: "nope" })).rejects.toMatchObject({ code: "UNSUPPORTED_CONTENT" });
+		expect(fetchImpl).not.toHaveBeenCalled();
+	});
 });

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2** · 原名 `dsh-grok-build`
+**v0.6.3** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.2` 包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。`dsh-coding-oauth-core@0.1.0` 仍是共享 npm 依赖，不是需要单独安装的 DSH 插件。
+> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.3` 包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。`dsh-coding-oauth-core@0.1.0` 仍是共享 npm 依赖，不是需要单独安装的 DSH 插件。
 
 ---
 
@@ -27,7 +27,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.6.2`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.6.3`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -44,7 +44,7 @@
 - 🌐 **代理感知** —— 只代理审核过的订阅域名；Kimi 中国流量默认直连。
 - 📥 **手动 CLI 拉取** —— 设置页只读发现白名单内的官方 Grok/Codex/Kimi/Claude CLI OAuth 文件；预览并确认覆盖后，单向拉取一份副本。
 - 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About；远程主机优先设备码登录并弱化 CLI 缺失提示；已登录供应商卡片默认收起，展开后再编辑。
-- 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。
+- 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。另有默认关闭的开关，允许非 Codex 模型路由调用 Codex 图像工具，同时保留 Codex 登录、会话和附件归属检查。
 - 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
 
 ## 本插件解决的接入问题
@@ -79,7 +79,7 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -120,7 +120,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -182,7 +182,7 @@ DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供�
 
 ## 可选能力
 
-七项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
+八项开关默认全部**关闭**，打开后**立即生效**（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员也可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖这层 base，省略时所有开关仍保持关闭。
 
 `codex-oauth-fast` 仅在**最新一次 live catalog** 标明至少有一个 `priority` 可用模型后才会出现。请求会发送 `service_tier: priority` 和路由提示。界面写的是 **已请求 Fast**，不保证延迟，也不保证上游会兑现。
 

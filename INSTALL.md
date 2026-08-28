@@ -3,15 +3,15 @@
 本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 ```
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
 
-第一次公开发布是 **`0.4.1`**。`0.6.1` 从未正式发布或打包，其未发布改动已合入当前推荐的 **`0.6.2`**：
+第一次公开发布是 **`0.4.1`**。`0.6.1` 从未正式发布或打包，其未发布改动已合入当前推荐的 **`0.6.3`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
@@ -26,7 +26,7 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 
 ```bash
 # 普通用户：当前 npm 发布版
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 开发 / 备用：从 GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -44,8 +44,8 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 - 本版按 DSH `0.1.1-rc.2` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。
 - 从 `0.6.0` 升级到 `0.6.2` 后再重启：`0.6.0` 在严格 Cordis 注入检查下可能因读取尚未注入的可选服务而拖垮插件树。这个补丁不迁移或重置 OAuth 凭据、Gateway、模型/适配器 ID 与缓存。
-- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.0` 可从 npm 解析，再安装 Subscription `0.6.2`（以及需要的 Hub `1.10.0`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
-- 共装 Hub 与 Subscription 时，先安装 Hub `1.10.0` 与 Subscription `0.6.2`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
+- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.0` 可从 npm 解析，再安装 Subscription `0.6.3`（以及需要的 `dsh-hub-oauth-gateway@1.10.0`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
+- 共装 Hub 与 Subscription 时，先安装 `dsh-hub-oauth-gateway@1.10.0` 与 Subscription `0.6.3`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
 - 升级会保留既有 Cordis id、OAuth 凭据文件、模型/适配器 ID、Gateway 配置和模型缓存；不要为了“清理旧版本”删除这些文件。若旧包名 `dsh-grok-build` 仍在 profile 中，只移除那条旧插件记录，再安装当前包，避免重复路由。
 - 回滚时恢复上一个插件版本并重启一次，保留凭据和配置；先查看兼容性诊断与失败原因，不要用清空凭据来代替回滚。
 - DSH Web 与本地 Gateway 继续只绑定 loopback。远程 Settings 只能走 SSH 隧道或满足 owner proof、精确 Origin 和 CSRF proof 的 HTTPS 反向代理；升级不会放宽到 `0.0.0.0`。
@@ -159,7 +159,7 @@ OAuth access token 会在本地记录过期时间前 5 分钟主动刷新。服�
 
 ### 可选能力
 
-设置页的七项订阅能力开关默认全部关闭，打开后立即生效（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。
+设置页的八项订阅能力开关默认全部关闭，打开后立即生效（无需重启）：`codexSearch`、`codexImages`、`codexImageEdits`、`codexImagesAnyModel`、`codexUsage`、`codexFast`、`grokImagineImage`、`grokImagineVideo`。`codexImagesAnyModel` 仅放宽调用模型路由限制；仍要求已登录 Codex、开启对应图像能力，并保留当前会话附件归属和编辑授权检查。
 
 数值控制为 `searchResults`（1–20，默认 5）、`imageCount`（1–4，默认 1）、`videoArtifactTtlMs`（1 小时–7 天，默认 7 天；界面以 1–168 小时显示）。降低视频保留时间会立即缩短并清理已有产物；提高只影响之后生成的产物。管理员可在插件配置的 `capabilities` 下提供不含秘密的 composition 默认值；`coding-subscription-oauth` 设置区中的用户值会覆盖该 base，省略时所有开关仍默认关闭。
 

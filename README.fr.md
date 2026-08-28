@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2 · anciennement `dsh-grok-build`
+**v0.6.3 · anciennement `dsh-grok-build`
 
 **Plugin OAuth pour abonnements de codage de [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Connectez-vous une fois avec les abonnements que vous payez déjà, puis utilisez leurs modèles depuis la page de configuration ou la CLI dsh. **Aucun token collé dans le chat.**
 
@@ -28,7 +28,7 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 | | Utiliser | Toujours valable |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (même `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.2` (version actuelle) | Aucun ancien paquet npm n'a été publié |
+| npm | `dsh-coding-subscription-oauth@0.6.3` (version actuelle) | Aucun ancien paquet npm n'a été publié |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inchangé |
 | API HTTP des réglages | `/plugins/dsh-grok-build/*` | inchangé |
@@ -44,7 +44,7 @@ Le projet s'appelait **`dsh-grok-build`** (Grok Build uniquement). Il couvre mai
 - 🌐 **Conscient du proxy** — ne proxifie que les domaines d'abonnement examinés et de confiance.
 - 📥 **CLI Pull manuel** — les paramètres découvrent en lecture seule les fichiers OAuth officiels des CLI Grok/Codex/Kimi/Claude autorisés ; vous récupérez une copie à sens unique après prévisualisation et confirmation d'écrasement.
 - 🗂️ **Paramètres en onglets** — Accounts, Gateway, Capabilities et About ; les hôtes distants privilégient le device code avec moins de bruit CLI missing ; les cartes connectées restent repliées jusqu'à expansion.
-- 🎛️ **Capacités optionnelles, désactivées par défaut** — recherche Codex, usage/quota, génération/édition d'images, Fast et Grok Imagine s'appliquent en direct dès leur activation.
+- 🎛️ **Capacités optionnelles, désactivées par défaut** — recherche Codex, usage/quota, génération/édition d'images, Fast et Grok Imagine s'appliquent en direct dès leur activation. Un autre interrupteur, désactivé par défaut, autorise les routes de modèles non-Codex à appeler les outils d'image Codex sans contourner la connexion Codex, la session ni la propriété des pièces jointes.
 - 🔌 **Passerelle API locale opt-in** — serveur loopback compatible OpenAI/Anthropic, désactivé par défaut ; pour vos propres outils, jamais un relais public.
 
 ## Problèmes d'intégration que ce plugin résout
@@ -77,7 +77,7 @@ Ce sont les recherches et erreurs DSH qui mènent le plus souvent ici.
 
 ```bash
 # 1. installez le plugin dans le profil web (version actuelle npm)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. optionnel — Google Antigravity (version épinglée examinée)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ Nécessite DeepSeek Harness `0.1.1-rc.2` et Node.js 22.19+. Détails complets da
 
 ```bash
 # version actuelle npm (recommandé)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # développement/alternatif : depuis GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -178,7 +178,7 @@ Le sélecteur ne liste que les routes ayant terminé l'authentification ; les fo
 
 ## Capacités optionnelles
 
-Les sept options `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` et `grokImagineVideo` sont désactivées par défaut et s'appliquent à chaud, sans redémarrage. Les limites sont `searchResults` (1–20, défaut 5), `imageCount` (1–4, défaut 1) et `videoArtifactTtlMs` (1 heure–7 jours, défaut 7 jours ; l'interface affiche 1–168 heures). Réduire la rétention raccourcit et nettoie immédiatement les artefacts existants ; l'augmenter ne concerne que les nouveaux.
+Les huit options `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` et `grokImagineVideo` sont désactivées par défaut et s'appliquent à chaud, sans redémarrage. Les limites sont `searchResults` (1–20, défaut 5), `imageCount` (1–4, défaut 1) et `videoArtifactTtlMs` (1 heure–7 jours, défaut 7 jours ; l'interface affiche 1–168 heures). Réduire la rétention raccourcit et nettoie immédiatement les artefacts existants ; l'augmenter ne concerne que les nouveaux.
 
 ## Passerelle API locale
 

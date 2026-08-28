@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	mergeSources,
 	parseCapabilities,
+	parseCapabilitySettings,
 	parseGateway,
 	parseGatewayPort,
 	parseImagineCredential,
@@ -29,6 +30,13 @@ describe("client parsers", () => {
 	it("rejects secret-looking display paths", () => {
 		expect(safeDisplayPath("sk-abcdefghijklmnopqrstuvwxyz", "grok")).toBe("~/.grok/auth.json");
 		expect(safeDisplayPath("~/.grok/auth.json", "grok")).toBe("~/.grok/auth.json");
+	});
+
+	it("parses the any-model image flag as default-off", () => {
+		expect(parseCapabilitySettings({ codexImagesAnyModel: true })).toEqual(
+			expect.objectContaining({ codexImagesAnyModel: true }),
+		);
+		expect(parseCapabilitySettings({})).toEqual(expect.objectContaining({ codexImagesAnyModel: false }));
 	});
 
 	it("parses capability snapshots and gateway ports", () => {

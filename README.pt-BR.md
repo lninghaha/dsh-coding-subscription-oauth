@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2 · antigo `dsh-grok-build`
+**v0.6.3 · antigo `dsh-grok-build`
 
 **Plugin de OAuth para assinaturas de codificação do [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Entre com as assinaturas que você já paga — depois use os modelos delas a partir da página de configurações do dsh ou da CLI. **Nenhum token colado no chat.**
 
@@ -28,7 +28,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 | | Use isto | Ainda funciona |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (mesmo `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.2` (versão atual) | Nenhum pacote npm legado foi publicado |
+| npm | `dsh-coding-subscription-oauth@0.6.3` (versão atual) | Nenhum pacote npm legado foi publicado |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inalterado |
 | API HTTP das configurações | `/plugins/dsh-grok-build/*` | inalterado |
@@ -44,7 +44,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 - 🌐 **Ciente de proxy** — faz proxy apenas de domínios de assinatura revisados e confiáveis.
 - 📥 **CLI Pull manual** — as configurações descobrem os arquivos OAuth oficiais dos CLIs Grok/Codex/Kimi/Claude permitidos, somente leitura; você puxa uma cópia de via única após pré-visualização e confirmação de sobrescrita.
 - 🗂️ **Configurações em abas** — Accounts, Gateway, Capabilities e About; hosts remotos preferem device code com menos ruído de CLI missing; cartões conectados ficam recolhidos até serem expandidos.
-- 🎛️ **Capacidades opcionais, padrão desligado** — busca do Codex, uso/cota, geração/edição de imagens, Fast e Grok Imagine são aplicadas ao vivo quando ativadas.
+- 🎛️ **Capacidades opcionais, padrão desligado** — busca do Codex, uso/cota, geração/edição de imagens, Fast e Grok Imagine são aplicadas ao vivo quando ativadas. Outro interruptor, também desligado por padrão, permite que rotas de modelos não Codex usem as ferramentas de imagem Codex sem ignorar login, sessão ou propriedade dos anexos.
 - 🔌 **Gateway de API local opt-in** — servidor loopback compatível com OpenAI/Anthropic, desligado por padrão; para as suas próprias ferramentas, nunca um relé público.
 
 ## Problemas de integração que este plugin resolve
@@ -77,7 +77,7 @@ Estas são as buscas e erros do DSH que costumam trazer as pessoas até aqui.
 
 ```bash
 # 1. instale o plugin no perfil web (versão atual do npm)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. opcional — Google Antigravity (versão fixa revisada)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ Requer DeepSeek Harness `0.1.1-rc.2` e Node.js 22.19+. Detalhes completos nas [n
 
 ```bash
 # versão atual do npm (recomendado)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # desenvolvimento/alternativo: do GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -178,7 +178,7 @@ O seletor lista apenas rotas que concluíram a autenticação; provedores não a
 
 ## Capacidades opcionais
 
-Os sete controles `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` e `grokImagineVideo` começam desativados e mudam ao vivo, sem reinício. Os limites são `searchResults` (1–20, padrão 5), `imageCount` (1–4, padrão 1) e `videoArtifactTtlMs` (1 hora–7 dias, padrão 7 dias; a interface mostra 1–168 horas). Reduzir a retenção encurta e limpa artefatos existentes imediatamente; aumentá-la vale apenas para novos artefatos.
+Os oito controles `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` e `grokImagineVideo` começam desativados e mudam ao vivo, sem reinício. Os limites são `searchResults` (1–20, padrão 5), `imageCount` (1–4, padrão 1) e `videoArtifactTtlMs` (1 hora–7 dias, padrão 7 dias; a interface mostra 1–168 horas). Reduzir a retenção encurta e limpa artefatos existentes imediatamente; aumentá-la vale apenas para novos artefatos.
 
 ## Gateway de API local
 

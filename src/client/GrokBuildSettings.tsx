@@ -416,9 +416,10 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const patchCapability = async (key: CapabilitySettingKey, value: boolean | number): Promise<boolean> => {
 		if (capabilities === undefined || !capabilities.writable) return false;
 		if (key === "codexImageEdits" && value === true && !capabilities.value.codexImages) return false;
+		if (key === "codexImagesAnyModel" && value === true && !capabilities.value.codexImages) return false;
 		const patch: Partial<CapabilitySettingsView> =
-			key === "codexImages" && value === false && capabilities.value.codexImageEdits
-				? { codexImages: false, codexImageEdits: false }
+			key === "codexImages" && value === false
+				? { codexImages: false, codexImageEdits: false, codexImagesAnyModel: false }
 				: ({ [key]: value } as Partial<CapabilitySettingsView>);
 		setCapabilitiesBusy(true);
 		try {

@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.2 · früher `dsh-grok-build`
+**v0.6.3 · früher `dsh-grok-build`
 
 **OAuth-Plugin für Coding-Abonnements für [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Melden Sie sich einmal mit den Abonnements an, die Sie bereits bezahlen, und nutzen Sie die Modelle aus den Einstellungen oder der CLI von dsh. **Keine Tokens in den Chat einfügen.**
 
@@ -27,7 +27,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.2` (aktuelle Version) | Es gab kein altes npm-Paket |
+| npm | `dsh-coding-subscription-oauth@0.6.3` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
 | Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
@@ -43,7 +43,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 - 🌐 **Proxy-bewusst** — nur geprüfte, vertrauenswürdige Abonnement-Domänen werden über den Proxy geleitet.
 - 📥 **Manueller CLI-Pull** — die Einstellungen entdecken erlaubte offizielle Grok-/Codex-/Kimi-/Claude-CLI-OAuth-Dateien schreibgeschützt; nach Vorschau und Überschreibbestätigung ziehen Sie eine Einweg-Kopie.
 - 🗂️ **Einstellungen mit Tabs** — Accounts, Gateway, Capabilities und About; Remote-Hosts bevorzugen Device-Code mit ruhigeren CLI-Missing-Hinweisen; angemeldete Karten bleiben eingeklappt, bis sie erweitert werden.
-- 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten.
+- 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten. Ein zusätzlicher, standardmäßig deaktivierter Schalter erlaubt Nicht-Codex-Modellrouten die Codex-Bildwerkzeuge, ohne Codex-Anmeldung, Sitzung oder Anhangseigentum zu umgehen.
 - 🔌 **Opt-in lokales API-Gateway** — standardmäßig ausgeschalteter Loopback-Server, OpenAI-/Anthropic-kompatibel; für Ihre eigenen Werkzeuge, niemals ein öffentliches Relay.
 
 ## Integrationsprobleme, die dieses Plugin löst
@@ -77,7 +77,7 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 
 ```bash
 # 1. Plugin in das Web-Profil installieren (aktuelle npm-Version)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # 2. optional — Google Antigravity (gepinnte, geprüfte Version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ Erfordert DeepSeek Harness `0.1.1-rc.2` und Node.js 22.19+. Vollständige Detail
 
 ```bash
 # aktuelle npm-Version (empfohlen)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3
 
 # Entwicklung/Alternativ: von GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -177,7 +177,7 @@ Der Wähler listet nur Routen, die die Authentifizierung abgeschlossen haben; ni
 
 ## Optionale Funktionen
 
-Die sieben Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
+Die acht Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
 
 ## Lokales API-Gateway
 
