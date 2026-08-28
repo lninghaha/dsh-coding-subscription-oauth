@@ -331,6 +331,7 @@ describe("createCodexImageController", () => {
 		await expect(unsigned.edit({ prompt: "no login", imageIds: ["owned"] })).rejects.toMatchObject({
 			code: "MISSING_CREDENTIAL",
 		});
+		expect(attachments.readImage).not.toHaveBeenCalled();
 		expect(fetchImpl).not.toHaveBeenCalled();
 
 		const crossSession = createCodexImageController({

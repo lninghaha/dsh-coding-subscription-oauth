@@ -18,7 +18,12 @@ import {
 	resolveCodexImageRouteFromLlm,
 } from "../src/capability-tools.ts";
 import type { CodexAuthSession } from "../src/codex-http.ts";
-import { CODEX_IMAGE_MODEL, type CodexImageController, type CodexImageSessionContext } from "../src/codex-images.ts";
+import {
+	assertCodexImageCapableRoute,
+	CODEX_IMAGE_MODEL,
+	type CodexImageController,
+	type CodexImageSessionContext,
+} from "../src/codex-images.ts";
 import {
 	GROK_IMAGINE_IMAGE_MODEL,
 	GROK_IMAGINE_IMAGE_TOOL,
@@ -633,23 +638,36 @@ describe("Codex image route resolution", () => {
 
 	it("passes the live any-model policy per execution and restores the strict gate immediately", async () => {
 		let current = enabledSettings({ codexImagesAnyModel: true });
-		const policies: string[] = [];
+		const generate = vi.fn<CodexImageController["generate"]>(async () => ({
+			operation: "generate",
+			model: CODEX_IMAGE_MODEL,
+			images: [imageRef("generated")],
+			references: [],
+			warnings: [],
+		}));
 		const tools = await createCapabilityTools({
 			current: () => current,
 			auth: fakeAuth(),
 			attachments: fakeAttachments(),
 			imagine: fakeImagine(),
-			createCodexController: (_session, policy) => {
-				policies.push(policy);
-				return fakeCodexController();
+			createCodexController: (session, policy) => {
+				if (policy !== "any") assertCodexImageCapableRoute(session.route);
+				return fakeCodexController({ generate });
 			},
-			resolveCodexImageRoute: async () => ({ provider: "deepseek", model: "deepseek-v4", inputModalities: ["text"] }),
+			resolveCodexImageRoute: async () => ({
+				provider: "deepseek",
+				model: "deepseek-v4",
+				inputModalities: ["text"],
+			}),
 		});
-		const generate = toolByName(tools, CODEX_IMAGE_GENERATE_TOOL);
-		await generate.execute({ prompt: "allowed" }, fakeExec());
+		const tool = toolByName(tools, CODEX_IMAGE_GENERATE_TOOL);
+		await tool.execute({ prompt: "allowed" }, fakeExec());
+		expect(generate).toHaveBeenCalledOnce();
 		current = enabledSettings({ codexImagesAnyModel: false });
-		await generate.execute({ prompt: "strict" }, fakeExec());
-		expect(policies).toEqual(["any", "codex-capable"]);
+		await expect(tool.execute({ prompt: "strict" }, fakeExec())).rejects.toMatchObject({
+			code: "UNSUPPORTED_CONTENT",
+		});
+		expect(generate).toHaveBeenCalledOnce();
 	});
 
 	it("forwards the resolved route without inventing modalities and keeps edit ownership", async () => {
