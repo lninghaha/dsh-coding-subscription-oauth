@@ -177,7 +177,7 @@ Der Wähler listet nur Routen, die die Authentifizierung abgeschlossen haben; ni
 
 ## Optionale Funktionen
 
-Die acht Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
+Die acht Schalter `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage` und `grokImagineVideo` sind standardmäßig aus und werden ohne Neustart live angewendet. `codexImagesAnyModel` lockert nur die Aufrufmodell-Routenbeschränkung; weiterhin erforderlich sind angemeldetes Codex, `codexImages` (und der Edits-Schalter für Bearbeitung) sowie Sitzungs-Anhangbesitz und Bearbeitungsautorisierung. Die Grenzwerte sind `searchResults` (1–20, Standard 5), `imageCount` (1–4, Standard 1) und `videoArtifactTtlMs` (1 Stunde–7 Tage, Standard 7 Tage; die Oberfläche zeigt 1–168 Stunden). Eine kürzere Aufbewahrung verkürzt und bereinigt vorhandene Artefakte sofort; eine Erhöhung gilt nur für neue Artefakte.
 
 ## Lokales API-Gateway
 

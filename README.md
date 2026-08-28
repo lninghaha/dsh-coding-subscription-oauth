@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.3` includes the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. `dsh-coding-oauth-core@0.1.0` remains a shared npm dependency, not a separate DSH plugin.
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.3` adds the default-off `codexImagesAnyModel` switch. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. `dsh-coding-oauth-core@0.1.0` remains a shared npm dependency, not a separate DSH plugin.
 
 ---
 
@@ -184,7 +184,7 @@ The selector only lists routes that completed authentication; unauthenticated pr
 
 ## Optional capabilities
 
-All eight switches start **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage`, and `grokImagineVideo`. Numeric controls are `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), and `videoArtifactTtlMs` (1 hour–7 days, default 7 days; the UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` settings section override that base, and omitting it keeps every switch off.
+All eight switches start **off** and apply **live** (no restart): `codexSearch`, `codexImages`, `codexImageEdits`, `codexImagesAnyModel`, `codexUsage`, `codexFast`, `grokImagineImage`, and `grokImagineVideo`. `codexImagesAnyModel` only relaxes the calling-model route gate; it still requires signed-in Codex, `codexImages` (and the edits flag for edit), and keeps session attachment ownership and edit authorization. Numeric controls are `searchResults` (1–20, default 5), `imageCount` (1–4, default 1), and `videoArtifactTtlMs` (1 hour–7 days, default 7 days; the UI shows 1–168 hours). Lowering video retention shortens and cleans existing artifacts immediately; raising it affects only artifacts created afterward. Administrators may provide secret-free composition defaults under plugin config `capabilities`; live user settings in the `coding-subscription-oauth` settings section override that base, and omitting it keeps every switch off.
 
 `codex-oauth-fast` is advertised only after a **fresh live catalog** lists at least one `priority`-eligible model. Those requests send `service_tier: priority` plus a routing hint. The UI says **Fast requested** and never guarantees latency or that upstream will honor the request.
 
