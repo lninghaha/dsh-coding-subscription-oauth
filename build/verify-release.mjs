@@ -12,6 +12,10 @@ const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
 assert.match(manifest.version, /^\d+\.\d+\.\d+/, "release manifest must use semver");
+assert.equal(manifest.version, "0.6.4");
+assert.equal(manifest.dependencies?.["dsh-coding-oauth-core"], "0.1.1");
+assert.equal(manifest.dependencies?.undici, "7.29.0");
+assert.equal(manifest.devDependencies?.undici, "7.29.0");
 const clientConstants = await readFile(resolve(root, "src/client/constants.ts"), "utf8");
 assert.match(clientConstants, new RegExp(`PLUGIN_VERSION\\s*=\\s*["']${manifest.version}["']`));
 assert.deepEqual(manifest.bin, {
@@ -51,6 +55,7 @@ await assert.rejects(access(resolve(root, "lib/client.cjs")), { code: "ENOENT" }
 // Host externals must stay external; undici must be inlined. Only genuine
 // top-level ESM imports count — inlined module bodies may mention these names.
 const serverSource = await readFile(resolve(root, "lib/index.js"), "utf8");
+assert.doesNotMatch(serverSource, /undici@(?:7\.24\.8|8\.)/u, "server bundle must not retain a split Undici runtime");
 const topLevelImports = serverSource.match(/^import .*$/gm) ?? [];
 for (const statement of topLevelImports) {
 	assert.doesNotMatch(statement, /["']undici["']/, "undici must be inlined, not imported");

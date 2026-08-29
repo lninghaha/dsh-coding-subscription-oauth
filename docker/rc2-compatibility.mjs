@@ -22,7 +22,7 @@ let child;
 try {
 	await execute("plugin", "--profile", "web", "add", candidate);
 	const pluginManifest = JSON.parse(await readFile(join(home, "profiles", "web", "node_modules", "dsh-coding-subscription-oauth", "package.json"), "utf8"));
-	if (pluginManifest.name !== "dsh-coding-subscription-oauth" || pluginManifest.version !== "0.6.3") {
+	if (pluginManifest.name !== "dsh-coding-subscription-oauth" || pluginManifest.version !== "0.6.4") {
 		throw new Error("candidate package was not installed into a fresh DSH web profile");
 	}
 	if (JSON.stringify(pluginManifest).includes("file:../dsh-coding-oauth-core")) {

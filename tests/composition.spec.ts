@@ -57,7 +57,11 @@ describe("bundle composition", () => {
 			files: string[];
 		};
 		expect(manifest.name).toBe("dsh-coding-subscription-oauth");
-		expect((manifest as { version?: string }).version).toBe("0.6.3");
+		expect((manifest as { version?: string }).version).toBe("0.6.4");
+		expect((manifest as { dependencies?: Record<string, string> }).dependencies?.["dsh-coding-oauth-core"]).toBe(
+			"0.1.1",
+		);
+		expect((manifest as { dependencies?: Record<string, string> }).dependencies?.undici).toBe("7.29.0");
 		expect(manifest.dsh.bundle.patch).toBe("./cordis.patch.yml");
 		expect(manifest.dsh.client.platform).toBe("web");
 		expect(manifest.dsh.client.inject).toContain("@deepseek-ai/dsh-client-ui-settings");

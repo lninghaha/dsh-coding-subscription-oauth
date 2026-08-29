@@ -122,7 +122,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.6.3`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3`), verified against DSH **`0.1.1-rc.2`**. GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.6.4`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4`), verified against DSH **`0.1.1-rc.2`**. GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 
@@ -135,4 +135,4 @@ Stable on-disk / in-process identifiers (do not rename without a migration):
 
 New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.
 
-Hub and this standalone participant pin the same `dsh-coding-oauth-core@0.1.0`. The core owns root-scoped owner election, reference-counted proxy policy, atomic registration helpers, provider/route/credential identifiers, the capability namespace, Gateway state filename, and all legacy/current management paths. Hub has priority while installed; this participant remains standby and resumes without renaming routes or resetting credentials after Hub unloads.
+Hub and this standalone participant pin the same `dsh-coding-oauth-core@0.1.1` and `undici@7.29.0`. The core owns root-scoped owner election, reference-counted proxy policy, atomic registration helpers, provider/route/credential identifiers, the capability namespace, Gateway state filename, and all legacy/current management paths. Hub has priority while installed; this participant remains standby and resumes without renaming routes or resetting credentials after Hub unloads. Grok Imagine keeps its explicit pinned dispatcher and does not use the shared proxy lease.

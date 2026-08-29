@@ -122,7 +122,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 ## 6. 兼容性
 
-正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.6.3`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.3`），精确验证 DSH **`0.1.1-rc.2`**。GitHub 与本地 tarball 安装仍然有效。
+正式包名与仓库名是 **`dsh-coding-subscription-oauth`**。旧 GitHub 地址仍指向同一条 `main`，因此旧的 `dsh plugin add github:lninghaha/dsh-grok-build` 仍会安装更名后的包。第一次公开 npm / GitHub Release 是 **`0.4.1`**。当前版本是 **`0.6.4`**（`dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4`），精确验证 DSH **`0.1.1-rc.2`**。GitHub 与本地 tarball 安装仍然有效。
 
 以下标识保持稳定（无迁移方案前不要改名）：
 
@@ -135,4 +135,4 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。v0.3.0 将 `grok-build` fallback/default 更新为 `grok-4.6`，已有用户默认设置仍优先。
 
-Hub 与本独立 participant 精确依赖同一个 `dsh-coding-oauth-core@0.1.0`。核心统一管理 root-scoped owner 选举、引用计数代理策略、原子注册、provider/route/credential 标识、能力设置命名空间、Gateway 状态文件名，以及全部新旧管理路径。Hub 安装时优先成为 owner；Hub 卸载后本插件从 standby 自动接管，不改路由名，也不重置凭据。
+Hub 与本独立 participant 精确依赖同一个 `dsh-coding-oauth-core@0.1.1` 与 `undici@7.29.0`。核心统一管理 root-scoped owner 选举、引用计数代理策略、原子注册、provider/route/credential 标识、能力设置命名空间、Gateway 状态文件名，以及全部新旧管理路径。Hub 安装时优先成为 owner；Hub 卸载后本插件从 standby 自动接管，不改路由名，也不重置凭据。Grok Imagine 保留显式 pinned dispatcher，不使用共享 proxy lease。
