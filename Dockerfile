@@ -14,7 +14,15 @@ USER node
 
 FROM toolchain AS dependencies
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile \
+    && core_version="$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).dependencies["dsh-coding-oauth-core"]')" \
+    && test -n "${core_version}" \
+    && mkdir -p /tmp/pnpm-metadata-seed \
+    && cp pnpm-workspace.yaml /tmp/pnpm-metadata-seed/pnpm-workspace.yaml \
+    && printf '{"name":"pnpm-metadata-seed","private":true}\n' > /tmp/pnpm-metadata-seed/package.json \
+    && cd /tmp/pnpm-metadata-seed \
+    && pnpm add --lockfile-only --ignore-scripts "dsh-coding-oauth-core@${core_version}" \
+    && rm -rf /tmp/pnpm-metadata-seed
 
 FROM toolchain AS lockfile
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -39,7 +47,7 @@ RUN find src tests build docker scripts -type f -exec sed -i 's/\r$//' {} + \
 	&& sed -i 's/\r$//' package.json pnpm-workspace.yaml Dockerfile biome.json \
     && pnpm run lint
 
-FROM source AS check
+FROM lint-normalized AS check
 RUN --network=none cp -a lib /tmp/committed-lib \
     && rm -rf lib \
     && cp -a /tmp/committed-lib lib \

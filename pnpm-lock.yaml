@@ -12,10 +12,10 @@ importers:
   .:
     dependencies:
       dsh-coding-oauth-core:
-        specifier: 0.1.0
-        version: 0.1.0
+        specifier: 0.1.1
+        version: 0.1.1
       undici:
-        specifier: ^7.24.8
+        specifier: 7.29.0
         version: 7.29.0
     devDependencies:
       '@biomejs/biome':
@@ -1306,8 +1306,8 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  dsh-coding-oauth-core@0.1.0:
-    resolution: {integrity: sha512-r/86DphEkYK/Q+PPGIXWspQGmIbNzioCAzwOHuUMc3/DPw5c5BHrpCDw1zKOyAgR48n2zbwF+Kf72L/43b5pIw==}
+  dsh-coding-oauth-core@0.1.1:
+    resolution: {integrity: sha512-vUoMF3EuDEn2HiyEv4N/bACTO20+FYRtgbpYAchTBzj6QzXyhlzdmXMMUasMIbrf8hmTaNEGNMrUYM3LIivWXw==}
     engines: {node: ^22.19.0 || >=24.0.0}
 
   ecdsa-sig-formatter@1.0.11:
@@ -1612,10 +1612,6 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
-
-  undici@7.24.8:
-    resolution: {integrity: sha512-6KQ/+QxK49Z/p3HO6E5ZCZWNnCasyZLa5ExaVYyvPxUwKtbCPMKELJOqh7EqOle0t9cH/7d2TaaTRRa6Nhs4YQ==}
-    engines: {node: '>=20.18.1'}
 
   undici@7.29.0:
     resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
@@ -2945,9 +2941,9 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  dsh-coding-oauth-core@0.1.0:
+  dsh-coding-oauth-core@0.1.1:
     dependencies:
-      undici: 7.24.8
+      undici: 7.29.0
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
@@ -3258,8 +3254,6 @@ snapshots:
   typescript@6.0.3: {}
 
   undici-types@6.21.0: {}
-
-  undici@7.24.8: {}
 
   undici@7.29.0: {}
 

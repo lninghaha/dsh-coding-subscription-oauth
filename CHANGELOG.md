@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.6.4 - 2026-08-29
+
+- Pin Subscription, its shared core dependency, and both production/development dispatcher dependencies to `undici@7.29.0` with `dsh-coding-oauth-core@0.1.1`, preventing a co-installed Undici major split while preserving the proxy-store ABI and Grok Imagine's explicit pinned dispatcher.
+
 ### Documentation
 
 - Correct the README upgrade callout so Cordis/DSH `0.1.1-rc.2` support is attributed to `0.6.2+`, and name `0.6.3` for default-off `codexImagesAnyModel`; add the any-model route-gate boundary sentence across README translations and an `INSTALL.md` `0.6.2` → `0.6.3` upgrade note.

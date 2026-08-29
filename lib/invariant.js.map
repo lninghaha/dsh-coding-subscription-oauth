@@ -1,7 +1,7 @@
 {
   "version": 3,
   "sources": ["../../src/invariant.ts"],
-  "sourcesContent": ["/**\n * Package-owned invariant companion for `dsh-coding-subscription-oauth`.\n * @module dsh-coding-subscription-oauth/invariant\n */\n\nimport type { Context } from \"@deepseek-ai/cordis\";\nimport type { InvariantInstaller } from \"@deepseek-ai/dsh-invariants\";\n\nconst PACKAGE_NAME = \"dsh-coding-subscription-oauth\";\n\nexport const name = \"grok-build-invariant\";\nexport const inject = [\"invariants\"];\n\nconst install: InvariantInstaller = () => {};\n\nexport const apply = (ctx: Context): Promise<() => void> =>\n\tPromise.resolve(ctx.invariants.register(PACKAGE_NAME, install));\n"],
+  "sourcesContent": ["/**\r\n * Package-owned invariant companion for `dsh-coding-subscription-oauth`.\r\n * @module dsh-coding-subscription-oauth/invariant\r\n */\r\n\r\nimport type { Context } from \"@deepseek-ai/cordis\";\r\nimport type { InvariantInstaller } from \"@deepseek-ai/dsh-invariants\";\r\n\r\nconst PACKAGE_NAME = \"dsh-coding-subscription-oauth\";\r\n\r\nexport const name = \"grok-build-invariant\";\r\nexport const inject = [\"invariants\"];\r\n\r\nconst install: InvariantInstaller = () => {};\r\n\r\nexport const apply = (ctx: Context): Promise<() => void> =>\r\n\tPromise.resolve(ctx.invariants.register(PACKAGE_NAME, install));\r\n"],
   "mappings": ";;;AAQA,IAAM,eAAe;AAEd,IAAM,OAAO;AACb,IAAM,SAAS,CAAC,YAAY;AAEnC,IAAM,UAA8B,MAAM;AAAC;AAEpC,IAAM,QAAQ,CAAC,QACrB,QAAQ,QAAQ,IAAI,WAAW,SAAS,cAAc,OAAO,CAAC;",
   "names": []
 }
