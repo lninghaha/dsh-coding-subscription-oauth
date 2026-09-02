@@ -1,228 +1,229 @@
 {
-  "name": "dsh-coding-subscription-oauth",
-  "description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
-  "version": "0.6.5",
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/lninghaha/dsh-coding-subscription-oauth.git"
-  },
-  "bugs": "https://github.com/lninghaha/dsh-coding-subscription-oauth/issues",
-  "homepage": "https://github.com/lninghaha/dsh-coding-subscription-oauth#readme",
-  "keywords": [
-    "deepseek-harness",
-    "dsh-plugin",
-    "oauth",
-    "grok-build",
-    "super-grok",
-    "grok-4.6",
-    "cli-chat-proxy",
-    "openai-codex",
-    "chatgpt-plus",
-    "kimi-code",
-    "claude-code",
-    "google-antigravity",
-    "xhigh",
-    "device-code"
-  ],
-  "type": "module",
-  "packageManager": "pnpm@11.21.0",
-  "engines": {
-    "node": "^22.19.0 || >=24.0.0"
-  },
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
-  "bin": {
-    "dsh-coding-oauth": "lib/bin.js",
-    "dsh-grok-build": "lib/bin.js"
-  },
-  "scripts": {
-    "check:bom": "node build/verify-dsh-bom.mjs",
-    "assert:node": "node scripts/assert-node.mjs",
-    "assert:runtime-slice": "node scripts/assert-runtime-slice-sync.mjs",
-    "clean": "node build/clean.mjs",
-    "typecheck": "tsc -b tsconfig.host.json tsconfig.client.json",
-    "build:server": "tsc -p tsconfig.build.json && tsc -p tsconfig.dts-bin.json && node build/build-server.mjs",
-    "build:client": "node build/build-client.mjs",
-    "build:artifacts": "pnpm run check:bom && pnpm run clean && pnpm run typecheck && pnpm run build:server && pnpm run build:client",
-    "build": "pnpm run release:build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "lint": "biome check",
-    "check:next": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run check:bom && pnpm run lint && pnpm run typecheck && pnpm run test",
-    "check": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run lint && pnpm run release:build && pnpm run test",
-    "release:promote": "node build/promote-release.mjs",
-    "release:verify": "node build/verify-release.mjs",
-    "release:build": "pnpm run build:artifacts && pnpm run release:promote",
-    "release:dry": "node scripts/release.mjs --dry-run",
-    "release:inspect": "pnpm run assert:node && node scripts/release.mjs --dry-run",
-    "release:pack": "node scripts/release.mjs --pack",
-    "release:publish": "node scripts/release-publish.mjs",
-    "verify:deployed": "node scripts/verify-deployed-catalog.mjs",
-    "smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
-    "prepack": "pnpm run release:build"
-  },
-  "exports": {
-    ".": {
-      "types": "./lib/index.d.ts",
-      "default": "./lib/index.js"
-    },
-    "./invariant": {
-      "types": "./lib/invariant.d.ts",
-      "default": "./lib/invariant.js"
-    },
-    "./client": "./lib/client.js",
-    "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "lib",
-    "media",
-    "cordis.patch.yml",
-    "INSTALL.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "docs/00-project-rules.md",
-    "docs/02-architecture.md",
-    "docs/02-architecture.zh-CN.md",
-    "compatibility/dsh-bom.json",
-    "README.zh-CN.md",
-    "README.ja.md",
-    "README.ko.md",
-    "README.pt-BR.md",
-    "README.es.md",
-    "README.fr.md",
-    "README.de.md",
-    "README.ru.md",
-    "patches/dsh-agy@0.1.2.patch",
-    "scripts/verify-deployed-catalog.mjs",
-    "scripts/smoke-deployed-routes.mjs",
-    "scripts/release.mjs",
-    "LICENSE",
-    "NOTICE"
-  ],
-  "license": "Apache-2.0",
-  "dsh": {
-    "compatibility": {
-      "coreAbi": "dsh-coding-oauth-core/v1",
-      "verifiedBom": "./compatibility/dsh-bom.json",
-      "participant": "coding-subscription-oauth",
-      "diagnostics": "standalone",
-      "bom": {
-        "@deepseek-ai/cordis": "4.0.1",
-        "@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-client-web": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
-        "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
-        "@deepseek-ai/schemastery": "3.18.1",
-        "@earendil-works/pi-ai": "0.84.2",
-        "react": "18.3.1",
-        "react-dom": "18.3.1"
-      }
-    },
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-locale"
-      ],
-      "platform": "web"
-    }
-  },
-  "dependencies": {
-    "dsh-coding-oauth-core": "0.1.1",
-    "undici": "7.29.0"
-  },
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
-    "@deepseek-ai/schemastery": "3.18.1",
-    "@earendil-works/pi-ai": "0.84.2",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-attachment": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-credentials": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-host-webserver": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-invariants": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-tools": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.5.8",
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-web": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
-    "@deepseek-ai/schemastery": "3.18.1",
-    "@earendil-works/pi-ai": "0.84.2",
-    "@types/node": "^22.20.0",
-    "@types/react": "~18.3.1",
-    "@types/react-dom": "18.3.7",
-    "@vitest/coverage-v8": "4.1.10",
-    "esbuild": "^0.28.2",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "typescript": "^6.0.3",
-    "undici": "7.29.0",
-    "vitest": "^4.1.8"
-  },
-  "overrides": {
-    "@earendil-works/pi-ai": "0.84.2"
-  }
+	"name": "dsh-coding-subscription-oauth",
+	"description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
+	"version": "0.6.5",
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lninghaha/dsh-coding-subscription-oauth.git"
+	},
+	"bugs": "https://github.com/lninghaha/dsh-coding-subscription-oauth/issues",
+	"homepage": "https://github.com/lninghaha/dsh-coding-subscription-oauth#readme",
+	"keywords": [
+		"deepseek-harness",
+		"dsh-plugin",
+		"oauth",
+		"grok-build",
+		"super-grok",
+		"grok-4.6",
+		"cli-chat-proxy",
+		"openai-codex",
+		"chatgpt-plus",
+		"kimi-code",
+		"claude-code",
+		"google-antigravity",
+		"xhigh",
+		"device-code"
+	],
+	"type": "module",
+	"packageManager": "pnpm@11.21.0",
+	"engines": {
+		"node": "^22.19.0 || >=24.0.0"
+	},
+	"main": "lib/index.js",
+	"types": "lib/index.d.ts",
+	"bin": {
+		"dsh-coding-oauth": "lib/bin.js",
+		"dsh-grok-build": "lib/bin.js"
+	},
+	"scripts": {
+		"check:bom": "node build/verify-dsh-bom.mjs",
+		"assert:node": "node scripts/assert-node.mjs",
+		"assert:runtime-slice": "node scripts/assert-runtime-slice-sync.mjs",
+		"clean": "node build/clean.mjs",
+		"typecheck": "tsc -b tsconfig.host.json tsconfig.client.json",
+		"build:server": "tsc -p tsconfig.build.json && tsc -p tsconfig.dts-bin.json && node build/build-server.mjs",
+		"build:client": "node build/build-client.mjs",
+		"build:artifacts": "pnpm run check:bom && pnpm run clean && pnpm run typecheck && pnpm run build:server && pnpm run build:client",
+		"build": "pnpm run release:build",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"lint": "biome check",
+		"check:next": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run check:bom && pnpm run lint && pnpm run typecheck && pnpm run test",
+		"check": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run lint && pnpm run release:build && pnpm run test",
+		"release:promote": "node build/promote-release.mjs",
+		"release:verify": "node build/verify-release.mjs",
+		"release:build": "pnpm run build:artifacts && pnpm run release:promote",
+		"release:dry": "node scripts/release.mjs --dry-run",
+		"release:inspect": "pnpm run assert:node && node scripts/release.mjs --dry-run",
+		"release:pack": "node scripts/release.mjs --pack",
+		"release:publish": "node scripts/release-publish.mjs",
+		"verify:deployed": "node scripts/verify-deployed-catalog.mjs",
+		"smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
+		"prepack": "pnpm run release:build",
+		"smoke:dsh-alpha": "node scripts/smoke-dsh-alpha.mjs"
+	},
+	"exports": {
+		".": {
+			"types": "./lib/index.d.ts",
+			"default": "./lib/index.js"
+		},
+		"./invariant": {
+			"types": "./lib/invariant.d.ts",
+			"default": "./lib/invariant.js"
+		},
+		"./client": "./lib/client.js",
+		"./cordis.patch.yml": "./cordis.patch.yml",
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"lib",
+		"media",
+		"cordis.patch.yml",
+		"INSTALL.md",
+		"CHANGELOG.md",
+		"CONTRIBUTING.md",
+		"docs/00-project-rules.md",
+		"docs/02-architecture.md",
+		"docs/02-architecture.zh-CN.md",
+		"compatibility/dsh-bom.json",
+		"README.zh-CN.md",
+		"README.ja.md",
+		"README.ko.md",
+		"README.pt-BR.md",
+		"README.es.md",
+		"README.fr.md",
+		"README.de.md",
+		"README.ru.md",
+		"patches/dsh-agy@0.1.2.patch",
+		"scripts/verify-deployed-catalog.mjs",
+		"scripts/smoke-deployed-routes.mjs",
+		"scripts/release.mjs",
+		"LICENSE",
+		"NOTICE"
+	],
+	"license": "Apache-2.0",
+	"dsh": {
+		"compatibility": {
+			"coreAbi": "dsh-coding-oauth-core/v1",
+			"verifiedBom": "./compatibility/dsh-bom.json",
+			"participant": "coding-subscription-oauth",
+			"diagnostics": "standalone",
+			"bom": {
+				"@deepseek-ai/cordis": "4.0.1",
+				"@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-client-web": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-llm": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
+				"@deepseek-ai/dsh-tools": "0.1.1-rc.2",
+				"@deepseek-ai/schemastery": "3.18.1",
+				"@earendil-works/pi-ai": "0.84.2",
+				"react": "18.3.1",
+				"react-dom": "18.3.1"
+			}
+		},
+		"bundle": {
+			"patch": "./cordis.patch.yml"
+		},
+		"client": {
+			"inject": [
+				"@deepseek-ai/dsh-client-runtime",
+				"@deepseek-ai/dsh-client-ui-settings",
+				"@deepseek-ai/dsh-client-locale"
+			],
+			"platform": "web"
+		}
+	},
+	"dependencies": {
+		"dsh-coding-oauth-core": "0.1.1",
+		"undici": "7.29.0"
+	},
+	"peerDependencies": {
+		"@deepseek-ai/cordis": "4.0.1",
+		"@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-llm": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-tools": "0.1.1-rc.2",
+		"@deepseek-ai/schemastery": "3.18.1",
+		"@earendil-works/pi-ai": "0.84.2",
+		"react": "18.3.1",
+		"react-dom": "18.3.1"
+	},
+	"peerDependenciesMeta": {
+		"@deepseek-ai/cordis": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-attachment": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-credentials": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-host-webserver": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-invariants": {
+			"optional": true
+		},
+		"@deepseek-ai/dsh-tools": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.8",
+		"@deepseek-ai/cordis": "4.0.1",
+		"@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-client-web": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-llm": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
+		"@deepseek-ai/dsh-tools": "0.1.1-rc.2",
+		"@deepseek-ai/schemastery": "3.18.1",
+		"@earendil-works/pi-ai": "0.84.2",
+		"@types/node": "^22.20.0",
+		"@types/react": "~18.3.1",
+		"@types/react-dom": "18.3.7",
+		"@vitest/coverage-v8": "4.1.10",
+		"esbuild": "^0.28.2",
+		"react": "18.3.1",
+		"react-dom": "18.3.1",
+		"typescript": "^6.0.3",
+		"undici": "7.29.0",
+		"vitest": "^4.1.8"
+	},
+	"overrides": {
+		"@earendil-works/pi-ai": "0.84.2"
+	}
 }
