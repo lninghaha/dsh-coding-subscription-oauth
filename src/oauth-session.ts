@@ -151,6 +151,11 @@ export class OAuthProviderSession {
 		await this.store.invalidate(this.definition.nativeProviderId);
 	}
 
+	/** Refresh host discovery after an account switch/remove without a full logout. */
+	notifyCredentialChange(): void {
+		this.onCatalogChange?.();
+	}
+
 	async storedCredential(): Promise<OAuthCredential | undefined> {
 		const credential = await this.store.read(this.definition.nativeProviderId);
 		return credential?.type === "oauth" ? credential : undefined;

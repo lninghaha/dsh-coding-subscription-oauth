@@ -57,3 +57,8 @@ export {
 	OAUTH_IMPORT_SOURCES_PATH,
 	XAI_PI_PROVIDER,
 } from "dsh-coding-oauth-core";
+
+/** Multi-account mutations (peer core contracts do not list these yet). */
+export const CODING_OAUTH_API_BASE = "/plugins/dsh-grok-build" as const;
+export const CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/set-active` as const;
+export const CODING_OAUTH_ACCOUNTS_REMOVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/remove` as const;

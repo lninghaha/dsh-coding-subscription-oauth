@@ -1,5 +1,5 @@
 import { setImmediate as waitImmediate } from "node:timers/promises";
-import type { AuthInteraction, Credential, Model } from "@earendil-works/pi-ai";
+import type { AuthInteraction, Credential, Model, OAuthCredential } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 import { SubscriptionWebAuth } from "../src/auth-routes.ts";
 import { CODEX_OAUTH_PROVIDER } from "../src/oauth-providers.ts";
@@ -9,19 +9,42 @@ function fakeModel(): Model<"openai-codex-responses"> {
 	return CODEX_OAUTH_PROVIDER.providerFactory().getModels()[0] as Model<"openai-codex-responses">;
 }
 
+const credential: OAuthCredential = {
+	type: "oauth",
+	access: "secret-access",
+	refresh: "secret-refresh",
+	expires: Date.now() + 3_600_000,
+};
+
 function fakeSession(login: (interaction: AuthInteraction) => Promise<Credential>): OAuthProviderSession {
 	let authenticated = false;
 	const model = fakeModel();
+	const accounts = [
+		{
+			id: "acct-1",
+			expires: credential.expires,
+			accountId: "user-1",
+		},
+	];
 	return {
 		definition: CODEX_OAUTH_PROVIDER,
 		availableModels: () => [model],
 		visibleModels: () => [model],
 		selectedModelIds: () => undefined,
 		status: async () => ({ authenticated }),
+		store: {
+			listAccounts: async () => (authenticated ? accounts : []),
+			getActiveAccountId: async () => (authenticated ? "acct-1" : undefined),
+			setActiveAccount: async () => {},
+			removeAccount: async () => {
+				authenticated = false;
+			},
+		},
+		notifyCredentialChange: () => {},
 		login: async (interaction: AuthInteraction) => {
-			const credential = await login(interaction);
+			const next = await login(interaction);
 			authenticated = true;
-			return credential;
+			return next;
 		},
 		setSelectedModels: async () => {},
 		logout: async () => {
@@ -29,13 +52,6 @@ function fakeSession(login: (interaction: AuthInteraction) => Promise<Credential
 		},
 	} as unknown as OAuthProviderSession;
 }
-
-const credential: Credential = {
-	type: "oauth",
-	access: "secret-access",
-	refresh: "secret-refresh",
-	expires: Date.now() + 3_600_000,
-};
 
 describe("SubscriptionWebAuth", () => {
 	it("answers the Codex select prompt with device_code and publishes a device challenge", async () => {
@@ -93,6 +109,10 @@ describe("SubscriptionWebAuth", () => {
 		expect(pasted).toContain("code=abc");
 		const status = await auth.status();
 		expect(status.status).toBe("signed-in");
+		if (status.status === "signed-in") {
+			expect(status.accounts).toEqual([{ id: "acct-1", expires: credential.expires, accountId: "user-1" }]);
+			expect(status.activeAccountId).toBe("acct-1");
+		}
 		expect(JSON.stringify(status)).not.toContain("secret-access");
 		expect(JSON.stringify(status)).not.toContain("secret-refresh");
 	});

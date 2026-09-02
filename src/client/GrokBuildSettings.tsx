@@ -9,6 +9,8 @@ import { GatewayTab } from "./components/GatewayTab.tsx";
 import type { SettingsTabHint } from "./components/SettingsTabs.tsx";
 import { SettingsTabs } from "./components/SettingsTabs.tsx";
 import {
+	ACCOUNTS_REMOVE_PATH,
+	ACCOUNTS_SET_ACTIVE_PATH,
 	CAPABILITIES_PATH,
 	CODEX_USAGE_PATH,
 	GATEWAY_PATH,
@@ -324,6 +326,28 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		setBusyProvider(provider);
 		try {
 			setStatus(await jsonRequest<CodingOAuthStatus>(MODELS_PATH, "POST", { provider, selected }));
+		} catch (error: unknown) {
+			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+		} finally {
+			setBusyProvider(undefined);
+		}
+	};
+
+	const setDefaultAccount = async (provider: ProviderSlug, accountId: string): Promise<void> => {
+		setBusyProvider(provider);
+		try {
+			setStatus(await jsonRequest<CodingOAuthStatus>(ACCOUNTS_SET_ACTIVE_PATH, "POST", { provider, accountId }));
+		} catch (error: unknown) {
+			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+		} finally {
+			setBusyProvider(undefined);
+		}
+	};
+
+	const removeAccount = async (provider: ProviderSlug, accountId: string): Promise<void> => {
+		setBusyProvider(provider);
+		try {
+			setStatus(await jsonRequest<CodingOAuthStatus>(ACCOUNTS_REMOVE_PATH, "POST", { provider, accountId }));
 		} catch (error: unknown) {
 			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
 		} finally {
@@ -686,6 +710,12 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						}}
 						onSaveModels={(slug, selected) => {
 							void saveModels(slug, selected);
+						}}
+						onSetDefaultAccount={(slug, accountId) => {
+							void setDefaultAccount(slug, accountId);
+						}}
+						onRemoveAccount={(slug, accountId) => {
+							void removeAccount(slug, accountId);
 						}}
 						onConfirmOverwriteChange={setConfirmOverwrite}
 						onCommitSource={() => {

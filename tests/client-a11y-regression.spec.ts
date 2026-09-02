@@ -20,10 +20,17 @@ describe("client accessibility regressions", () => {
 
 	it("defers preview-trigger focus restoration until the trigger is enabled", async () => {
 		const accountsTab = await readFile(join(root, "src/client/components/AccountsTab.tsx"), "utf8");
+		const providerCard = await readFile(join(root, "src/client/components/ProviderCard.tsx"), "utf8");
 
 		expect(accountsTab).toContain("if (trigger === undefined || sourcesBusy) return;");
 		expect(accountsTab).toContain("}, [preview, sourcesBusy]);");
 		expect(accountsTab).toContain(`document.getElementById(\`coding-oauth-source-pull-\${trigger}\`)?.focus();`);
+		expect(accountsTab).toContain("onSetDefaultAccount");
+		expect(accountsTab).toContain("onRemoveAccount");
+		expect(providerCard).toContain("data-accounts-list");
+		expect(providerCard).toContain("accountSetDefault");
+		expect(providerCard).toContain("accountRemove");
+		expect(providerCard).not.toMatch(/accessToken|refreshToken|credential\.access/u);
 	});
 
 	it("keeps the account connection target separate from the model disclosure", async () => {

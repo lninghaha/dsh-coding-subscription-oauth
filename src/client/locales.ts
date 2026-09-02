@@ -272,6 +272,11 @@ export const en = {
 	coinstallSummary: "Usage Center is the active OAuth owner. {count} provider account(s) are currently signed in.",
 	coinstallOpenHub: "Open Usage Center",
 	tabGatewayActive: "Running",
+	accountsListHint: "Saved subscription accounts on this machine (tokens are never shown):",
+	accountActive: "Default",
+	accountSetDefault: "Set default",
+	accountRemove: "Remove",
+	accountsEmpty: "No saved accounts yet.",
 };
 
 export type GrokBuildSettingsKey = keyof typeof en;
@@ -537,4 +542,9 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	coinstallSummary: "用量中心当前负责 OAuth 运行时；已有 {count} 个供应商账号登录。",
 	coinstallOpenHub: "前往用量中心",
 	tabGatewayActive: "运行中",
+	accountsListHint: "本机保存的订阅账号（从不显示令牌）：",
+	accountActive: "默认",
+	accountSetDefault: "设为默认",
+	accountRemove: "移除",
+	accountsEmpty: "尚无已保存账号。",
 };

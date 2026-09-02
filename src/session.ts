@@ -185,6 +185,11 @@ export class GrokBuildSession {
 		await this.store.invalidate(XAI_PI_PROVIDER);
 	}
 
+	/** Refresh host discovery after an account switch/remove without a full logout. */
+	notifyCredentialChange(): void {
+		this.onCatalogChange?.();
+	}
+
 	async logout(): Promise<void> {
 		try {
 			await this.store.delete(XAI_PI_PROVIDER);
