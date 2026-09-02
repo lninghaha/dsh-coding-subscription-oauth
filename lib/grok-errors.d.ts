@@ -1,3 +1,3 @@
-/** Compatibility facade — implementation lives in `src/runtime/` (mirrored from Hub vendor core). */
-export { isXaiCapacityError, remapXaiCapacityFailure } from "./runtime/grok-errors.js";
+/** Compatibility facade — implementation lives in published `dsh-coding-oauth-core`. */
+export { isXaiCapacityError, remapXaiCapacityFailure } from "dsh-coding-oauth-core/grok-errors";
 //# sourceMappingURL=grok-errors.d.ts.map
