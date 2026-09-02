@@ -1,0 +1,1 @@
+{"version":3,"file":"net.d.ts","sourceRoot":"","sources":["../../../src/grok-imagine/net.ts"],"names":[],"mappings":"AAAA;;;GAGG;AA+GH,uGAAuG;AACvG,wBAAgB,WAAW,CAAC,OAAO,EAAE,MAAM,GAAG,OAAO,CAWpD;AAED,wBAAgB,iBAAiB,CAAC,QAAQ,EAAE,MAAM,GAAG,MAAM,CAE1D;AAED,wBAAgB,iBAAiB,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAU3D;AAED,wBAAgB,wBAAwB,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAElE"}
