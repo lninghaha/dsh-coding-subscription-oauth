@@ -139,4 +139,4 @@ Hub 与本独立 participant 精确依赖同一个 `dsh-coding-oauth-core@0.1.1`
 
 ### 共享运行时抽取（第一刀）
 
-Hub 的 vendored core 已收录此前两边重复的四个纯辅助模块：`http-json`、`grok-errors`、`kimi-errors`、`gateway-protocol`。在下一版**已发布**的 `dsh-coding-oauth-core` 吸收该切片之前，本包在 `vendor/runtime-slice/` 保留字节级镜像（构建副本在 `src/runtime/`，历史路径 `src/*.ts` 为薄 re-export）。`pnpm run assert:runtime-slice` 会与 Hub 的 `vendor/dsh-coding-oauth-core/src` 做哈希比对。该 core 发版后，Subscription 将删除本地镜像并直接从 npm core 导入。
+Hub 的 vendored core 已收录此前两边重复的四个纯辅助模块：`http-json`、`grok-errors`、`kimi-errors`、`gateway-protocol`。在下一版**已发布**的 `dsh-coding-oauth-core` 吸收该切片之前，本包在 `vendor/runtime-slice/` 保留字节级镜像（构建副本在 `src/runtime/`，历史路径 `src/*.ts` 为薄 re-export）。`pnpm run assert:runtime-slice` 会校验 `vendor/runtime-slice` ↔ `src/runtime` ↔ `SYNC_HASHES.json`；若本机有 Hub 检出则再与 Hub 的 `vendor/dsh-coding-oauth-core/src` 比对。该 core 发版后，Subscription 将删除本地镜像并直接从 npm core 导入。
