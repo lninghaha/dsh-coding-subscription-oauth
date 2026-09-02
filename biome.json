@@ -4,6 +4,7 @@
 		"includes": [
 			"src/**/*.ts",
 			"src/**/*.tsx",
+			"vendor/runtime-slice/**/*.ts",
 			"build/**/*.mjs",
 			"tests/**/*.ts",
 			"scripts/**/*.mjs",

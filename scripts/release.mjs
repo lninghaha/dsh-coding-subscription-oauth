@@ -141,6 +141,7 @@ if (process.platform !== "win32" && typeof packedBin?.mode === "number" && (pack
 const forbiddenFragments = [
 	"docs/local",
 	"reference/",
+	"src/",
 	".env",
 	".secrets",
 	"package-lock.json",

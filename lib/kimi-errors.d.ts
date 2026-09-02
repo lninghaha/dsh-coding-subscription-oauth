@@ -1,13 +1,3 @@
-/**
- * Kimi Code error remapping.
- * @module dsh-coding-subscription-oauth/kimi-errors
- */
-export declare function isMisclassifiedContextWindowError(detail: string): boolean;
-export declare function remapAuthFailureIfContextOverflow(failure: {
-    message: string;
-    code: string;
-}): {
-    message: string;
-    code: string;
-};
+/** Compatibility facade — implementation lives in `src/runtime/` (mirrored from Hub vendor core). */
+export { isMisclassifiedContextWindowError, remapAuthFailureIfContextOverflow, } from "./runtime/kimi-errors.js";
 //# sourceMappingURL=kimi-errors.d.ts.map

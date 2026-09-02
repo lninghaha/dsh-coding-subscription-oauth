@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.4 · ранее `dsh-grok-build`
+**v0.6.5 · ранее `dsh-grok-build`
 
 **Плагин OAuth для подписок на кодинг для [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Войдите один раз по уже оплаченным подпискам — и используйте их модели из страницы настроек или CLI dsh. **Никаких вставленных токенов в чат.**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.1` with `undici@7.29.0` is their shared runtime pin, not a separate DSH plugin.
+> **Обновление:** Следуйте пошаговым инструкциям по версиям в [`INSTALL.md`](INSTALL.md). `0.6.5` сохраняет общий runtime диспетчера на `dsh-coding-oauth-core@0.1.1` и `undici@7.29.0` и ограничивает reveal/rotate ключа Gateway доступом loopback; миграция конфигурации, учётных данных, данных или маршрутов не требуется. Grok Imagine сохраняет явно закреплённый dispatcher. Релизы начиная с `0.6.2` включают строгое исправление запуска Cordis-инъекции и поддержку DSH `0.1.1-rc.2`; сохраните файлы profile/config/учётных данных и перезапустите существующий процесс DSH Web только один раз после обновления. При совместном использовании Hub и Subscription `dsh-coding-oauth-core@0.1.1` с `undici@7.29.0` — их общий runtime-pin, а не отдельный плагин DSH.
 
 ---
 
@@ -28,7 +28,7 @@
 | | Используйте | По-прежнему работает |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (тот же `main`) |
-| npm | `dsh-coding-subscription-oauth@0.6.4` (текущая версия) | Старого npm-пакета не было |
+| npm | `dsh-coding-subscription-oauth@0.6.5` (текущая версия) | Старого npm-пакета не было |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | без изменений |
 | HTTP API страницы настроек | `/plugins/dsh-grok-build/*` | без изменений |
@@ -77,7 +77,7 @@
 
 ```bash
 # 1. установите текущую npm-версию в web-профиль
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.5
 
 # 2. опционально — Google Antigravity (зафиксированная проверенная версия)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ```bash
 # текущая npm-версия (рекомендуется)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.5
 
 # разработка/альтернатива: из GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

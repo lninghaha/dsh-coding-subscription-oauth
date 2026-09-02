@@ -35,6 +35,5 @@ ccr/
 # local-only fault-investigation probe (never commit)
 scripts/probe-proxy-interception.mjs
 
-# Cloud-agent local instructions (personal environment injects this file;
-# never sync to the public repository)
-AGENTS.md
+# Cloud-agent personal overlays stay local; tracked AGENTS.md is the
+# public project rule set (same as dsh-hub-oauth-gateway).

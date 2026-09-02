@@ -4,6 +4,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { OwnerRequestDecision } from "dsh-coding-oauth-core";
 import type { CodingOAuthGatewayController } from "./gateway.ts";
 import { assertGatewayPort } from "./gateway-config.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
@@ -13,6 +14,19 @@ import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerRequestPolicy } from "./web-or
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export { GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH } from "./ids.ts";
+
+function authorizeGatewayControl(req: IncomingMessage, ownerRequestPolicy: OwnerRequestPolicy): OwnerRequestDecision {
+	return ownerRequestPolicy.authorize(req);
+}
+
+function authorizeGatewaySecret(req: IncomingMessage, ownerRequestPolicy: OwnerRequestPolicy): OwnerRequestDecision {
+	const decision = ownerRequestPolicy.authorize(req);
+	if (!decision.authorized) return decision;
+	if (decision.accessMode !== "loopback") {
+		return { authorized: false, reason: "loopback-only" };
+	}
+	return decision;
+}
 
 export interface GatewayRouteContext {
 	readonly webServer: {
@@ -60,7 +74,7 @@ async function handleGatewaySettings(
 	controller: CodingOAuthGatewayController,
 	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!ownerRequestPolicy.authorize(req).authorized) {
+	if (!authorizeGatewayControl(req, ownerRequestPolicy).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -111,7 +125,7 @@ async function handleGatewayReveal(
 	controller: CodingOAuthGatewayController,
 	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!ownerRequestPolicy.authorize(req).authorized) {
+	if (!authorizeGatewaySecret(req, ownerRequestPolicy).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}
@@ -132,7 +146,7 @@ async function handleGatewayRotate(
 	controller: CodingOAuthGatewayController,
 	ownerRequestPolicy: OwnerRequestPolicy,
 ): Promise<void> {
-	if (!ownerRequestPolicy.authorize(req).authorized) {
+	if (!authorizeGatewaySecret(req, ownerRequestPolicy).authorized) {
 		json(res, 403, { error: "forbidden" });
 		return;
 	}

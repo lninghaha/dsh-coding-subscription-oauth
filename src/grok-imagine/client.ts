@@ -1,0 +1,1103 @@
+/**
+ * Grok Imagine pinned transport and official API client.
+ * Prefer the facade `../grok-imagine.ts` for public imports.
+ */
+
+import { Buffer } from "node:buffer";
+import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
+import {
+	assertTrustedImagineAuthz,
+	imagineMediaPath,
+	type MediaStore,
+	type MediaStoreVideoType,
+	type TrustedImagineAuthz,
+} from "../media-store.ts";
+import { isAllowlistedImagineHost, isBlockedHostname, isBlockedIp, normalizeHostname } from "./net.ts";
+import {
+	detectImageMediaType,
+	detectVideoMediaType,
+	grokImagineVideoStatusPath,
+	imagineImageDownloadHeaders,
+	imagineImagePath,
+	isRecord,
+	isSafeImagineAttachmentId,
+	parseVideoRequestId,
+	redactImagineMessage,
+} from "./parse.ts";
+import {
+	DEFAULT_API_JSON_MAX_BYTES,
+	DEFAULT_API_TIMEOUT_MS,
+	DEFAULT_IMAGE_DOWNLOAD_MAX_BYTES,
+	DEFAULT_IMAGE_DOWNLOAD_TIMEOUT_MS,
+	DEFAULT_MAX_REDIRECTS,
+	DEFAULT_VIDEO_DOWNLOAD_TIMEOUT_MS,
+	type GenerateImagineImageInput,
+	GROK_IMAGINE_IMAGE_MODEL,
+	GROK_IMAGINE_IMAGE_PATH,
+	GROK_IMAGINE_VIDEO_MODEL,
+	GROK_IMAGINE_VIDEO_START_PATH,
+	type GrokImagineClientOptions,
+	GrokImagineError,
+	IMAGE_ASPECT_SET,
+	IMAGE_RESOLUTION_SET,
+	IMAGINE_IMAGE_MAX_N,
+	IMAGINE_PROMPT_MAX_LENGTH,
+	IMAGINE_VIDEO_MAX_DURATION_SECONDS,
+	IMAGINE_VIDEO_MIN_DURATION_SECONDS,
+	type ImagineApiKeyResolver,
+	type ImagineAttachmentStore,
+	type ImagineDnsLookup,
+	type ImagineDownloader,
+	type ImagineDownloadResult,
+	type ImagineFetch,
+	type ImagineImageAttachmentRef,
+	type ImagineImageDownloadView,
+	type ImagineImageMediaType,
+	type ImagineImageResult,
+	type ImagineMediaTransport,
+	type ImagineOperation,
+	type ImaginePersistedImage,
+	type ImagineVideoJobStatus,
+	type ImagineVideoStartResult,
+	type ImagineVideoStatusResult,
+	MAX_CACHED_VIDEO_JOBS,
+	type StartImagineVideoInput,
+	VIDEO_ASPECT_SET,
+	VIDEO_REQUEST_ID_PATTERN,
+	VIDEO_RESOLUTION_SET,
+	XAI_API_ORIGIN,
+} from "./types.ts";
+
+function parseContentType(value: string | null | undefined): string | undefined {
+	if (value === null || value === undefined || value.trim() === "") return undefined;
+	return value.split(";", 1)[0]?.trim().toLowerCase();
+}
+
+export async function defaultImagineLookup(hostname: string): Promise<readonly string[]> {
+	const records = await dnsLookup(hostname, { all: true, verbatim: true });
+	return records.map((record) => record.address);
+}
+
+export async function assertSafeRemoteMediaUrl(raw: string, lookup: ImagineDnsLookup): Promise<URL> {
+	let url: URL;
+	try {
+		url = new URL(raw);
+	} catch {
+		throw new GrokImagineError("SSRF", "generated media URL is not a valid absolute URL");
+	}
+	if (url.protocol !== "https:") {
+		throw new GrokImagineError("SSRF", "generated media URL must be HTTPS");
+	}
+	if (url.username !== "" || url.password !== "") {
+		throw new GrokImagineError("SSRF", "generated media URL must not include credentials");
+	}
+	if (url.port !== "" && url.port !== "443") {
+		throw new GrokImagineError("SSRF", "generated media URL must use port 443");
+	}
+	const host = normalizeHostname(url.hostname);
+	if (host === "" || isBlockedHostname(host) || isIP(host) !== 0) {
+		throw new GrokImagineError("SSRF", "generated media host is not allowed");
+	}
+	if (!isAllowlistedImagineHost(host)) {
+		throw new GrokImagineError("SSRF", "generated media host is not an allowlisted xAI output host");
+	}
+	const addresses = [...(await lookup(host))];
+	if (addresses.length === 0) {
+		throw new GrokImagineError("SSRF", "generated media host did not resolve");
+	}
+	for (const address of addresses) {
+		if (isBlockedIp(address)) {
+			throw new GrokImagineError("SSRF", "generated media host resolved to a blocked address");
+		}
+	}
+	return url;
+}
+
+async function resolvePublicAddresses(hostname: string, lookup: ImagineDnsLookup): Promise<readonly string[]> {
+	const host = normalizeHostname(hostname);
+	if (host === "" || isBlockedHostname(host) || isIP(host) !== 0) {
+		throw new GrokImagineError("SSRF", "host is not allowed");
+	}
+	const addresses = [...(await lookup(host))];
+	if (addresses.length === 0) throw new GrokImagineError("SSRF", "host did not resolve");
+	for (const address of addresses) {
+		if (isBlockedIp(address)) throw new GrokImagineError("SSRF", "host resolved to a blocked address");
+	}
+	return addresses;
+}
+
+function createPinnedAgent(hostname: string, addresses: readonly string[]): Agent {
+	const expected = normalizeHostname(hostname);
+	const records = addresses.map((address) => {
+		const family = isIP(address);
+		if (family !== 4 && family !== 6) {
+			throw new GrokImagineError("SSRF", "pinned address is not a valid IP");
+		}
+		return { address, family };
+	});
+	const lookup = (
+		host: string,
+		options: { all?: boolean },
+		callback: (error: Error | null, address?: unknown, family?: number) => void,
+	): void => {
+		if (normalizeHostname(host) !== expected) {
+			callback(new GrokImagineError("SSRF", "refusing DNS lookup for an unpinned host"));
+			return;
+		}
+		if (options.all === true) {
+			callback(
+				null,
+				records.map((record) => ({ address: record.address, family: record.family })),
+			);
+			return;
+		}
+		const first = records[0];
+		if (first === undefined) {
+			callback(new GrokImagineError("SSRF", "no pinned addresses"));
+			return;
+		}
+		callback(null, first.address, first.family);
+	};
+	return new Agent({
+		connect: {
+			autoSelectFamily: false,
+			// undici's lookup typing is the single-address Node overload; we also
+			// handle { all: true } at runtime so Happy Eyeballs cannot re-query DNS.
+			lookup: lookup as never,
+		},
+	});
+}
+
+interface LimitedBodyReader {
+	read(): Promise<{ done: boolean; value?: Uint8Array }>;
+	cancel(): Promise<unknown>;
+}
+
+interface LimitedBodyResponse {
+	readonly status: number;
+	readonly headers: { get(name: string): string | null };
+	readonly body: unknown | null;
+	arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+async function readLimitedBody(
+	response: LimitedBodyResponse,
+	maxBytes: number,
+	signal?: AbortSignal,
+): Promise<Uint8Array> {
+	const throwIfAborted = (): void => {
+		if (signal?.aborted === true) {
+			throw new GrokImagineError("TIMEOUT", "Imagine response body read was aborted", { cause: signal.reason });
+		}
+	};
+	throwIfAborted();
+	const declared = Number(response.headers.get("content-length"));
+	if (Number.isFinite(declared) && declared > maxBytes) {
+		throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
+	}
+	if (response.body === null) {
+		const buffer = new Uint8Array(await response.arrayBuffer());
+		throwIfAborted();
+		if (buffer.byteLength > maxBytes) {
+			throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
+		}
+		return buffer;
+	}
+	if (
+		typeof response.body !== "object" ||
+		response.body === null ||
+		!("getReader" in response.body) ||
+		typeof response.body.getReader !== "function"
+	) {
+		throw new GrokImagineError("MEDIA", "remote body is not a readable byte stream");
+	}
+	const reader = response.body.getReader() as LimitedBodyReader;
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	const onAbort = (): void => {
+		void reader.cancel().catch(() => undefined);
+	};
+	if (signal?.aborted === true) onAbort();
+	else signal?.addEventListener("abort", onAbort, { once: true });
+	try {
+		while (true) {
+			throwIfAborted();
+			const { done, value } = await reader.read();
+			throwIfAborted();
+			if (done) break;
+			if (value === undefined) continue;
+			size += value.byteLength;
+			if (size > maxBytes) {
+				await reader.cancel().catch(() => undefined);
+				throw new GrokImagineError("MEDIA", `remote body exceeds the ${maxBytes} byte ceiling`);
+			}
+			chunks.push(value);
+		}
+	} finally {
+		signal?.removeEventListener("abort", onAbort);
+	}
+	const out = new Uint8Array(size);
+	let offset = 0;
+	for (const chunk of chunks) {
+		out.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return out;
+}
+
+function requestSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+	const timeout = AbortSignal.timeout(timeoutMs);
+	return signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
+}
+
+function mapUpstreamStatus(status: number, bodyText: string): GrokImagineError {
+	const detail = redactImagineMessage(bodyText.trim().slice(0, 300));
+	if (status === 401) {
+		return new GrokImagineError("AUTH", `xAI rejected the Imagine API key${detail === "" ? "" : `: ${detail}`}`, {
+			status,
+		});
+	}
+	if (status === 403) {
+		const message = `current xAI credentials cannot use Imagine${detail === "" ? "" : `: ${detail}`}`;
+		return new GrokImagineError("QUOTA", message, { status });
+	}
+	if (status === 429) {
+		const message = `xAI Imagine rate-limited the request${detail === "" ? "" : `: ${detail}`}`;
+		return new GrokImagineError("RATE_LIMIT", message, { status });
+	}
+	const message = `xAI Imagine request failed (${status})${detail === "" ? "" : `: ${detail}`}`;
+	return new GrokImagineError("UPSTREAM", message, { status });
+}
+
+export function createPinnedMediaTransport(lookup: ImagineDnsLookup = defaultImagineLookup): ImagineMediaTransport {
+	return {
+		async get(url, request) {
+			const validated = await assertSafeRemoteMediaUrl(url.href, lookup);
+			const addresses = await resolvePublicAddresses(validated.hostname, lookup);
+			const agent = createPinnedAgent(validated.hostname, addresses);
+			const signal = requestSignal(request.signal, request.timeoutMs);
+			try {
+				const response = await undiciFetch(validated, {
+					method: "GET",
+					redirect: "manual",
+					dispatcher: agent,
+					signal,
+					headers: { accept: request.accept },
+				});
+				if (response.status >= 300 && response.status < 400) {
+					const location = response.headers.get("location");
+					return location === null || location.trim() === ""
+						? { status: response.status }
+						: { status: response.status, location };
+				}
+				if (!response.ok) {
+					const text = new TextDecoder().decode(await readLimitedBody(response, 4096, signal));
+					throw mapUpstreamStatus(response.status, text);
+				}
+				const data = await readLimitedBody(response, request.maxBytes, signal);
+				const contentType = parseContentType(response.headers.get("content-type"));
+				if (contentType === undefined) return { status: response.status, data };
+				return { status: response.status, contentType, data };
+			} catch (error) {
+				if (error instanceof GrokImagineError) throw error;
+				const name = error instanceof Error ? error.name : "";
+				if (name === "TimeoutError" || name === "AbortError") {
+					throw new GrokImagineError("TIMEOUT", "Imagine media download timed out", { cause: error });
+				}
+				throw new GrokImagineError("MEDIA", `Imagine media download failed (${redactImagineMessage(error)})`, {
+					cause: error,
+				});
+			} finally {
+				await agent.close().catch(() => undefined);
+			}
+		},
+	};
+}
+
+export function createPinnedApiFetch(
+	lookup: ImagineDnsLookup = defaultImagineLookup,
+	maxBytes = DEFAULT_API_JSON_MAX_BYTES,
+): ImagineFetch {
+	return async (input, init) => {
+		const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : String(input));
+		if (url.origin !== XAI_API_ORIGIN || url.protocol !== "https:") {
+			throw new GrokImagineError("SSRF", "Imagine API URL escaped https://api.x.ai");
+		}
+		if (init?.body !== undefined && init.body !== null && typeof init.body !== "string") {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine API transport accepts only a JSON string body");
+		}
+		const addresses = await resolvePublicAddresses(url.hostname, lookup);
+		const agent = createPinnedAgent(url.hostname, addresses);
+		const signal = init?.signal ?? undefined;
+		try {
+			const requestHeaders = init?.headers === undefined ? undefined : Object.fromEntries(new Headers(init.headers));
+			const response = await undiciFetch(url, {
+				...(init?.method === undefined ? {} : { method: init.method }),
+				...(init?.body === undefined || init.body === null ? {} : { body: init.body }),
+				...(requestHeaders === undefined ? {} : { headers: requestHeaders }),
+				...(signal === undefined ? {} : { signal }),
+				dispatcher: agent,
+				redirect: "error",
+			});
+			const data = await readLimitedBody(response, maxBytes, signal);
+			const responseHeaders: Record<string, string> = {};
+			response.headers.forEach((value, key) => {
+				responseHeaders[key] = value;
+			});
+			return new Response(Uint8Array.from(data).buffer, {
+				status: response.status,
+				statusText: response.statusText,
+				headers: responseHeaders,
+			});
+		} catch (error) {
+			if (error instanceof GrokImagineError) throw error;
+			const name = error instanceof Error ? error.name : "";
+			if (name === "TimeoutError" || name === "AbortError") {
+				throw new GrokImagineError("TIMEOUT", "Imagine API request timed out", { cause: error });
+			}
+			throw new GrokImagineError("UPSTREAM", `Imagine API request failed (${redactImagineMessage(error)})`, {
+				cause: error,
+			});
+		} finally {
+			await agent.close().catch(() => undefined);
+		}
+	};
+}
+
+export async function downloadRemoteImagineMedia(
+	initialUrl: string,
+	transport: ImagineMediaTransport,
+	options: {
+		lookup: ImagineDnsLookup;
+		timeoutMs: number;
+		maxBytes: number;
+		accept: string;
+		maxRedirects: number;
+		signal?: AbortSignal;
+	},
+): Promise<ImagineDownloadResult> {
+	let current = initialUrl;
+	for (let hop = 0; hop <= options.maxRedirects; hop += 1) {
+		const url = await assertSafeRemoteMediaUrl(current, options.lookup);
+		const result = await transport.get(url, {
+			timeoutMs: options.timeoutMs,
+			maxBytes: options.maxBytes,
+			accept: options.accept,
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		});
+		if (result.status >= 300 && result.status < 400) {
+			if (result.location === undefined || result.location.trim() === "") {
+				throw new GrokImagineError("SSRF", "Imagine media redirect was missing a Location header");
+			}
+			try {
+				current = new URL(result.location, url).href;
+			} catch {
+				throw new GrokImagineError("SSRF", "Imagine media redirect Location is not a valid URL");
+			}
+			continue;
+		}
+		if (result.data === undefined) {
+			throw new GrokImagineError("MEDIA", "Imagine media download returned no body");
+		}
+		if (result.contentType === undefined) return { data: result.data };
+		return { data: result.data, contentType: result.contentType };
+	}
+	throw new GrokImagineError("SSRF", "Imagine media download exceeded the redirect limit");
+}
+
+export function createPinnedImagineDownloader(
+	options: { lookup?: ImagineDnsLookup; maxRedirects?: number } = {},
+): ImagineDownloader {
+	const lookup = options.lookup ?? defaultImagineLookup;
+	const transport = createPinnedMediaTransport(lookup);
+	const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+	return {
+		download: (request) =>
+			downloadRemoteImagineMedia(request.url, transport, {
+				lookup,
+				timeoutMs: request.timeoutMs,
+				maxBytes: request.maxBytes,
+				accept: request.accept,
+				maxRedirects,
+				...(request.signal === undefined ? {} : { signal: request.signal }),
+			}),
+	};
+}
+
+/**
+ * Test-only adapter around an injected fetch. Ordinary mock fetch is not
+ * production-safe: it cannot pin DNS at connect time.
+ */
+export function createImagineDownloaderFromFetch(
+	fetchImpl: ImagineFetch,
+	options: { trustedTestTransport: true; lookup?: ImagineDnsLookup; maxRedirects?: number },
+): ImagineDownloader {
+	if (options.trustedTestTransport !== true) {
+		throw new GrokImagineError("SSRF", "fetch-based media transport is not production-safe");
+	}
+	const lookup = options.lookup ?? defaultImagineLookup;
+	const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+	const transport: ImagineMediaTransport = {
+		async get(url, request) {
+			const signal = requestSignal(request.signal, request.timeoutMs);
+			try {
+				const response = await fetchImpl(url, {
+					method: "GET",
+					redirect: "manual",
+					signal,
+					headers: { accept: request.accept },
+				});
+				if (response.status >= 300 && response.status < 400) {
+					const location = response.headers.get("location");
+					return location === null || location.trim() === ""
+						? { status: response.status }
+						: { status: response.status, location };
+				}
+				if (!response.ok) {
+					const text = new TextDecoder().decode(await readLimitedBody(response, 4096, signal));
+					throw mapUpstreamStatus(response.status, text);
+				}
+				const data = await readLimitedBody(response, request.maxBytes, signal);
+				const contentType = parseContentType(response.headers.get("content-type"));
+				if (contentType === undefined) return { status: response.status, data };
+				return { status: response.status, contentType, data };
+			} catch (error) {
+				if (error instanceof GrokImagineError) throw error;
+				const name = error instanceof Error ? error.name : "";
+				if (name === "TimeoutError" || name === "AbortError") {
+					throw new GrokImagineError("TIMEOUT", "Imagine media download timed out", { cause: error });
+				}
+				throw new GrokImagineError("MEDIA", `Imagine media download failed (${redactImagineMessage(error)})`, {
+					cause: error,
+				});
+			}
+		},
+	};
+	return {
+		download: (request) =>
+			downloadRemoteImagineMedia(request.url, transport, {
+				lookup,
+				timeoutMs: request.timeoutMs,
+				maxBytes: request.maxBytes,
+				accept: request.accept,
+				maxRedirects,
+				...(request.signal === undefined ? {} : { signal: request.signal }),
+			}),
+	};
+}
+
+function requirePrompt(prompt: string | undefined): string {
+	if (typeof prompt !== "string" || prompt.trim() === "") {
+		throw new GrokImagineError("INVALID_INPUT", "prompt must be a non-empty string");
+	}
+	if (prompt.length > IMAGINE_PROMPT_MAX_LENGTH) {
+		throw new GrokImagineError(
+			"INVALID_INPUT",
+			`prompt must be ${String(IMAGINE_PROMPT_MAX_LENGTH)} characters or fewer (got ${String(prompt.length)})`,
+		);
+	}
+	return prompt;
+}
+
+/**
+ * Validate a tool-supplied Imagine video `requestId`. Returns the id unchanged
+ * on success or throws an `INVALID_INPUT` error. Exposed so capability tools
+ * fail closed at the boundary instead of dispatching a malformed id to the
+ * internal client.
+ */
+
+class ImagineAbortError extends Error {
+	readonly name = "ImagineAbortError";
+	constructor(reason?: unknown) {
+		super("Imagine operation aborted");
+		this.cause = reason;
+	}
+}
+
+function isImagineAbortError(error: unknown): error is ImagineAbortError {
+	return error instanceof ImagineAbortError;
+}
+
+/**
+ * Combine a caller-supplied external `AbortSignal` with the client's internal
+ * `AbortController` so a `dispose()` cancels in-flight API, download, and
+ * persistence work without leaving the operation running in the background.
+ */
+function composeSignals(
+	external: AbortSignal | undefined,
+	internal: AbortSignal,
+): { signal: AbortSignal; observe: () => void } {
+	return {
+		signal: external === undefined ? internal : AbortSignal.any([external, internal]),
+		// AbortSignal.any owns and releases its internal listeners; callers retain
+		// a uniform cleanup shape for runtimes that optimize this helper later.
+		observe: () => undefined,
+	};
+}
+
+function assertImagineSignalActive(signal: AbortSignal, operation: ImagineOperation): void {
+	if (signal.aborted) {
+		throw new GrokImagineError("TIMEOUT", `Imagine ${operation} was aborted before work started`, {
+			cause: signal.reason,
+		});
+	}
+}
+
+function requireApiKey(value: string | undefined, operation: ImagineOperation): string {
+	if (typeof value !== "string" || value.trim() === "") {
+		throw new GrokImagineError(
+			"MISSING_CREDENTIAL",
+			`xAI API key is missing for ${operation}. Grok Imagine does not fall back to OAuth.`,
+		);
+	}
+	return value;
+}
+
+function requireImageModel(model: string | undefined): string {
+	const value = model ?? GROK_IMAGINE_IMAGE_MODEL;
+	if (value !== GROK_IMAGINE_IMAGE_MODEL) {
+		throw new GrokImagineError("INVALID_INPUT", "image model is not an accepted Imagine model");
+	}
+	return value;
+}
+
+function requireVideoModel(model: string | undefined): string {
+	const value = model ?? GROK_IMAGINE_VIDEO_MODEL;
+	if (value !== GROK_IMAGINE_VIDEO_MODEL) {
+		throw new GrokImagineError("INVALID_INPUT", "video model is not an accepted Imagine model");
+	}
+	return value;
+}
+
+function optionalEnum(value: string | undefined, allowed: ReadonlySet<string>, label: string): string | undefined {
+	if (value === undefined) return undefined;
+	if (!allowed.has(value)) {
+		throw new GrokImagineError("INVALID_INPUT", `${label} is not an accepted Imagine value`);
+	}
+	return value;
+}
+
+function optionalDuration(value: number | undefined): number | undefined {
+	if (value === undefined) return undefined;
+	const min = IMAGINE_VIDEO_MIN_DURATION_SECONDS;
+	const max = IMAGINE_VIDEO_MAX_DURATION_SECONDS;
+	if (!Number.isSafeInteger(value) || value < min || value > max) {
+		throw new GrokImagineError("INVALID_INPUT", `duration must be an integer between ${min} and ${max}`);
+	}
+	return value;
+}
+
+function classifyOfficialVideoStatus(raw: unknown): ImagineVideoJobStatus {
+	if (raw === "pending") return "pending";
+	if (raw === "done") return "completed";
+	if (raw === "failed") return "failed";
+	throw new GrokImagineError("UPSTREAM", "Imagine video status is not an official value");
+}
+
+function officialVideoUrl(payload: Record<string, unknown>): string | undefined {
+	const video = isRecord(payload["video"]) ? payload["video"] : undefined;
+	const url = video?.["url"];
+	return typeof url === "string" && url.length > 0 ? url : undefined;
+}
+
+function officialVideoError(payload: Record<string, unknown>): string | undefined {
+	const error = isRecord(payload["error"]) ? payload["error"] : undefined;
+	const message = error?.["message"];
+	return typeof message === "string" && message.length > 0 ? redactImagineMessage(message) : undefined;
+}
+
+/**
+ * Strict base64 decoder. Node's decoder ignores some malformed characters and
+ * padding, so validate the alphabet and compare a canonical re-encoding. Both
+ * canonical padded input and canonical unpadded input are accepted.
+ */
+const BASE64_STRICT_RE = /^[A-Za-z0-9+/]+={0,2}$/u;
+function decodeBase64(value: string, maxBytes: number): Uint8Array {
+	if (typeof value !== "string" || value.length === 0) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json must be a non-empty string");
+	}
+	if (!BASE64_STRICT_RE.test(value)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json contains non-base64 characters");
+	}
+	const remainder = value.length % 4;
+	if (remainder === 1 || (value.includes("=") && remainder !== 0)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json has invalid padding");
+	}
+	const maxChars = Math.ceil(maxBytes / 3) * 4 + 4;
+	if (value.length > maxChars) {
+		throw new GrokImagineError("MEDIA", `Imagine image b64_json exceeds the ${maxBytes} byte ceiling`);
+	}
+	const decoded = Buffer.from(value, "base64");
+	if (decoded.byteLength === 0) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json decoded to an empty buffer");
+	}
+	const canonical = decoded.toString("base64");
+	const inputWithoutPadding = value.replace(/=+$/u, "");
+	if (canonical.replace(/=+$/u, "") !== inputWithoutPadding || (value.includes("=") && canonical !== value)) {
+		throw new GrokImagineError("UPSTREAM", "Imagine image b64_json is not canonical base64");
+	}
+	if (decoded.byteLength > maxBytes) {
+		throw new GrokImagineError("MEDIA", `Imagine image exceeds the ${maxBytes} byte ceiling`);
+	}
+	return Uint8Array.from(decoded);
+}
+
+function resolveImageMediaType(data: Uint8Array, declared: string | undefined): ImagineImageMediaType {
+	const detected = detectImageMediaType(data);
+	if (detected === undefined) {
+		throw new GrokImagineError("MEDIA", "downloaded Imagine image is not a supported raster");
+	}
+	if (
+		declared !== undefined &&
+		declared !== "application/octet-stream" &&
+		declared !== "binary/octet-stream" &&
+		declared !== detected
+	) {
+		throw new GrokImagineError("MEDIA", `Imagine image Content-Type ${declared} does not match its bytes`);
+	}
+	return detected;
+}
+
+function resolveVideoMediaType(data: Uint8Array, declared: string | undefined): MediaStoreVideoType {
+	const detected = detectVideoMediaType(data);
+	if (detected === undefined) {
+		throw new GrokImagineError("MEDIA", "downloaded Imagine video is not MP4 or WebM");
+	}
+	if (
+		declared !== undefined &&
+		declared !== "application/octet-stream" &&
+		declared !== "binary/octet-stream" &&
+		declared !== detected
+	) {
+		throw new GrokImagineError("MEDIA", `Imagine video Content-Type ${declared} does not match its bytes`);
+	}
+	return detected;
+}
+
+export class GrokImagineClient {
+	private readonly resolveApiKey: ImagineApiKeyResolver;
+	private readonly attachments: ImagineAttachmentStore;
+	private readonly media: MediaStore;
+	private readonly apiFetch: ImagineFetch;
+	private readonly downloader: ImagineDownloader;
+	private readonly imageDownloadTimeoutMs: number;
+	private readonly videoDownloadTimeoutMs: number;
+	private readonly apiTimeoutMs: number;
+	private readonly maxRedirects: number;
+	private readonly imageMaxBytes: number;
+	private readonly apiJsonMaxBytes: number;
+	private readonly videoResults = new Map<string, ImagineVideoStatusResult>();
+	private readonly videoInflight = new Map<string, Promise<ImagineVideoStatusResult>>();
+	private readonly disposeController = new AbortController();
+	private disposed = false;
+
+	constructor(options: GrokImagineClientOptions) {
+		this.resolveApiKey = options.resolveApiKey;
+		this.attachments = options.attachments;
+		this.media = options.media;
+		this.imageDownloadTimeoutMs = options.imageDownloadTimeoutMs ?? DEFAULT_IMAGE_DOWNLOAD_TIMEOUT_MS;
+		this.videoDownloadTimeoutMs = options.videoDownloadTimeoutMs ?? DEFAULT_VIDEO_DOWNLOAD_TIMEOUT_MS;
+		this.apiTimeoutMs = options.apiTimeoutMs ?? DEFAULT_API_TIMEOUT_MS;
+		this.maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+		this.imageMaxBytes =
+			options.imageMaxBytes ?? options.attachments.imageLimits?.maxImageBytes ?? DEFAULT_IMAGE_DOWNLOAD_MAX_BYTES;
+		this.apiJsonMaxBytes = options.apiJsonMaxBytes ?? DEFAULT_API_JSON_MAX_BYTES;
+		this.apiFetch = options.fetch ?? createPinnedApiFetch(defaultImagineLookup, this.apiJsonMaxBytes);
+		this.downloader = options.downloader ?? createPinnedImagineDownloader({ maxRedirects: this.maxRedirects });
+	}
+
+	/**
+	 * Permanently retire this client. In-flight API calls, downloads, and
+	 * media persistence operations are aborted; subsequent operations fail
+	 * closed with an `INVALID_INPUT` error until callers construct a new client.
+	 */
+	dispose(): void {
+		if (this.disposed) return;
+		this.disposed = true;
+		this.disposeController.abort(new ImagineAbortError("client disposed"));
+		for (const inflight of this.videoInflight.values()) {
+			inflight.catch(() => undefined);
+		}
+		this.videoInflight.clear();
+	}
+
+	/** @returns true once {@link dispose} has been called. */
+	get isDisposed(): boolean {
+		return this.disposed;
+	}
+
+	private assertWritable(operation: ImagineOperation): void {
+		if (this.disposed) {
+			throw new GrokImagineError(
+				"INVALID_INPUT",
+				`Imagine client was disposed before ${operation}; refusing to start new work`,
+			);
+		}
+	}
+
+	async generateImage(input: GenerateImagineImageInput, signal?: AbortSignal): Promise<ImagineImageResult> {
+		this.assertWritable("image.generate");
+		const { signal: external, observe } = composeSignals(signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "image.generate");
+			const prompt = requirePrompt(input.prompt);
+			const model = requireImageModel(input.model);
+			const n = input.n ?? 1;
+			if (!Number.isSafeInteger(n) || n < 1 || n > IMAGINE_IMAGE_MAX_N) {
+				throw new GrokImagineError("INVALID_INPUT", `n must be an integer between 1 and ${IMAGINE_IMAGE_MAX_N}`);
+			}
+			const aspectRatio = optionalEnum(input.aspectRatio, IMAGE_ASPECT_SET, "aspectRatio");
+			const resolution = optionalEnum(input.resolution, IMAGE_RESOLUTION_SET, "resolution");
+			const apiKey = requireApiKey(await this.resolveCredential("image.generate"), "image.generate");
+			const body: Record<string, unknown> = {
+				model,
+				prompt,
+				n,
+				response_format: "url",
+			};
+			if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
+			if (resolution !== undefined) body["resolution"] = resolution;
+			const payload = await this.apiJson("POST", GROK_IMAGINE_IMAGE_PATH, apiKey, body, external);
+			const rows = Array.isArray(payload["data"]) ? payload["data"] : undefined;
+			if (rows === undefined) {
+				throw new GrokImagineError("UPSTREAM", "Imagine image response did not include data");
+			}
+			const images: ImaginePersistedImage[] = [];
+			for (const row of rows) {
+				if (!isRecord(row)) {
+					throw new GrokImagineError("UPSTREAM", "Imagine image data row is not an object");
+				}
+				images.push(await this.persistGeneratedImage(row, input.name, external));
+			}
+			const first = images[0];
+			if (first === undefined) {
+				throw new GrokImagineError("UPSTREAM", "Imagine image response did not include any images");
+			}
+			return {
+				model,
+				images,
+				attachment: first.attachment,
+				path: first.path,
+			};
+		} finally {
+			observe();
+		}
+	}
+
+	async startVideo(input: StartImagineVideoInput, signal?: AbortSignal): Promise<ImagineVideoStartResult> {
+		this.assertWritable("video.start");
+		const { signal: external, observe } = composeSignals(signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "video.start");
+			const prompt = requirePrompt(input.prompt);
+			const model = requireVideoModel(input.model);
+			const duration = optionalDuration(input.duration);
+			const aspectRatio = optionalEnum(input.aspectRatio, VIDEO_ASPECT_SET, "aspectRatio");
+			const resolution = optionalEnum(input.resolution, VIDEO_RESOLUTION_SET, "resolution");
+			const apiKey = requireApiKey(await this.resolveCredential("video.start"), "video.start");
+			const body: Record<string, unknown> = { model, prompt };
+			if (duration !== undefined) body["duration"] = duration;
+			if (aspectRatio !== undefined) body["aspect_ratio"] = aspectRatio;
+			if (resolution !== undefined) body["resolution"] = resolution;
+			const payload = await this.apiJson("POST", GROK_IMAGINE_VIDEO_START_PATH, apiKey, body, external);
+			const requestId = payload["request_id"];
+			if (typeof requestId !== "string" || !VIDEO_REQUEST_ID_PATTERN.test(requestId)) {
+				throw new GrokImagineError("UPSTREAM", "Imagine video start did not return a safe request_id");
+			}
+			return { model, requestId, status: "pending" };
+		} finally {
+			observe();
+		}
+	}
+
+	async videoStatus(
+		requestId: string,
+		options: { name?: string; signal?: AbortSignal } = {},
+	): Promise<ImagineVideoStatusResult> {
+		const validated = parseVideoRequestId(requestId);
+		this.assertWritable("video.status");
+		const { signal: external, observe } = composeSignals(options.signal, this.disposeController.signal);
+		try {
+			assertImagineSignalActive(external, "video.status");
+		} catch (error) {
+			observe();
+			throw error;
+		}
+		const cached = this.videoResults.get(validated);
+		if (cached !== undefined && cached.status !== "pending") {
+			observe();
+			return cloneVideoStatus(cached);
+		}
+		const poll = (): Promise<ImagineVideoStatusResult> =>
+			this.pollVideo(validated, { ...options, signal: external }).catch((error: unknown) => {
+				if (isImagineAbortError(error)) {
+					throw new GrokImagineError("TIMEOUT", `video polling for ${validated} was aborted`, { cause: error });
+				}
+				throw error;
+			});
+		if (options.signal !== undefined) return poll().finally(observe);
+		const inflight = this.videoInflight.get(validated);
+		if (inflight !== undefined) {
+			observe();
+			return inflight;
+		}
+		const run = poll().finally(() => {
+			observe();
+			if (this.videoInflight.get(validated) === run) {
+				this.videoInflight.delete(validated);
+			}
+		});
+		this.videoInflight.set(validated, run);
+		return run;
+	}
+
+	private async pollVideo(
+		requestId: string,
+		options: { name?: string; signal?: AbortSignal },
+	): Promise<ImagineVideoStatusResult> {
+		const apiKey = requireApiKey(await this.resolveCredential("video.status"), "video.status");
+		const payload = await this.apiJson("GET", grokImagineVideoStatusPath(requestId), apiKey, undefined, options.signal);
+		const status = classifyOfficialVideoStatus(payload["status"]);
+		if (status === "pending") return { requestId, status };
+		if (status === "failed") {
+			const result: ImagineVideoStatusResult = { requestId, status };
+			const error = officialVideoError(payload);
+			if (error !== undefined) result.error = error;
+			this.rememberVideo(requestId, result);
+			return result;
+		}
+		const video = isRecord(payload["video"]) ? payload["video"] : undefined;
+		if (video?.["respect_moderation"] === false) {
+			const result: ImagineVideoStatusResult = {
+				requestId,
+				status: "failed",
+				error: "video did not respect moderation rules",
+			};
+			this.rememberVideo(requestId, result);
+			return result;
+		}
+		const url = officialVideoUrl(payload);
+		if (url === undefined) {
+			throw new GrokImagineError("UPSTREAM", "completed Imagine video did not include a downloadable URL");
+		}
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed before video artifact save");
+		}
+		const downloaded = await this.downloader.download({
+			url,
+			timeoutMs: this.videoDownloadTimeoutMs,
+			maxBytes: this.media.maxBytes,
+			accept: "video/mp4,video/webm",
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		});
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed after video download");
+		}
+		const mediaType = resolveVideoMediaType(downloaded.data, downloaded.contentType);
+		const operationAborted = (): boolean => options.signal?.aborted === true || this.disposed;
+		if (operationAborted()) {
+			throw new GrokImagineError("TIMEOUT", "Imagine video persistence was aborted", {
+				cause: options.signal?.reason,
+			});
+		}
+		const artifact = await this.media.save({
+			data: downloaded.data,
+			mediaType,
+			...(options.name === undefined ? {} : { name: options.name }),
+		});
+		if (operationAborted()) {
+			await this.media.delete(artifact.artifactId).catch(() => undefined);
+			throw new GrokImagineError("TIMEOUT", "Imagine video persistence was aborted", {
+				cause: options.signal?.reason,
+			});
+		}
+		const result: ImagineVideoStatusResult = {
+			requestId,
+			status: "completed",
+			artifact,
+			path: imagineMediaPath(artifact.artifactId),
+		};
+		this.rememberVideo(requestId, result);
+		return result;
+	}
+
+	private rememberVideo(requestId: string, result: ImagineVideoStatusResult): void {
+		this.videoResults.set(requestId, result);
+		if (this.videoResults.size <= MAX_CACHED_VIDEO_JOBS) return;
+		const oldest = this.videoResults.keys().next().value;
+		if (oldest !== undefined) this.videoResults.delete(oldest);
+	}
+
+	private async persistGeneratedImage(
+		row: Record<string, unknown>,
+		name: string | undefined,
+		signal: AbortSignal,
+	): Promise<ImaginePersistedImage> {
+		const b64 = typeof row["b64_json"] === "string" ? row["b64_json"] : undefined;
+		const url = typeof row["url"] === "string" ? row["url"] : undefined;
+		const declaredMime = typeof row["mime_type"] === "string" ? parseContentType(row["mime_type"]) : undefined;
+		let data: Uint8Array;
+		let declared = declaredMime;
+		if (b64 !== undefined) {
+			data = decodeBase64(b64, this.imageMaxBytes);
+		} else {
+			if (url === undefined) {
+				throw new GrokImagineError("UPSTREAM", "Imagine image row did not include url or b64_json");
+			}
+			if (signal.aborted) {
+				throw new GrokImagineError("TIMEOUT", "image download aborted before request", { cause: signal.reason });
+			}
+			const downloaded = await this.downloader.download({
+				url,
+				timeoutMs: this.imageDownloadTimeoutMs,
+				maxBytes: this.imageMaxBytes,
+				accept: "image/png,image/jpeg,image/webp,image/gif",
+				signal,
+			});
+			data = downloaded.data;
+			declared = downloaded.contentType ?? declared;
+		}
+		if (signal.aborted) {
+			throw new GrokImagineError("TIMEOUT", "image download aborted before persistence", { cause: signal.reason });
+		}
+		if (data.byteLength > this.imageMaxBytes) {
+			throw new GrokImagineError("MEDIA", `Imagine image exceeds the ${this.imageMaxBytes} byte ceiling`);
+		}
+		const mediaType = resolveImageMediaType(data, declared);
+		const allowed = this.attachments.imageLimits?.mediaTypes;
+		if (allowed !== undefined && !allowed.includes(mediaType)) {
+			throw new GrokImagineError("MEDIA", `Imagine image type ${mediaType} is not accepted by the attachment store`);
+		}
+		if (this.disposed) {
+			throw new GrokImagineError("INVALID_INPUT", "Imagine client was disposed before attachment persist");
+		}
+		const attachment = await this.attachments.saveImage({
+			data,
+			mediaType,
+			...(name === undefined ? {} : { name }),
+		});
+		if (signal.aborted || this.disposed) {
+			// AttachmentStore exposes no delete/cancellation seam; fail closed and do
+			// not publish the now-orphaned immutable reference.
+			throw new GrokImagineError("TIMEOUT", "Imagine attachment persistence was aborted", {
+				cause: signal.reason,
+			});
+		}
+		if (!isSafeImagineAttachmentId(attachment.attachmentId)) {
+			throw new GrokImagineError("MEDIA", "attachment store returned an unsafe identifier");
+		}
+		return {
+			attachment,
+			path: imagineImagePath(attachment.attachmentId),
+		};
+	}
+
+	private async resolveCredential(operation: ImagineOperation): Promise<string> {
+		try {
+			return await this.resolveApiKey(operation);
+		} catch (error) {
+			if (error instanceof GrokImagineError) throw error;
+			const detail = redactImagineMessage(error);
+			throw new GrokImagineError(
+				"MISSING_CREDENTIAL",
+				`xAI API key resolver failed for ${operation} (${detail}). Grok Imagine does not fall back to OAuth.`,
+				{ cause: error },
+			);
+		}
+	}
+
+	private async apiJson(
+		method: "GET" | "POST",
+		path: string,
+		apiKey: string,
+		body: Record<string, unknown> | undefined,
+		signal?: AbortSignal,
+	): Promise<Record<string, unknown>> {
+		const url = new URL(path, XAI_API_ORIGIN);
+		if (url.origin !== XAI_API_ORIGIN) {
+			throw new GrokImagineError("SSRF", "Imagine API URL escaped https://api.x.ai");
+		}
+		const headers: Record<string, string> = {
+			Authorization: `Bearer ${apiKey}`,
+			Accept: "application/json",
+		};
+		const composed = AbortSignal.any(
+			signal === undefined
+				? [AbortSignal.timeout(this.apiTimeoutMs), this.disposeController.signal]
+				: [signal, AbortSignal.timeout(this.apiTimeoutMs), this.disposeController.signal],
+		);
+		const init: RequestInit = {
+			method,
+			headers,
+			redirect: "error",
+			signal: composed,
+		};
+		if (body !== undefined) {
+			headers["Content-Type"] = "application/json";
+			init.body = JSON.stringify(body);
+		}
+		let response: Response;
+		try {
+			response = await this.apiFetch(url, init);
+			if (composed.aborted) {
+				throw new GrokImagineError("TIMEOUT", "Imagine API request was aborted", { cause: composed.reason });
+			}
+		} catch (error) {
+			if (error instanceof GrokImagineError) throw error;
+			const name = error instanceof Error ? error.name : "";
+			if (name === "TimeoutError" || name === "AbortError" || signal?.aborted === true) {
+				throw new GrokImagineError("TIMEOUT", "Imagine API request was aborted", { cause: error });
+			}
+			throw new GrokImagineError("UPSTREAM", `Imagine API request failed (${redactImagineMessage(error)})`, {
+				cause: error,
+			});
+		}
+		const bytes = await readLimitedBody(response, this.apiJsonMaxBytes, composed);
+		const text = new TextDecoder().decode(bytes);
+		if (!response.ok) throw mapUpstreamStatus(response.status, text);
+		if (text.trim() === "") return {};
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(text);
+		} catch (error) {
+			throw new GrokImagineError("UPSTREAM", "Imagine API returned non-JSON", { cause: error });
+		}
+		if (!isRecord(parsed)) throw new GrokImagineError("UPSTREAM", "Imagine API returned a non-object JSON body");
+		return parsed;
+	}
+}
+
+function cloneVideoStatus(result: ImagineVideoStatusResult): ImagineVideoStatusResult {
+	const clone: ImagineVideoStatusResult = { requestId: result.requestId, status: result.status };
+	if (result.artifact !== undefined) clone.artifact = { ...result.artifact };
+	if (result.path !== undefined) clone.path = result.path;
+	if (result.error !== undefined) clone.error = result.error;
+	return clone;
+}
+
+export function createGrokImagineClient(options: GrokImagineClientOptions): GrokImagineClient {
+	return new GrokImagineClient(options);
+}
+
+/** Gate a same-origin image download. Requires an explicit trusted/authz token. */
+export async function openTrustedImagineImageDownload(
+	attachments: ImagineAttachmentStore,
+	ref: ImagineImageAttachmentRef,
+	authz: TrustedImagineAuthz,
+): Promise<ImagineImageDownloadView> {
+	assertTrustedImagineAuthz(authz);
+	if (!isSafeImagineAttachmentId(ref.attachmentId)) {
+		throw new GrokImagineError("INVALID_INPUT", "attachment id is not safe for a same-origin image route");
+	}
+	if (attachments.readImage === undefined) {
+		throw new GrokImagineError("MEDIA", "attachment store does not expose readImage");
+	}
+	const stored = await attachments.readImage(ref);
+	return {
+		ref: stored.ref,
+		body: stored.data,
+		headers: imagineImageDownloadHeaders(stored.ref),
+	};
+}

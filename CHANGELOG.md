@@ -4,6 +4,31 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Changed
+
+- Mirror Hub’s first shared-runtime extract (`http-json`, `grok-errors`, `kimi-errors`, `gateway-protocol`) under `vendor/runtime-slice/` with build copies in `src/runtime/` and thin facades at the historical module paths. Add `pnpm run assert:runtime-slice` with `SYNC_HASHES.json` so isolated CI can verify the mirror without a Hub checkout; when Hub is present the script also compares live Hub files.
+
+### Documentation
+
+- Document the temporary runtime-slice mirror and the planned drop after the next core npm release in `docs/02-architecture.md` / `docs/02-architecture.zh-CN.md`.
+
+## v0.6.5 - 2026-09-02
+
+### Fixed
+
+- Restrict gateway key reveal/rotate to `accessMode === "loopback"`, matching the Settings UI which already hides those controls on ssh-tunnel and trusted-https-proxy.
+
+### Changed
+
+- Stop shipping `src/` in the npm `files` allowlist. Runtime remains the generated `lib/` bundle.
+- Add `.nvmrc`, `pnpm run assert:node`, `release:inspect`, and `release:publish`. Cloud Agent verification is `pnpm run check` with optional Docker.
+
+### Documentation
+
+- Add `AGENTS.md` (cloud environment as the primary path; Docker optional; isolated `DSH_HOME`; operator-only npm publish).
+- Align `CONTRIBUTING.md` and `docs/00-project-rules.md` so contributors are not Docker-only; Cursor Cloud / isolated `DSH_HOME` is the primary verification path.
+- Localize community README upgrade banners (ja/ko/pt-BR/es/fr/de/ru) so they are not English-only under bilingual headings, keeping Cordis fix in `0.6.2+` and DSH `0.1.1-rc.2` facts accurate.
+
 ## v0.6.4 - 2026-08-29
 
 - Pin Subscription, its shared core dependency, and both production/development dispatcher dependencies to `undici@7.29.0` with `dsh-coding-oauth-core@0.1.1`, preventing a co-installed Undici major split while preserving the proxy-store ABI and Grok Imagine's explicit pinned dispatcher.
