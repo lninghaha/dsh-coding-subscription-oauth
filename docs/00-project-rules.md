@@ -48,13 +48,14 @@ Every document in the repo belongs to one of two layers, and the two never mix:
 
 | Layer | Location | In git / npm? | Examples | Requirements |
 |---|---|---|---|---|
-| **Publishable (public)** | Repo root: `README.md` + `README.zh-CN.md` + other community-language READMEs, `CONTRIBUTING.md`, `INSTALL.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, and explicitly promoted generic `docs/` files (this rules doc, `docs/02-architecture.md` + `docs/02-architecture.zh-CN.md`) | ✅ git, shipped via `files` | architecture, install/usage, route table, compliance notes, contribution & release rules | privacy-free: no host aliases, accounts, credentials, absolute paths; external-facing tone |
+| **Publishable (public)** | Repo root: `README.md` + `README.zh-CN.md` + other community-language READMEs, `CONTRIBUTING.md`, `INSTALL.md`, `CHANGELOG.md`, `LICENSE`, `NOTICE`, and explicitly promoted generic `docs/` files (this rules doc, `docs/02-architecture.md` + `docs/02-architecture.zh-CN.md`, `docs/MIGRATION.md`, `docs/03-dsh-alpha-smoke.md`) | ✅ git; package `files` lists a subset | architecture, install/usage, route table, compliance notes, contribution & release rules | privacy-free: no host aliases, accounts, credentials, absolute paths; external-facing tone |
+| **Publishable research / ADR** | `docs/research/*` | ✅ git; **not** listed in package `files` | keep/drop decisions, protocol comparisons | privacy-free; reusable contributor guidance |
 | **Local-only (personal)** | `docs/local/` — investigation, risk and fault-analysis notes (e.g. `docs/local/01-research.md`, `docs/local/05-INVALID_REPLAY_STATE-调查.md`); `reference/` (vendored third-party source) | ❌ in `.gitignore`, never in `files` | concrete fault debugging, internal details, account-risk analysis | reference only; ignored by git by default |
 
 **Hard constraints**
 
 - `package.json` `files` whitelist contains **only** publishable docs; `docs/` must **not** be added wholesale — any doc shipped with the package is listed explicitly.
-- `.gitignore` keeps `docs/local/`, `docs/` and `reference/` ignored. To promote a doc into version control, explicitly `git add -f` after moving it to the root or adopting the naming convention in §2.
+- `.gitignore` keeps `docs/*` ignored except promoted paths (including `docs/research/`). To promote a new numbered doc, add a negation and update this table.
 - Before adding any doc, ask: *does an unrelated contributor need to see this?* Anything involving personal accounts, hosts, tokens, paths, regional-risk details or internal debugging goes to the local-only layer.
 
 ---

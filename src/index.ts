@@ -207,11 +207,22 @@ export {
 } from "./proxy.ts";
 export { redactProxyUrl, safeMessage } from "./redact.ts";
 export { GrokBuildSession } from "./session.ts";
+export type {
+	AccountId,
+	AccountRecord,
+	AccountSummary,
+	AuthDocumentV2,
+	LoginPersistMode,
+	LoginPersistOptions,
+} from "./store.ts";
 export {
 	GrokBuildCredentialStore,
 	grokBuildAuthPath,
+	isValidAccountId,
+	OAUTH_MAX_ACCOUNTS,
 	OAuthCredentialFileStore,
 	oauthCredentialPath,
+	resolveAccountIdForCredential,
 } from "./store.ts";
 export type { OwnerRequestPolicy, OwnerRequestPolicyConfig } from "./web-origin.ts";
 export {

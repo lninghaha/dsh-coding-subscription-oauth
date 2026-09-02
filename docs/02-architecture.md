@@ -118,7 +118,7 @@ The legacy `/plugins/dsh-grok-build/auth/*` endpoints remain registered and reus
 
 ## 5. Antigravity
 
-This project does not replicate the private Google Antigravity protocol. The profile separately installs `dsh-agy@0.1.2`, which provides the `agy` route. Because the `/agy` dashboard in that version includes an export API with no authentication of its own, trusted-host deployments should disable `dsh-agy-web` in the profile's final `cordis.patch.yml` (see `INSTALL.md`) and keep only the host adapter and CLI. The profile uses a pnpm patch with a lockfile hash: with no Google session, `listModels()` returns empty; after authentication the provider group name is `Google Antigravity (OAuth)`.
+This project does not replicate the private Google Antigravity protocol. The profile separately installs `dsh-agy@0.1.2`, which provides the `agy` route. Because the `/agy` dashboard in that version includes an export API with no authentication of its own, trusted-host deployments should disable `dsh-agy-web` in the profile's final `cordis.patch.yml` (see `INSTALL.md`) and keep only the host adapter and CLI. The profile uses a pnpm patch with a lockfile hash: with no Google session, `listModels()` returns empty; after authentication the provider group name is `Google Antigravity (OAuth)`. Decision to **keep** `patches/dsh-agy@0.1.2.patch` (upstream not absorbed as of 0.2.4): [`docs/research/adr-dsh-agy-patch.md`](research/adr-dsh-agy-patch.md).
 
 ## 6. Compatibility
 

@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Added
+
+- Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries). Accounts UI remains a follow-up.
+
 ### Changed
 
 - Mirror Hub’s first shared-runtime extract (`http-json`, `grok-errors`, `kimi-errors`, `gateway-protocol`) under `vendor/runtime-slice/` with build copies in `src/runtime/` and thin facades at the historical module paths. Add `pnpm run assert:runtime-slice` with `SYNC_HASHES.json` so isolated CI can verify the mirror without a Hub checkout; when Hub is present the script also compares live Hub files.
