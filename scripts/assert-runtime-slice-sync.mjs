@@ -39,9 +39,7 @@ async function resolveHubCoreSrc() {
 	}
 	candidates.push(resolve(ROOT, "../dsh-hub-oauth-gateway/vendor/dsh-coding-oauth-core/src"));
 	if (process.env.AGENT_REPOS_ROOT) {
-		candidates.push(
-			resolve(process.env.AGENT_REPOS_ROOT, "dsh-hub-oauth-gateway/vendor/dsh-coding-oauth-core/src"),
-		);
+		candidates.push(resolve(process.env.AGENT_REPOS_ROOT, "dsh-hub-oauth-gateway/vendor/dsh-coding-oauth-core/src"));
 	}
 	candidates.push(resolve("/agent/repos/dsh-hub-oauth-gateway/vendor/dsh-coding-oauth-core/src"));
 
@@ -65,11 +63,7 @@ for (const name of FILES) {
 	const hubPath = resolve(hubCore, name);
 	const vendorPath = resolve(vendorSlice, name);
 	const srcPath = resolve(srcRuntime, name);
-	const [hubBuf, vendorBuf, srcBuf] = await Promise.all([
-		readFile(hubPath),
-		readFile(vendorPath),
-		readFile(srcPath),
-	]);
+	const [hubBuf, vendorBuf, srcBuf] = await Promise.all([readFile(hubPath), readFile(vendorPath), readFile(srcPath)]);
 	const hubHash = sha256(hubBuf);
 	const vendorHash = sha256(vendorBuf);
 	const srcHash = sha256(srcBuf);
