@@ -1,0 +1,8 @@
+{
+  "name": "dsh-plugins-cloud",
+  "install": "export NVM_DIR=\"$HOME/.nvm\"\n[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"\nnvm install 22.22.2\nnvm alias default 22.22.2\nnvm use --delete-prefix 22.22.2 --silent || nvm use 22.22.2\nhash -r\nexport PATH=\"$NVM_DIR/versions/node/v22.22.2/bin:$PATH\"\nnode -v\ncorepack enable\ncorepack prepare pnpm@11.21.0 --activate\npnpm -v\nnpm install -g @deepseek-ai/dsh@0.1.1-rc.2\nmkdir -p \"$HOME/.dsh-cloud\"\nfor name in dsh-hub-oauth-gateway dsh-coding-subscription-oauth dsh-coding-remote-kit; do\n  for base in /workspace /agent/repos; do\n    if [ -f \"$base/$name/pnpm-lock.yaml\" ]; then\n      (cd \"$base/$name\" && pnpm install --frozen-lockfile)\n    fi\n  done\ndone\nif [ -f ./pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; fi\ndsh --version\n",
+  "repositoryDependencies": [
+    "github.com/lninghaha/dsh-hub-oauth-gateway",
+    "github.com/lninghaha/dsh-coding-remote-kit"
+  ]
+}
