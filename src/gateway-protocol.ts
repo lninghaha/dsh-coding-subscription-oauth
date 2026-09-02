@@ -1,4 +1,4 @@
-/** Compatibility facade — implementation lives in `src/runtime/` (mirrored from Hub vendor core). */
+/** Compatibility facade — implementation lives in published `dsh-coding-oauth-core`. */
 
 export type {
 	GatewayChatMessage,
@@ -7,5 +7,5 @@ export type {
 	GatewayThinkingLevel,
 	GatewayTool,
 	GatewayToolCall,
-} from "./runtime/gateway-protocol.ts";
-export { isThinkingLevel } from "./runtime/gateway-protocol.ts";
+} from "dsh-coding-oauth-core/gateway-protocol";
+export { isThinkingLevel } from "dsh-coding-oauth-core/gateway-protocol";

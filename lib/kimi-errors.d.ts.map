@@ -1,1 +1,1 @@
-{"version":3,"file":"kimi-errors.d.ts","sourceRoot":"","sources":["../../src/kimi-errors.ts"],"names":[],"mappings":"AAAA,qGAAqG;AAErG,OAAO,EACN,iCAAiC,EACjC,iCAAiC,GACjC,MAAM,0BAA0B,CAAC"}
+{"version":3,"file":"kimi-errors.d.ts","sourceRoot":"","sources":["../../src/kimi-errors.ts"],"names":[],"mappings":"AAAA,wFAAwF;AAExF,OAAO,EACN,iCAAiC,EACjC,iCAAiC,GACjC,MAAM,mCAAmC,CAAC"}

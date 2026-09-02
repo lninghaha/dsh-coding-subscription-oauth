@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.5` keeps the shared dispatcher runtime on `dsh-coding-oauth-core@0.1.1` and `undici@7.29.0`, and restricts gateway key reveal/rotate to loopback access; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating.
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Current main pins the shared dispatcher runtime on `dsh-coding-oauth-core@0.1.2` and `undici@7.29.0`, and restricts gateway key reveal/rotate to loopback access; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating.
 
 ---
 

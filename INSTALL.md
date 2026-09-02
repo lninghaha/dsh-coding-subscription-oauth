@@ -44,9 +44,9 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 - 本版按 DSH `0.1.1-rc.2` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。
 - 从 `0.6.0` 升级到 `0.6.2` 后再重启：`0.6.0` 在严格 Cordis 注入检查下可能因读取尚未注入的可选服务而拖垮插件树。这个补丁不迁移或重置 OAuth 凭据、Gateway、模型/适配器 ID 与缓存。
-- 从 `0.6.3` 升级到 `0.6.4`：统一固定 `dsh-coding-oauth-core@0.1.1` 与 `undici@7.29.0`；无配置、凭据、数据或路由迁移。
+- 从 `0.6.3` 升级到 `0.6.4`：统一固定 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`；无配置、凭据、数据或路由迁移。
 - 从 `0.6.4` 升级到 `0.6.5`：Gateway key 的 reveal/rotate 仅限 `accessMode === "loopback"`（与 Settings UI 一致）；无配置、凭据、数据或路由迁移。npm 包不再附带 `src/`，运行时仍为生成的 `lib/`。
-- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.1` 可从 npm 解析，再安装 Subscription `0.6.5`（以及需要的 `dsh-hub-oauth-gateway@1.11.1`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
+- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.2` 可从 npm 解析，再安装 Subscription `0.6.5`（以及需要的 `dsh-hub-oauth-gateway@1.11.1`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
 - 共装 Hub 与 Subscription 时，先安装 `dsh-hub-oauth-gateway@1.11.1` 与 Subscription `0.6.5`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
 - 升级会保留既有 Cordis id、OAuth 凭据文件、模型/适配器 ID、Gateway 配置和模型缓存；不要为了“清理旧版本”删除这些文件。若旧包名 `dsh-grok-build` 仍在 profile 中，只移除那条旧插件记录，再安装当前包，避免重复路由。
 - 回滚时恢复上一个插件版本并重启一次，保留凭据和配置；先查看兼容性诊断与失败原因，不要用清空凭据来代替回滚。

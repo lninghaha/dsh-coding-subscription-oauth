@@ -1,1 +1,1 @@
-{"version":3,"file":"grok-errors.d.ts","sourceRoot":"","sources":["../../src/grok-errors.ts"],"names":[],"mappings":"AAAA,qGAAqG;AAErG,OAAO,EAAE,kBAAkB,EAAE,uBAAuB,EAAE,MAAM,0BAA0B,CAAC"}
+{"version":3,"file":"grok-errors.d.ts","sourceRoot":"","sources":["../../src/grok-errors.ts"],"names":[],"mappings":"AAAA,wFAAwF;AAExF,OAAO,EAAE,kBAAkB,EAAE,uBAAuB,EAAE,MAAM,mCAAmC,CAAC"}

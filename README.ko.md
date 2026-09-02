@@ -17,7 +17,7 @@
 
 ---
 
-> **업그레이드:** [`INSTALL.md`](INSTALL.md)의 버전별 단계를 따르세요. `0.6.5`는 공유 dispatcher 런타임을 `dsh-coding-oauth-core@0.1.1`과 `undici@7.29.0`으로 유지하고, Gateway 키 reveal/rotate를 loopback 접근으로 제한합니다. 설정·자격 증명·데이터·라우트 마이그레이션은 필요 없습니다. Grok Imagine은 명시적으로 고정된 dispatcher를 유지합니다. `0.6.2` 이후 릴리스에는 엄격한 Cordis 주입 시작 수정과 DSH `0.1.1-rc.2` 지원이 포함됩니다. profile/설정/자격 증명 파일은 유지하고, 업데이트 후 기존 DSH Web 프로세스를 한 번만 재시작하세요. Hub와 Subscription을 함께 사용할 때 `dsh-coding-oauth-core@0.1.1`과 `undici@7.29.0`은 공유 런타임 핀이며 별도의 DSH 플러그인이 아닙니다.
+> **업그레이드:** [`INSTALL.md`](INSTALL.md)의 버전별 단계를 따르세요. `0.6.5`는 공유 dispatcher 런타임을 `dsh-coding-oauth-core@0.1.2`과 `undici@7.29.0`으로 유지하고, Gateway 키 reveal/rotate를 loopback 접근으로 제한합니다. 설정·자격 증명·데이터·라우트 마이그레이션은 필요 없습니다. Grok Imagine은 명시적으로 고정된 dispatcher를 유지합니다. `0.6.2` 이후 릴리스에는 엄격한 Cordis 주입 시작 수정과 DSH `0.1.1-rc.2` 지원이 포함됩니다. profile/설정/자격 증명 파일은 유지하고, 업데이트 후 기존 DSH Web 프로세스를 한 번만 재시작하세요. Hub와 Subscription을 함께 사용할 때 `dsh-coding-oauth-core@0.1.2`과 `undici@7.29.0`은 공유 런타임 핀이며 별도의 DSH 플러그인이 아닙니다.
 
 ---
 

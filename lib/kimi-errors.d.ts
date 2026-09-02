@@ -1,3 +1,3 @@
-/** Compatibility facade — implementation lives in `src/runtime/` (mirrored from Hub vendor core). */
-export { isMisclassifiedContextWindowError, remapAuthFailureIfContextOverflow, } from "./runtime/kimi-errors.js";
+/** Compatibility facade — implementation lives in published `dsh-coding-oauth-core`. */
+export { isMisclassifiedContextWindowError, remapAuthFailureIfContextOverflow, } from "dsh-coding-oauth-core/kimi-errors";
 //# sourceMappingURL=kimi-errors.d.ts.map

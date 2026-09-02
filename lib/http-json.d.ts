@@ -1,3 +1,3 @@
-/** Compatibility facade — implementation lives in `src/runtime/` (mirrored from Hub vendor core). */
-export { JSON_BODY_LIMIT_BYTES, JsonRequestError, readJsonRequest, requestErrorStatus, } from "./runtime/http-json.js";
+/** Compatibility facade — implementation lives in published `dsh-coding-oauth-core`. */
+export { JSON_BODY_LIMIT_BYTES, JsonRequestError, readJsonRequest, requestErrorStatus, } from "dsh-coding-oauth-core/http-json";
 //# sourceMappingURL=http-json.d.ts.map

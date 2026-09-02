@@ -17,7 +17,7 @@
 
 ---
 
-> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.5` 继续将共享 dispatcher runtime 固定为 `dsh-coding-oauth-core@0.1.1` 与 `undici@7.29.0`，并将 Gateway key 的 reveal/rotate 限制为 loopback 访问；无需迁移配置、凭据、数据或路由。Grok Imagine 保留显式 pinned dispatcher。`0.6.2` 及之后版本已包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。
+> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.6.5` 继续将共享 dispatcher runtime 固定为 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`，并将 Gateway key 的 reveal/rotate 限制为 loopback 访问；无需迁移配置、凭据、数据或路由。Grok Imagine 保留显式 pinned dispatcher。`0.6.2` 及之后版本已包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。
 
 ---
 

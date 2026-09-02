@@ -11,11 +11,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Changed
 
-- Mirror Hub’s first shared-runtime extract (`http-json`, `grok-errors`, `kimi-errors`, `gateway-protocol`) under `vendor/runtime-slice/` with build copies in `src/runtime/` and thin facades at the historical module paths. Add `pnpm run assert:runtime-slice` with `SYNC_HASHES.json` so isolated CI can verify the mirror without a Hub checkout; when Hub is present the script also compares live Hub files.
+- Consume published `dsh-coding-oauth-core@0.1.2` helper subpaths (`http-json`, `grok-errors`, `kimi-errors`, `gateway-protocol`); remove the temporary `vendor/runtime-slice/` mirror and `src/runtime/` copies. Historical `src/*.ts` facades now re-export from npm core.
+- Replace `pnpm run assert:runtime-slice` with `pnpm run assert:oauth-core` (version pin + subpath resolve).
 
 ### Documentation
 
-- Document the temporary runtime-slice mirror and the planned drop after the next core npm release in `docs/02-architecture.md` / `docs/02-architecture.zh-CN.md`.
+- Update `docs/02-architecture.md` / `docs/02-architecture.zh-CN.md` for the published-core import path (no local runtime-slice mirror).
 
 ## v0.6.5 - 2026-09-02
 

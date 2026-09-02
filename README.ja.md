@@ -17,7 +17,7 @@
 
 ---
 
-> **アップグレード：** [`INSTALL.md`](INSTALL.md) のバージョン別手順に従ってください。`0.6.5` は共有 dispatcher ランタイムを `dsh-coding-oauth-core@0.1.1` と `undici@7.29.0` に維持し、Gateway キーの reveal/rotate を loopback アクセスに限定します。設定・資格情報・データ・ルートの移行は不要です。Grok Imagine は明示的にピン留めされた dispatcher を維持します。`0.6.2` 以降のリリースには厳密な Cordis 注入起動修正と DSH `0.1.1-rc.2` 対応が含まれます。profile / 設定 / 資格情報ファイルはそのままにし、更新後に既存の DSH Web プロセスを一度だけ再起動してください。Hub と Subscription を併用する場合、`dsh-coding-oauth-core@0.1.1` と `undici@7.29.0` は共有ランタイムのピンであり、別の DSH プラグインではありません。
+> **アップグレード：** [`INSTALL.md`](INSTALL.md) のバージョン別手順に従ってください。`0.6.5` は共有 dispatcher ランタイムを `dsh-coding-oauth-core@0.1.2` と `undici@7.29.0` に維持し、Gateway キーの reveal/rotate を loopback アクセスに限定します。設定・資格情報・データ・ルートの移行は不要です。Grok Imagine は明示的にピン留めされた dispatcher を維持します。`0.6.2` 以降のリリースには厳密な Cordis 注入起動修正と DSH `0.1.1-rc.2` 対応が含まれます。profile / 設定 / 資格情報ファイルはそのままにし、更新後に既存の DSH Web プロセスを一度だけ再起動してください。Hub と Subscription を併用する場合、`dsh-coding-oauth-core@0.1.2` と `undici@7.29.0` は共有ランタイムのピンであり、別の DSH プラグインではありません。
 
 ---
 

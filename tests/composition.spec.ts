@@ -59,7 +59,7 @@ describe("bundle composition", () => {
 		expect(manifest.name).toBe("dsh-coding-subscription-oauth");
 		expect((manifest as { version?: string }).version).toBe("0.6.5");
 		expect((manifest as { dependencies?: Record<string, string> }).dependencies?.["dsh-coding-oauth-core"]).toBe(
-			"0.1.1",
+			"0.1.2",
 		);
 		expect((manifest as { dependencies?: Record<string, string> }).dependencies?.undici).toBe("7.29.0");
 		expect(manifest.dsh.bundle.patch).toBe("./cordis.patch.yml");

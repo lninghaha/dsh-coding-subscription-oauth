@@ -42,7 +42,7 @@
   "scripts": {
     "check:bom": "node build/verify-dsh-bom.mjs",
     "assert:node": "node scripts/assert-node.mjs",
-    "assert:runtime-slice": "node scripts/assert-runtime-slice-sync.mjs",
+    "assert:oauth-core": "node scripts/assert-oauth-core.mjs",
     "clean": "node build/clean.mjs",
     "typecheck": "tsc -b tsconfig.host.json tsconfig.client.json",
     "build:server": "tsc -p tsconfig.build.json && tsc -p tsconfig.dts-bin.json && node build/build-server.mjs",
@@ -53,8 +53,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "biome check",
-    "check:next": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run check:bom && pnpm run lint && pnpm run typecheck && pnpm run test",
-    "check": "pnpm run assert:node && pnpm run assert:runtime-slice && pnpm run lint && pnpm run release:build && pnpm run test",
+    "check:next": "pnpm run assert:node && pnpm run assert:oauth-core && pnpm run check:bom && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "check": "pnpm run assert:node && pnpm run assert:oauth-core && pnpm run lint && pnpm run release:build && pnpm run test",
     "release:promote": "node build/promote-release.mjs",
     "release:verify": "node build/verify-release.mjs",
     "release:build": "pnpm run build:artifacts && pnpm run release:promote",
@@ -148,7 +148,7 @@
     }
   },
   "dependencies": {
-    "dsh-coding-oauth-core": "0.1.1",
+    "dsh-coding-oauth-core": "0.1.2",
     "undici": "7.29.0"
   },
   "peerDependencies": {

@@ -17,7 +17,7 @@
 
 ---
 
-> **Actualización:** Siga los pasos versionados en [`INSTALL.md`](INSTALL.md). `0.6.5` mantiene el runtime del dispatcher compartido en `dsh-coding-oauth-core@0.1.1` y `undici@7.29.0`, y restringe reveal/rotate de la clave del Gateway al acceso loopback; no se requiere migración de configuración, credenciales, datos o rutas. Grok Imagine conserva su dispatcher pinned explícito. Las versiones desde `0.6.2` incluyen la corrección estricta de inyección Cordis al inicio y compatibilidad con DSH `0.1.1-rc.2`; conserve los archivos de profile/config/credenciales y reinicie el proceso DSH Web existente solo una vez tras actualizar. Cuando se usan Hub y Subscription juntos, `dsh-coding-oauth-core@0.1.1` con `undici@7.29.0` es su pin de runtime compartido, no un plugin DSH aparte.
+> **Actualización:** Siga los pasos versionados en [`INSTALL.md`](INSTALL.md). `0.6.5` mantiene el runtime del dispatcher compartido en `dsh-coding-oauth-core@0.1.2` y `undici@7.29.0`, y restringe reveal/rotate de la clave del Gateway al acceso loopback; no se requiere migración de configuración, credenciales, datos o rutas. Grok Imagine conserva su dispatcher pinned explícito. Las versiones desde `0.6.2` incluyen la corrección estricta de inyección Cordis al inicio y compatibilidad con DSH `0.1.1-rc.2`; conserve los archivos de profile/config/credenciales y reinicie el proceso DSH Web existente solo una vez tras actualizar. Cuando se usan Hub y Subscription juntos, `dsh-coding-oauth-core@0.1.2` con `undici@7.29.0` es su pin de runtime compartido, no un plugin DSH aparte.
 
 ---
 

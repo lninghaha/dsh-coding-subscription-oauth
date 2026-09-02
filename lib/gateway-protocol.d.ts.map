@@ -1,1 +1,1 @@
-{"version":3,"file":"gateway-protocol.d.ts","sourceRoot":"","sources":["../../src/gateway-protocol.ts"],"names":[],"mappings":"AAAA,qGAAqG;AAErG,YAAY,EACX,kBAAkB,EAClB,wBAAwB,EACxB,iBAAiB,EACjB,oBAAoB,EACpB,WAAW,EACX,eAAe,GACf,MAAM,+BAA+B,CAAC;AACvC,OAAO,EAAE,eAAe,EAAE,MAAM,+BAA+B,CAAC"}
+{"version":3,"file":"gateway-protocol.d.ts","sourceRoot":"","sources":["../../src/gateway-protocol.ts"],"names":[],"mappings":"AAAA,wFAAwF;AAExF,YAAY,EACX,kBAAkB,EAClB,wBAAwB,EACxB,iBAAiB,EACjB,oBAAoB,EACpB,WAAW,EACX,eAAe,GACf,MAAM,wCAAwC,CAAC;AAChD,OAAO,EAAE,eAAe,EAAE,MAAM,wCAAwC,CAAC"}

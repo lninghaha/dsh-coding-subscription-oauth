@@ -6,7 +6,7 @@ import { acquireCodingOAuthProxy, codingOAuthProxyUnreachableHint } from "../src
 describe("codingOAuthProxyUnreachableHint", () => {
 	it("uses the core-aligned Undici runtime pin", () => {
 		expect(manifest.version).toBe("0.6.5");
-		expect(manifest.dependencies["dsh-coding-oauth-core"]).toBe("0.1.1");
+		expect(manifest.dependencies["dsh-coding-oauth-core"]).toBe("0.1.2");
 		expect(manifest.dependencies.undici).toBe("7.29.0");
 		expect(manifest.devDependencies.undici).toBe("7.29.0");
 	});

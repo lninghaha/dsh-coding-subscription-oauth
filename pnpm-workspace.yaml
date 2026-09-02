@@ -5,4 +5,4 @@ allowBuilds:
 overrides:
   '@earendil-works/pi-ai': 0.84.2
 minimumReleaseAgeExclude:
-  - dsh-coding-oauth-core@0.1.1
+  - dsh-coding-oauth-core@0.1.2
