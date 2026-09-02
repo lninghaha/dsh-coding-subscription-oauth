@@ -64,7 +64,7 @@
     "release:publish": "node scripts/release-publish.mjs",
     "verify:deployed": "node scripts/verify-deployed-catalog.mjs",
     "smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
-    "smoke:dsh-alpha": "node scripts/smoke-dsh-alpha.mjs"
+    "smoke:dsh-alpha": "node scripts/smoke-dsh-alpha.mjs",
     "prepack": "pnpm run release:build"
   },
   "exports": {
