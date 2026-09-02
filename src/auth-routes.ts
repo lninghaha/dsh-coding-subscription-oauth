@@ -13,6 +13,8 @@ import { probeGrokAuth } from "./grok-import.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import {
 	ANTIGRAVITY_ROUTE,
+	CODING_OAUTH_ACCOUNTS_REMOVE_PATH,
+	CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH,
 	CODING_OAUTH_LOGIN_CANCEL_PATH,
 	CODING_OAUTH_LOGIN_CODE_PATH,
 	CODING_OAUTH_LOGIN_PATH,
@@ -34,10 +36,13 @@ import type { SubscriptionLoginMethod } from "./oauth-providers.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
 import { safeMessage } from "./redact.ts";
 import type { GrokBuildSession } from "./session.ts";
+import type { AccountSummary, OAuthCredentialFileStore } from "./store.ts";
 import { LOOPBACK_OWNER_REQUEST_POLICY, type OwnerAccessMode, type OwnerRequestPolicy } from "./web-origin.ts";
 import { registerWebRouteSetupAtomically } from "./web-routes.ts";
 
 export {
+	CODING_OAUTH_ACCOUNTS_REMOVE_PATH,
+	CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH,
 	CODING_OAUTH_LOGIN_CANCEL_PATH,
 	CODING_OAUTH_LOGIN_CODE_PATH,
 	CODING_OAUTH_LOGIN_PATH,
@@ -52,7 +57,6 @@ export {
 	GROK_BUILD_AUTH_MODELS_PATH,
 	GROK_BUILD_AUTH_STATUS_PATH,
 } from "./ids.ts";
-
 export type GrokBuildLoginMethod = "pkce" | "device";
 
 export type GrokBuildWebAuthStatus =
@@ -72,6 +76,8 @@ export type GrokBuildWebAuthStatus =
 			catalogSource: CatalogSource;
 			catalogError?: string;
 			grokImportAvailable: boolean;
+			accounts: AccountSummary[];
+			activeAccountId: string;
 	  }
 	| { status: "error"; message: string; grokImportAvailable: boolean };
 
@@ -98,6 +104,18 @@ function waitForPromptAbort(prompt: AuthPrompt): Promise<string> {
 
 async function grokImportAvailable(): Promise<boolean> {
 	return (await probeGrokAuth()).available;
+}
+
+async function signedInAccountFields(store: OAuthCredentialFileStore): Promise<{
+	accounts: AccountSummary[];
+	activeAccountId: string;
+}> {
+	const accounts = [...(await store.listAccounts())];
+	const activeAccountId = await store.getActiveAccountId();
+	if (activeAccountId === undefined || accounts.length === 0) {
+		throw new Error("signed-in status requires at least one stored account");
+	}
+	return { accounts, activeAccountId };
 }
 
 /**
@@ -165,6 +183,18 @@ export class GrokBuildWebAuth {
 
 	async setModels(ids: readonly string[]): Promise<void> {
 		await this.session.setSelectedModels(ids);
+		this.state = await this.readStoredStatus();
+	}
+
+	async setActiveAccount(id: string): Promise<void> {
+		await this.session.store.setActiveAccount(id);
+		this.session.notifyCredentialChange();
+		this.state = await this.readStoredStatus();
+	}
+
+	async removeAccount(id: string): Promise<void> {
+		await this.session.store.removeAccount(id);
+		this.session.notifyCredentialChange();
 		this.state = await this.readStoredStatus();
 	}
 
@@ -298,6 +328,7 @@ export class GrokBuildWebAuth {
 		if (!stored.authenticated) return { status: "signed-out", grokImportAvailable: grok };
 		const available = this.session.availableModels().map((model) => model.id);
 		const selected = this.session.selectedModelIds();
+		const accounts = await signedInAccountFields(this.session.store);
 		return {
 			status: "signed-in",
 			models: this.session.visibleModels().map((model) => model.id),
@@ -305,6 +336,7 @@ export class GrokBuildWebAuth {
 			selected: selected ?? available,
 			catalogSource: this.session.catalogSource,
 			grokImportAvailable: grok,
+			...accounts,
 			...(this.session.catalogError === undefined ? {} : { catalogError: this.session.catalogError }),
 		};
 	}
@@ -326,7 +358,7 @@ export type SubscriptionWebAuthStatus = {
 } & (
 	| { status: "signed-out" }
 	| { status: "signing-in"; method: SubscriptionLoginMethod; url?: string; userCode?: string }
-	| { status: "signed-in"; expiresAt?: number }
+	| { status: "signed-in"; expiresAt?: number; accounts: AccountSummary[]; activeAccountId: string }
 	| { status: "error"; message: string }
 );
 
@@ -424,6 +456,18 @@ export class SubscriptionWebAuth {
 		this.state = await this.readStoredStatus();
 	}
 
+	async setActiveAccount(id: string): Promise<void> {
+		await this.session.store.setActiveAccount(id);
+		this.session.notifyCredentialChange();
+		this.state = await this.readStoredStatus();
+	}
+
+	async removeAccount(id: string): Promise<void> {
+		await this.session.store.removeAccount(id);
+		this.session.notifyCredentialChange();
+		this.state = await this.readStoredStatus();
+	}
+
 	async signOut(): Promise<void> {
 		this.cancellation?.abort(new Error(`${this.session.definition.route}: sign-in cancelled`));
 		await this.operation?.catch(() => undefined);
@@ -462,9 +506,14 @@ export class SubscriptionWebAuth {
 		const base = this.baseStatus();
 		try {
 			const stored = await this.session.status();
-			return stored.authenticated
-				? { ...base, status: "signed-in", ...(stored.expiresAt === undefined ? {} : { expiresAt: stored.expiresAt }) }
-				: { ...base, status: "signed-out" };
+			if (!stored.authenticated) return { ...base, status: "signed-out" };
+			const accounts = await signedInAccountFields(this.session.store);
+			return {
+				...base,
+				status: "signed-in",
+				...accounts,
+				...(stored.expiresAt === undefined ? {} : { expiresAt: stored.expiresAt }),
+			};
 		} catch (error: unknown) {
 			return { ...base, status: "error", message: safeMessage(error) };
 		}
@@ -892,6 +941,50 @@ export function registerCodingOAuthRoutes(
 						const slug = providerSlug(body);
 						if (slug === "grok") await grok.signOut();
 						else await subscription(slug).signOut();
+						json(res, 200, await allStatus(decision.accessMode));
+					} catch (error: unknown) {
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
+					}
+				},
+			}),
+			webServer.register({
+				kind: "exact",
+				path: CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH,
+				handler: async (req, res) => {
+					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
+					try {
+						const body = recordBody(await readJsonRequest(req));
+						const slug = providerSlug(body);
+						const accountId = body["accountId"];
+						if (typeof accountId !== "string" || accountId.trim().length === 0) {
+							return json(res, 400, { error: "accountId must be a non-empty string" });
+						}
+						if (slug === "grok") await grok.setActiveAccount(accountId);
+						else await subscription(slug).setActiveAccount(accountId);
+						json(res, 200, await allStatus(decision.accessMode));
+					} catch (error: unknown) {
+						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
+					}
+				},
+			}),
+			webServer.register({
+				kind: "exact",
+				path: CODING_OAUTH_ACCOUNTS_REMOVE_PATH,
+				handler: async (req, res) => {
+					if (req.method !== "POST") return json(res, 405, { error: "method not allowed" });
+					const decision = ownerRequestPolicy.authorize(req);
+					if (!decision.authorized || decision.accessMode === undefined) return json(res, 403, { error: "forbidden" });
+					try {
+						const body = recordBody(await readJsonRequest(req));
+						const slug = providerSlug(body);
+						const accountId = body["accountId"];
+						if (typeof accountId !== "string" || accountId.trim().length === 0) {
+							return json(res, 400, { error: "accountId must be a non-empty string" });
+						}
+						if (slug === "grok") await grok.removeAccount(accountId);
+						else await subscription(slug).removeAccount(accountId);
 						json(res, 200, await allStatus(decision.accessMode));
 					} catch (error: unknown) {
 						json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });

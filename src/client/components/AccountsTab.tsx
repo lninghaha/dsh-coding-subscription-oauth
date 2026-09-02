@@ -57,6 +57,8 @@ export interface AccountsTabProps {
 	onToggleExpanded: (slug: ProviderSlug) => void;
 	onPreviewSource: (slug: ProviderSlug) => void;
 	onSaveModels: (slug: ProviderSlug, selected: string[]) => void;
+	onSetDefaultAccount: (slug: ProviderSlug, accountId: string) => void;
+	onRemoveAccount: (slug: ProviderSlug, accountId: string) => void;
 	onConfirmOverwriteChange: (checked: boolean) => void;
 	onCommitSource: () => void;
 	onCancelSourcePreview: () => void;
@@ -92,6 +94,8 @@ export function AccountsTab({
 	onToggleExpanded,
 	onPreviewSource,
 	onSaveModels,
+	onSetDefaultAccount,
+	onRemoveAccount,
 	onConfirmOverwriteChange,
 	onCommitSource,
 	onCancelSourcePreview,
@@ -199,6 +203,12 @@ export function AccountsTab({
 								}}
 								onSaveModels={(selected) => {
 									onSaveModels(definition.slug, selected);
+								}}
+								onSetDefaultAccount={(accountId) => {
+									onSetDefaultAccount(definition.slug, accountId);
+								}}
+								onRemoveAccount={(accountId) => {
+									onRemoveAccount(definition.slug, accountId);
 								}}
 							/>
 							{preview?.kind === definition.slug ? (

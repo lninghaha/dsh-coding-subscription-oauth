@@ -6,7 +6,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Added
 
-- Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries). Accounts UI remains a follow-up.
+- Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries).
+- Minimal Accounts UI (zh-CN + en): list / set-default / remove on each signed-in provider card; status includes token-free `accounts` + `activeAccountId`; HTTP `…/oauth/accounts/set-active` and `…/oauth/accounts/remove` (`#30`).
 
 ### Changed
 

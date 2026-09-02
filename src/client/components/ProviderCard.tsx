@@ -61,6 +61,8 @@ export interface ProviderCardProps {
 	onToggleExpanded: () => void;
 	onPreviewSource: () => void;
 	onSaveModels: (selected: string[]) => void;
+	onSetDefaultAccount: (accountId: string) => void;
+	onRemoveAccount: (accountId: string) => void;
 }
 
 function SignInSteps({
@@ -168,6 +170,8 @@ export function ProviderCard({
 	onToggleExpanded,
 	onPreviewSource,
 	onSaveModels,
+	onSetDefaultAccount,
+	onRemoveAccount,
 }: ProviderCardProps) {
 	const [showAltMethods, setShowAltMethods] = useState(false);
 	const [modelFilter, setModelFilter] = useState("");
@@ -452,6 +456,63 @@ export function ProviderCard({
 			) : null}
 			{providerStatus.status === "signed-in" && expanded ? (
 				<div id={`coding-oauth-models-${definition.slug}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-accounts-list={definition.slug}>
+						<p style={hintStyle}>{t("accountsListHint")}</p>
+						{providerStatus.accounts.length === 0 ? (
+							<p style={bodyStyle}>{t("accountsEmpty")}</p>
+						) : (
+							<ul style={{ ...listStyle, margin: 0, paddingLeft: 0, listStyle: "none" }}>
+								{providerStatus.accounts.map((account) => {
+									const isActive = account.id === providerStatus.activeAccountId;
+									const title = account.label ?? account.accountId ?? account.id;
+									return (
+										<li
+											key={account.id}
+											data-account-id={account.id}
+											style={{
+												display: "flex",
+												flexWrap: "wrap",
+												gap: 8,
+												alignItems: "center",
+												justifyContent: "space-between",
+												padding: "6px 0",
+												borderBottom: "1px solid var(--dsw-alias-border-subtle, #e5e5e5)",
+											}}
+										>
+											<span style={bodyStyle}>
+												{title}
+												{isActive ? <span style={hintStyle}> · {t("accountActive")}</span> : null}
+											</span>
+											<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+												{isActive ? null : (
+													<button
+														type="button"
+														style={compactButtonStyle}
+														disabled={busy}
+														onClick={() => {
+															onSetDefaultAccount(account.id);
+														}}
+													>
+														{t("accountSetDefault")}
+													</button>
+												)}
+												<button
+													type="button"
+													style={compactButtonStyle}
+													disabled={busy}
+													onClick={() => {
+														onRemoveAccount(account.id);
+													}}
+												>
+													{t("accountRemove")}
+												</button>
+											</div>
+										</li>
+									);
+								})}
+							</ul>
+						)}
+					</div>
 					<div style={rowStyle}>
 						<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("models")}</h4>
 						<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

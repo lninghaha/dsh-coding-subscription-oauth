@@ -42,6 +42,8 @@ export type GrokStatus =
 			catalogSource: CatalogSource;
 			catalogError?: string;
 			grokImportAvailable: boolean;
+			accounts: readonly AccountSummary[];
+			activeAccountId: string;
 	  }
 	| { status: "error"; message: string; grokImportAvailable: boolean };
 
@@ -57,9 +59,17 @@ export type SubscriptionStatus = {
 } & (
 	| { status: "signed-out" }
 	| { status: "signing-in"; method: "browser" | "device"; url?: string; userCode?: string }
-	| { status: "signed-in"; expiresAt?: number }
+	| { status: "signed-in"; expiresAt?: number; accounts: readonly AccountSummary[]; activeAccountId: string }
 	| { status: "error"; message: string }
 );
+
+/** Token-free account row from AuthDocument v2 status. */
+export interface AccountSummary {
+	id: string;
+	label?: string;
+	expires: number;
+	accountId?: string;
+}
 
 export type ProviderStatus = GrokStatus | SubscriptionStatus;
 

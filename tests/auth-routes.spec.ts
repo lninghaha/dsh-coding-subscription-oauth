@@ -6,6 +6,8 @@ import { Readable } from "node:stream";
 import type { Context } from "@deepseek-ai/cordis";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	CODING_OAUTH_ACCOUNTS_REMOVE_PATH,
+	CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH,
 	CODING_OAUTH_LOGIN_PATH,
 	CODING_OAUTH_STATUS_PATH,
 	GROK_BUILD_AUTH_IMPORT_PATH,
@@ -324,5 +326,12 @@ describe("OAuth route registrar atomic setup", () => {
 		expect(routes.has(CODING_OAUTH_STATUS_PATH)).toBe(false);
 		expect(routes.has(CODING_OAUTH_LOGIN_PATH)).toBe(false);
 		expect(routes.has(GROK_BUILD_AUTH_STATUS_PATH)).toBe(true);
+	});
+
+	it("registers multi-account set-active and remove routes", () => {
+		const { routes, context } = createAuthRouteContext();
+		registerCodingOAuthRoutes(context, unusedSession(), []);
+		expect(routes.has(CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH)).toBe(true);
+		expect(routes.has(CODING_OAUTH_ACCOUNTS_REMOVE_PATH)).toBe(true);
 	});
 });

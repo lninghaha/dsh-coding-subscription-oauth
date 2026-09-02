@@ -6,8 +6,9 @@ import { ANTIGRAVITY_ROUTE, type CodingOAuthProviderSlug } from "./ids.js";
 import type { SubscriptionLoginMethod } from "./oauth-providers.js";
 import type { OAuthProviderSession } from "./oauth-session.js";
 import type { GrokBuildSession } from "./session.js";
+import type { AccountSummary } from "./store.js";
 import { type OwnerAccessMode, type OwnerRequestPolicy } from "./web-origin.js";
-export { CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_STATUS_PATH, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, } from "./ids.js";
+export { CODING_OAUTH_ACCOUNTS_REMOVE_PATH, CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH, CODING_OAUTH_LOGIN_CANCEL_PATH, CODING_OAUTH_LOGIN_CODE_PATH, CODING_OAUTH_LOGIN_PATH, CODING_OAUTH_LOGOUT_PATH, CODING_OAUTH_MODELS_PATH, CODING_OAUTH_STATUS_PATH, GROK_BUILD_AUTH_IMPORT_PATH, GROK_BUILD_AUTH_LOGIN_CANCEL_PATH, GROK_BUILD_AUTH_LOGIN_CODE_PATH, GROK_BUILD_AUTH_LOGIN_PATH, GROK_BUILD_AUTH_LOGOUT_PATH, GROK_BUILD_AUTH_MODELS_PATH, GROK_BUILD_AUTH_STATUS_PATH, } from "./ids.js";
 export type GrokBuildLoginMethod = "pkce" | "device";
 export type GrokBuildWebAuthStatus = {
     status: "signed-out";
@@ -26,6 +27,8 @@ export type GrokBuildWebAuthStatus = {
     catalogSource: CatalogSource;
     catalogError?: string;
     grokImportAvailable: boolean;
+    accounts: AccountSummary[];
+    activeAccountId: string;
 } | {
     status: "error";
     message: string;
@@ -59,6 +62,8 @@ export declare class GrokBuildWebAuth {
     cancel(): Promise<void>;
     importGrok(): Promise<void>;
     setModels(ids: readonly string[]): Promise<void>;
+    setActiveAccount(id: string): Promise<void>;
+    removeAccount(id: string): Promise<void>;
     signOut(): Promise<void>;
     dispose(): Promise<void>;
     private start;
@@ -88,6 +93,8 @@ export type SubscriptionWebAuthStatus = {
 } | {
     status: "signed-in";
     expiresAt?: number;
+    accounts: AccountSummary[];
+    activeAccountId: string;
 } | {
     status: "error";
     message: string;
@@ -114,6 +121,8 @@ export declare class SubscriptionWebAuth {
     submitCode(code: string): Promise<void>;
     cancel(): Promise<void>;
     setModels(ids: readonly string[]): Promise<void>;
+    setActiveAccount(id: string): Promise<void>;
+    removeAccount(id: string): Promise<void>;
     signOut(): Promise<void>;
     dispose(): Promise<void>;
     private baseStatus;

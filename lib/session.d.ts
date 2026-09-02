@@ -34,6 +34,8 @@ export declare class GrokBuildSession {
      * Called after an upstream 401 rejected a locally-valid token.
      */
     invalidateAccessToken(): Promise<void>;
+    /** Refresh host discovery after an account switch/remove without a full logout. */
+    notifyCredentialChange(): void;
     logout(): Promise<void>;
     private writeCache;
 }
