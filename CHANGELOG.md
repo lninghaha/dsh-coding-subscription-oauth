@@ -4,6 +4,21 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Fixed
+
+- Restrict gateway key reveal/rotate to `accessMode === "loopback"`, matching the Settings UI which already hides those controls on ssh-tunnel and trusted-https-proxy.
+
+### Changed
+
+- Stop shipping `src/` in the npm `files` allowlist. Runtime remains the generated `lib/` bundle.
+- Add `.nvmrc`, `pnpm run assert:node`, `release:inspect`, and `release:publish`. Cloud Agent verification is `pnpm run check` with optional Docker.
+
+### Documentation
+
+- Add `AGENTS.md` (cloud environment as the primary path; Docker optional; isolated `DSH_HOME`; operator-only npm publish).
+- Align `CONTRIBUTING.md` so contributors are not Docker-only.
+- Sync community README upgrade banners with the `0.6.2` Cordis / DSH `0.1.1-rc.2` attribution from English/zh-CN.
+
 ## v0.6.4 - 2026-08-29
 
 - Pin Subscription, its shared core dependency, and both production/development dispatcher dependencies to `undici@7.29.0` with `dsh-coding-oauth-core@0.1.1`, preventing a co-installed Undici major split while preserving the proxy-store ABI and Grok Imagine's explicit pinned dispatcher.

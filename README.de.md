@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Install into the existing `web` profile, keep profile/config/credential files, and restart one existing DSH Web process after all packages are updated. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.1` with `undici@7.29.0` is their shared runtime pin, not a separate DSH plugin.
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.4` pins the shared dispatcher runtime to `dsh-coding-oauth-core@0.1.1` and `undici@7.29.0`; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.1` with `undici@7.29.0` is their shared runtime pin, not a separate DSH plugin.
 
 ---
 
