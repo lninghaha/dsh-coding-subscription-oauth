@@ -118,7 +118,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 
 ## 5. Antigravity
 
-本项目不复制 Google Antigravity 私有协议。profile 单独安装 `dsh-agy@0.1.2`，提供 `agy` route。由于该版本的 `/agy` dashboard 含无自身认证的 export API，trusted-host 部署应在 profile 最终 `cordis.patch.yml` 中禁用 `dsh-agy-web`（见 `INSTALL.md`），只保留 host adapter 和 CLI。profile 使用带 lockfile hash 的 pnpm patch：无 Google session 时 `listModels()` 返回空，认证后 provider group 名为 `Google Antigravity (OAuth)`。
+本项目不复制 Google Antigravity 私有协议。profile 单独安装 `dsh-agy@0.1.2`，提供 `agy` route。由于该版本的 `/agy` dashboard 含无自身认证的 export API，trusted-host 部署应在 profile 最终 `cordis.patch.yml` 中禁用 `dsh-agy-web`（见 `INSTALL.md`），只保留 host adapter 和 CLI。profile 使用带 lockfile hash 的 pnpm patch：无 Google session 时 `listModels()` 返回空，认证后 provider group 名为 `Google Antigravity (OAuth)`。**保留** `patches/dsh-agy@0.1.2.patch` 的结论见 [`docs/research/adr-dsh-agy-patch.md`](research/adr-dsh-agy-patch.md)（至 0.2.4 上游仍未等价吸收）。
 
 ## 6. 兼容性
 
