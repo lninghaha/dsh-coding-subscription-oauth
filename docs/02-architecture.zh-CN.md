@@ -61,7 +61,7 @@ ctx.llm route
 - `oauth-sources.ts`：白名单官方 Grok/Codex/Kimi/Claude CLI 发现；加固的 lstat/`O_NOFOLLOW`/属主/权限/普通文件/大小读取；一次性预览票据（五分钟、最多 32 张）；从不写入官方 CLI 文件。
 - `oauth-import-routes.ts`：同源拉取 HTTP API（发现 → 预览 → 提交/取消），写入发生在目标 store 锁内。
 - `alias-adapter.ts`：转换 Harness route、不修改 pi-ai model.provider，并在 `listModels()` 前执行 credential gate；未认证或凭据读取失败返回空目录，provider group 名使用 `(OAuth)`。AUTH finish 时作废本地令牌，让 harness 重试先刷新。finish 管道还会重映射 Kimi 误标 AUTH 的上下文溢出，以及 xAI capacity 文案 → `RATE_LIMIT`。
-- `grok-errors.ts`：识别 xAI「at capacity / high demand / priority processing / overloaded」并改为 `RATE_LIMIT`，避免 `PI_AI_ERROR` 跳过退避。
+- `grok-errors.ts` / `src/runtime/grok-errors.ts`：识别 xAI「at capacity / high demand / priority processing / overloaded」并改为 `RATE_LIMIT`，避免 `PI_AI_ERROR` 跳过退避。
 - `adapter.ts`：组合 Grok 与三个 subscription profile；向 pi-ai 要求至少 60 秒剩余有效期，并注册包含 AUTH 与瞬时故障码的 retryPolicy（默认 5 次，5 s → 80 s 指数叠加）。可选包装 `codex-oauth-fast`，显示为 **已请求 Fast**。
 - `auth-routes.ts`：旧 Grok API + 新统一 `/plugins/dsh-grok-build/oauth/*`；JSON 写请求使用 64 KiB 有界读取器，无效/超限 body 分别返回 400/413。
 - `capability-settings.ts`：默认关闭、立即生效的开关与限制（搜索 1–20、图像 1–4、产物 TTL 1 小时–7 天）。
@@ -136,3 +136,7 @@ POST   /plugins/dsh-grok-build/gateway/rotate
 新 route 使用 `*-oauth` alias，不占用 `openai`、`xai`、`kimi-coding`。v0.3.0 将 `grok-build` fallback/default 更新为 `grok-4.6`，已有用户默认设置仍优先。
 
 Hub 与本独立 participant 精确依赖同一个 `dsh-coding-oauth-core@0.1.1` 与 `undici@7.29.0`。核心统一管理 root-scoped owner 选举、引用计数代理策略、原子注册、provider/route/credential 标识、能力设置命名空间、Gateway 状态文件名，以及全部新旧管理路径。Hub 安装时优先成为 owner；Hub 卸载后本插件从 standby 自动接管，不改路由名，也不重置凭据。Grok Imagine 保留显式 pinned dispatcher，不使用共享 proxy lease。
+
+### 共享运行时抽取（第一刀）
+
+Hub 的 vendored core 已收录此前两边重复的四个纯辅助模块：`http-json`、`grok-errors`、`kimi-errors`、`gateway-protocol`。在下一版**已发布**的 `dsh-coding-oauth-core` 吸收该切片之前，本包在 `vendor/runtime-slice/` 保留字节级镜像（构建副本在 `src/runtime/`，历史路径 `src/*.ts` 为薄 re-export）。`pnpm run assert:runtime-slice` 会与 Hub 的 `vendor/dsh-coding-oauth-core/src` 做哈希比对。该 core 发版后，Subscription 将删除本地镜像并直接从 npm core 导入。

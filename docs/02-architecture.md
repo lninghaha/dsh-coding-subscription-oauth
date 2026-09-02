@@ -61,7 +61,7 @@ ctx.llm route
 - `oauth-sources.ts`: allowlisted official Grok/Codex/Kimi/Claude CLI discovery; hardened lstat/`O_NOFOLLOW`/owner/mode/regular-file/size reads; one-use preview tickets (five minutes, max 32); never writes official CLI files.
 - `oauth-import-routes.ts`: same-origin Pull HTTP API (discover → preview → commit/cancel) into the destination store lock.
 - `alias-adapter.ts`: translates Harness routes, does not modify pi-ai `model.provider`, and runs a credential gate before `listModels()`; unauthenticated or unreadable credentials return an empty catalog, and the provider group name is `(OAuth)`. On an AUTH finish it invalidates the stored token so the harness retry can refresh first. The finish pipeline also remaps Kimi misclassified AUTH context overflow and xAI capacity wording → `RATE_LIMIT`.
-- `grok-errors.ts`: detects xAI “at capacity / high demand / priority processing / overloaded” messages and rewrites them to `RATE_LIMIT` so they are not skipped as `PI_AI_ERROR`.
+- `grok-errors.ts` / `src/runtime/grok-errors.ts`: detects xAI “at capacity / high demand / priority processing / overloaded” messages and rewrites them to `RATE_LIMIT` so they are not skipped as `PI_AI_ERROR`.
 - `adapter.ts`: composes Grok with the three subscription profiles; asks pi-ai for a 60 s remaining-validity floor and registers a retry policy that includes AUTH plus transient codes (default 5 retries, 5 s → 80 s stacked exponential). Optionally wraps `codex-oauth-fast` as **Fast requested**.
 - `auth-routes.ts`: legacy Grok API + the unified `/plugins/dsh-grok-build/oauth/*`; JSON writes use a 64 KiB bounded reader and return 400/413 for malformed/oversized bodies.
 - `capability-settings.ts`: default-off live flags and limits (search 1–20, image count 1–4, artifact TTL 1 h–7 d).
@@ -136,3 +136,7 @@ Stable on-disk / in-process identifiers (do not rename without a migration):
 New routes use the `*-oauth` alias and do not occupy `openai`, `xai` or `kimi-coding`. In v0.3.0 the `grok-build` fallback/default advances to `grok-4.6`; saved user defaults still win.
 
 Hub and this standalone participant pin the same `dsh-coding-oauth-core@0.1.1` and `undici@7.29.0`. The core owns root-scoped owner election, reference-counted proxy policy, atomic registration helpers, provider/route/credential identifiers, the capability namespace, Gateway state filename, and all legacy/current management paths. Hub has priority while installed; this participant remains standby and resumes without renaming routes or resetting credentials after Hub unloads. Grok Imagine keeps its explicit pinned dispatcher and does not use the shared proxy lease.
+
+### Shared runtime extract (first slice)
+
+Hub’s vendored core already carries four pure helpers that were previously duplicated here: `http-json`, `grok-errors`, `kimi-errors`, and `gateway-protocol`. Until the next **published** `dsh-coding-oauth-core` release absorbs that slice, this package keeps a byte-identical local mirror under `vendor/runtime-slice/` (with build copies in `src/runtime/` and thin facades at the historical `src/*.ts` paths). `pnpm run assert:runtime-slice` hash-compares the mirror against Hub’s `vendor/dsh-coding-oauth-core/src`. After that core release ships, Subscription will drop the local mirror and import the helpers from npm core directly.
