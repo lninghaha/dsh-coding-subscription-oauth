@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { cpSync, createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { closeSync, cpSync, existsSync, mkdirSync, openSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,8 +46,11 @@ const env = { ...process.env, DSH_HOME, HOME: homedir() };
 run(dshBin, ["plugin", "--profile", "web", "add", destTgz], { env });
 
 const logFile = join(DSH_HOME, "smoke-web.log");
-const out = createWriteStream(logFile);
-const child = spawn(dshBin, ["web", "--port", String(WEB_PORT), "--no-open"], { env, stdio: ["ignore", out, out] });
+const logFd = openSync(logFile, "w");
+const child = spawn(dshBin, ["web", "--port", String(WEB_PORT), "--no-open"], {
+	env,
+	stdio: ["ignore", logFd, logFd],
+});
 
 let failed = false;
 try {
@@ -85,7 +88,7 @@ try {
 } finally {
 	child.kill("SIGTERM");
 	await new Promise((r) => child.on("exit", r));
-	out.close();
+	closeSync(logFd);
 }
 if (failed) process.exit(1);
 log(`OK — comment on GitHub #29 (log: ${logFile})`);
