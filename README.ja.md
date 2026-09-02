@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.6.4 · 旧名 `dsh-grok-build`
+**v0.6.5 · 旧名 `dsh-grok-build`
 
 **DeepSeek Harness（dsh）のためのコーディングサブスクリプション OAuth プラグイン。** 支払い済みのサブスクリプションで一度きりのサインイン——その後は dsh の設定ページまたは CLI からそのモデルを使えます。**チャットにトークンを貼り付ける必要はありません。**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.6.4` pins the shared dispatcher runtime to `dsh-coding-oauth-core@0.1.1` and `undici@7.29.0`; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating. When Hub and Subscription are both used, `dsh-coding-oauth-core@0.1.1` with `undici@7.29.0` is their shared runtime pin, not a separate DSH plugin.
+> **アップグレード：** [`INSTALL.md`](INSTALL.md) のバージョン別手順に従ってください。`0.6.5` は共有 dispatcher ランタイムを `dsh-coding-oauth-core@0.1.1` と `undici@7.29.0` に維持し、Gateway キーの reveal/rotate を loopback アクセスに限定します。設定・資格情報・データ・ルートの移行は不要です。Grok Imagine は明示的にピン留めされた dispatcher を維持します。`0.6.2` 以降のリリースには厳密な Cordis 注入起動修正と DSH `0.1.1-rc.2` 対応が含まれます。profile / 設定 / 資格情報ファイルはそのままにし、更新後に既存の DSH Web プロセスを一度だけ再起動してください。Hub と Subscription を併用する場合、`dsh-coding-oauth-core@0.1.1` と `undici@7.29.0` は共有ランタイムのピンであり、別の DSH プラグインではありません。
 
 ---
 
@@ -27,7 +27,7 @@
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
-| npm | `dsh-coding-subscription-oauth@0.6.4`（現在のリリース） | 旧 npm パッケージは公開されていない |
+| npm | `dsh-coding-subscription-oauth@0.6.5`（現在のリリース） | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
 | 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
@@ -77,7 +77,7 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 
 ```bash
 # 1. web プロファイルにプラグインをインストール（現在の npm リリース）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.5
 
 # 2. 任意 — Google Antigravity（レビュー済みの固定バージョン）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +118,7 @@ DeepSeek Harness `0.1.1-rc.2` と Node.js 22.19+ が前提です。詳細は[イ
 
 ```bash
 # 現在の npm リリース（推奨）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.4
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.6.5
 
 # 開発／代替：GitHub から
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

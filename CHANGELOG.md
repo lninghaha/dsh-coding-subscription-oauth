@@ -4,6 +4,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.6.5 - 2026-09-02
+
 ### Fixed
 
 - Restrict gateway key reveal/rotate to `accessMode === "loopback"`, matching the Settings UI which already hides those controls on ssh-tunnel and trusted-https-proxy.
@@ -16,8 +18,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 ### Documentation
 
 - Add `AGENTS.md` (cloud environment as the primary path; Docker optional; isolated `DSH_HOME`; operator-only npm publish).
-- Align `CONTRIBUTING.md` so contributors are not Docker-only.
-- Sync community README upgrade banners with the `0.6.2` Cordis / DSH `0.1.1-rc.2` attribution from English/zh-CN.
+- Align `CONTRIBUTING.md` and `docs/00-project-rules.md` so contributors are not Docker-only; Cursor Cloud / isolated `DSH_HOME` is the primary verification path.
+- Localize community README upgrade banners (ja/ko/pt-BR/es/fr/de/ru) so they are not English-only under bilingual headings, keeping Cordis fix in `0.6.2+` and DSH `0.1.1-rc.2` facts accurate.
 
 ## v0.6.4 - 2026-08-29
 
