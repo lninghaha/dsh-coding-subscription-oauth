@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { createWriteStream, mkdirSync, cpSync, rmSync, existsSync } from "node:fs";
+import { cpSync, createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,10 +53,7 @@ let failed = false;
 try {
 	const base = `http://127.0.0.1:${WEB_PORT}`;
 	await waitHttp(`${base}/`);
-	const paths = [
-		"/plugins/dsh-coding-subscription-oauth/gateway/reveal",
-		"/plugins/dsh-grok-build/gateway/reveal",
-	];
+	const paths = ["/plugins/dsh-coding-subscription-oauth/gateway/reveal", "/plugins/dsh-grok-build/gateway/reveal"];
 	let sawDeny = false;
 	for (const path of paths) {
 		const allow = await fetch(`${base}${path}`, {
