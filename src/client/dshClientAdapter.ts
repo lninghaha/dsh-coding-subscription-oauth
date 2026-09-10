@@ -1,7 +1,7 @@
 /** Capability adapter for the unstable DSH browser client surface. */
 
+import type { Context as ClientContext } from "@deepseek-ai/cordis";
 import type {} from "@deepseek-ai/dsh-client-locale/client";
-import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import type {} from "@deepseek-ai/dsh-client-ui-slots";
 
 export interface DshClientCompatibilityDiagnostic {
@@ -12,7 +12,11 @@ export interface DshClientCompatibilityDiagnostic {
 	readonly actual: string;
 }
 
-type SlotsApi = ClientContext["slots"];
+/** Structural slots face discovered at runtime (Cordis may omit typed `slots`). */
+type SlotsApi = {
+	readonly inject: (key: string, callback: () => unknown) => () => void;
+	readonly register: (options: object, component: unknown) => () => void;
+};
 
 function slotsOf(context: unknown): SlotsApi | undefined {
 	if (typeof context !== "object" || context === null) return undefined;
