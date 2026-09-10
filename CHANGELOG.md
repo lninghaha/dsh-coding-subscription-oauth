@@ -4,6 +4,8 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.7.0 - 2026-09-10
+
 ### Added
 
 - Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries).
@@ -20,6 +22,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 - Update `docs/02-architecture.md` / `docs/02-architecture.zh-CN.md` for the published-core import path (no local runtime-slice mirror).
 - Document verified vs candidate DSH BOM and the client-runtime inject change in `INSTALL.md`, `docs/03-dsh-alpha-smoke.md`, and README Requirements.
+
 ## v0.6.5 - 2026-09-02
 
 ### Fixed
