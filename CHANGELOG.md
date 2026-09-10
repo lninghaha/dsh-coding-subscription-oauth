@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Fixed
+
+- Initialize empty `modelErrors` on OAuth provider profiles so DSH `0.1.5-rc.1` model resolution no longer throws `Cannot read properties of undefined (reading 'get')` before a provider request (`#38`, thanks [@warc0s](https://github.com/warc0s) via #37).
+
 ## v0.7.0 - 2026-09-10
 
 ### Added
