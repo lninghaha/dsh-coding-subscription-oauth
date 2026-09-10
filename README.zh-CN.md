@@ -116,7 +116,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## 安装
 
-需要 DeepSeek Harness `0.1.1-rc.2` 与 Node.js 22.19+。完整细节见[安装说明](INSTALL.md)。
+需要 DeepSeek Harness `0.1.1-rc.2`（已验证 BOM）与 Node.js 22.19+。`0.1.5-rc.1` 等未验证候选仅记在 `compatibility/dsh-bom.json`，完整细节见[安装说明](INSTALL.md)。
 
 ```bash
 # 当前 npm 版本
@@ -303,6 +303,7 @@ flowchart LR
 | [`CHANGELOG.md`](CHANGELOG.md) | 版本历史 |
 | [`docs/00-project-rules.md`](docs/00-project-rules.md) | 版本、发版循环、公开层与本地内参分层 |
 | [`docs/02-architecture.md`](docs/02-architecture.md) | 内部架构（路由、数据流、模块、API）· [中文](docs/02-architecture.zh-CN.md) |
+| [`docs/03-dsh-alpha-smoke.md`](docs/03-dsh-alpha-smoke.md) | 未验证 DSH 候选宿主的隔离冒烟（`0.1.2-alpha.*`、`0.1.5-rc.1`） |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 贡献指南 |
 
 ## 相关项目

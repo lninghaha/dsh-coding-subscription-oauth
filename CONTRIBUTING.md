@@ -124,7 +124,7 @@ The plugin verifies an exact DeepSeek Harness BOM (`compatibility/dsh-bom.json`)
 3. **Settings surface.** Settings → Coding OAuth renders all four tabs (Accounts / Gateway / Capabilities / About).
 4. **Credentials survive.** Every previously signed-in provider card (Grok / Codex / Kimi / Claude) still shows signed-in — an upgrade must never migrate or reset OAuth credential files.
 5. **Live routes.** `DSH_WEB_URL=http://127.0.0.1:3080 pnpm run verify:deployed` (status route + catalog + registered routes), then `smoke:deployed` with `DSH_RESTORE_PROVIDER` / `DSH_RESTORE_MODEL` set for one streamed reply per credentialed OAuth route.
-6. **Then move the pin.** Update `compatibility/dsh-bom.json`, the `dsh.compatibility` block in `package.json`, and the README compatibility notes in the same commit.
+7. **Then move the pin.** Update `compatibility/dsh-bom.json`, the `dsh.compatibility` block in `package.json`, and the README / INSTALL compatibility notes in the same commit. Recording a host under `candidates[]` (for example `0.1.5-rc.1`) is not a promotion.
 
 ## Reporting security issues
 

@@ -118,7 +118,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 
 ## Install
 
-Requires DeepSeek Harness `0.1.1-rc.2` and Node.js 22.19+. Full details in the [installation notes](INSTALL.md).
+Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unverified candidates such as `0.1.5-rc.1` are recorded in `compatibility/dsh-bom.json` only — see [INSTALL.md](INSTALL.md).
 
 ```bash
 # current npm release
@@ -305,6 +305,7 @@ Using coding subscriptions through a third-party harness may sit in a gray area 
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 | [`docs/00-project-rules.md`](docs/00-project-rules.md) | Versioning, release loop, publish vs local-only split |
 | [`docs/02-architecture.md`](docs/02-architecture.md) | Internal architecture (routes, data flow, modules, API) · [中文](docs/02-architecture.zh-CN.md) |
+| [`docs/03-dsh-alpha-smoke.md`](docs/03-dsh-alpha-smoke.md) | Isolated smoke on unverified DSH candidates (`0.1.2-alpha.*`, `0.1.5-rc.1`) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Contribution guide |
 
 ## Related
