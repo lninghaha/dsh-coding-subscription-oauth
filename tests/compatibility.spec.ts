@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import type { Context } from "@deepseek-ai/cordis";
-import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 import { describe, expect, it, vi } from "vitest";
 import { createDshClientAdapter } from "../src/client/dshClientAdapter.ts";
 import { DSH_EXACT_BOM } from "../src/compatibility.ts";
@@ -93,7 +92,7 @@ describe("DSH compatibility contracts", () => {
 			effect() {},
 			locale: { register() {}, bind() {} },
 			slots: { inject() {}, register() {} },
-		} as unknown as ClientContext;
+		} as unknown as Context;
 		const adapter = createDshClientAdapter(context);
 		expect(adapter.diagnostics()).toEqual([]);
 		expect(() => adapter.assertCompatible()).not.toThrow();
@@ -107,7 +106,7 @@ describe("DSH compatibility contracts", () => {
 				if (dispose) effectDisposers.push(dispose);
 			},
 			locale: { register() {}, bind() {} },
-		} as unknown as ClientContext;
+		} as unknown as Context;
 		const mountFallback = vi.fn(() => vi.fn());
 		const register = vi.fn(() => vi.fn());
 		const adapter = createDshClientAdapter(context);
@@ -133,7 +132,7 @@ describe("DSH compatibility contracts", () => {
 			inject,
 			locale: { register() {}, bind() {} },
 			slots: { inject() {}, register() {} },
-		} as unknown as ClientContext;
+		} as unknown as Context;
 		const mountFallback = vi.fn(() => vi.fn());
 		const register = vi.fn(() => vi.fn());
 
@@ -145,16 +144,16 @@ describe("DSH compatibility contracts", () => {
 	});
 
 	it("replaces the independent entry when delayed slots become available", () => {
-		let activateSlots: ((context: ClientContext) => unknown) | undefined;
+		let activateSlots: ((context: Context) => unknown) | undefined;
 		const context = {
 			effect(callback: () => (() => void) | undefined) {
 				callback();
 			},
-			inject(_services: readonly string[], callback: (context: ClientContext) => unknown) {
+			inject(_services: readonly string[], callback: (context: Context) => unknown) {
 				activateSlots = callback;
 			},
 			locale: { register() {}, bind() {} },
-		} as unknown as ClientContext;
+		} as unknown as Context;
 		const disposeFallback = vi.fn();
 		const mountFallback = vi.fn(() => disposeFallback);
 		const register = vi.fn(() => vi.fn());
@@ -162,10 +161,10 @@ describe("DSH compatibility contracts", () => {
 
 		activateSlots?.({
 			slots: { inject() {}, register() {} },
-		} as unknown as ClientContext);
+		} as unknown as Context);
 		activateSlots?.({
 			slots: { inject() {}, register() {} },
-		} as unknown as ClientContext);
+		} as unknown as Context);
 
 		expect(disposeFallback).toHaveBeenCalledOnce();
 		expect(register).toHaveBeenCalledOnce();
@@ -188,7 +187,7 @@ describe("DSH compatibility contracts", () => {
 				if (property === "slots") throw new Error('cannot get property "slots" without inject');
 				return Reflect.get(object, property, receiver);
 			},
-		}) as unknown as ClientContext;
+		}) as unknown as Context;
 		const mountFallback = vi.fn(() => vi.fn());
 		const register = vi.fn(() => vi.fn());
 

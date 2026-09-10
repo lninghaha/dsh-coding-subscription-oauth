@@ -26,7 +26,6 @@ export declare const DSH_EXACT_BOM: Readonly<{
     readonly "@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2";
     readonly "@deepseek-ai/dsh-attachment": "0.1.1-rc.2";
     readonly "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2";
-    readonly "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2";
     readonly "@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2";
     readonly "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2";
     readonly "@deepseek-ai/dsh-client-web": "0.1.1-rc.2";

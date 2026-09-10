@@ -4,19 +4,24 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.7.0 - 2026-09-10
+
 ### Added
 
 - Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries).
 - Minimal Accounts UI (zh-CN + en): list / set-default / remove on each signed-in provider card; status includes token-free `accounts` + `activeAccountId`; HTTP `…/oauth/accounts/set-active` and `…/oauth/accounts/remove` (`#30`).
+- Record DeepSeek Harness `0.1.5-rc.1` as an **unverified** BOM candidate in `compatibility/dsh-bom.json` (verified pin remains `0.1.1-rc.2`).
 
 ### Changed
 
 - Consume published `dsh-coding-oauth-core@0.1.2` helper subpaths (`http-json`, `grok-errors`, `kimi-errors`, `gateway-protocol`); remove the temporary `vendor/runtime-slice/` mirror and `src/runtime/` copies. Historical `src/*.ts` facades now re-export from npm core.
 - Replace `pnpm run assert:runtime-slice` with `pnpm run assert:oauth-core` (version pin + subpath resolve).
+- Drop `@deepseek-ai/dsh-client-runtime` from client Cordis inject / BOM / devDependencies; resolve `ClientContext` from `@deepseek-ai/cordis` so candidate host `0.1.5-rc.1` (no client-runtime package) does not leave a stale inject requirement.
 
 ### Documentation
 
 - Update `docs/02-architecture.md` / `docs/02-architecture.zh-CN.md` for the published-core import path (no local runtime-slice mirror).
+- Document verified vs candidate DSH BOM and the client-runtime inject change in `INSTALL.md`, `docs/03-dsh-alpha-smoke.md`, and README Requirements.
 
 ## v0.6.5 - 2026-09-02
 
