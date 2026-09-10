@@ -116,7 +116,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## 安装
 
-需要 DeepSeek Harness `0.1.1-rc.2`（已验证 BOM）与 Node.js 22.19+。`0.1.5-rc.1` 等未验证候选仅记在 `compatibility/dsh-bom.json`，完整细节见[安装说明](INSTALL.md)。
+需要 DeepSeek Harness `0.1.1-rc.2`（已验证 BOM）与 Node.js 22.19+。`0.1.5-rc.1` 等未验证候选仅记在 `compatibility/dsh-bom.json`，完整细节见[安装说明](INSTALL.md)。OAuth profile 会初始化空的 `modelErrors`，避免候选宿主模型解析时对 undefined 调用 `.get`（`#38`）。
 
 ```bash
 # 当前 npm 版本

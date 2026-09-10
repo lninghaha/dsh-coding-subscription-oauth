@@ -4,14 +4,14 @@
  * Offline repro for issue #38 against @deepseek-ai/dsh-llm-pi-ai@0.1.5-rc.1.
  *
  * The plugin keeps dsh-llm-pi-ai external, so a 0.1.5 host reads profile.modelErrors
- * during resolveModel. This script packs that host package and feeds it the plugin's
- * profiles so the crash is observable without a full dsh web install.
+ * during resolveModel. This installs that host package into a scratch tree and feeds
+ * it the plugin's profiles so the crash is observable without a full dsh web install.
  *
  * Usage: node scripts/repro-modelerrors-015.mjs [path-to-plugin-lib-index.js]
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -22,27 +22,28 @@ const previousHome = process.env.DSH_HOME;
 process.env.DSH_HOME = scratch;
 
 try {
-	const pack = spawnSync(
-		"npm",
-		["pack", "@deepseek-ai/dsh-llm-pi-ai@0.1.5-rc.1", "--pack-destination", scratch],
-		{ encoding: "utf8" },
+	const hostDir = join(scratch, "host");
+	spawnSync("mkdir", ["-p", hostDir], { stdio: "inherit" });
+	await writeFile(
+		join(hostDir, "package.json"),
+		JSON.stringify({
+			name: "dsh-modelerrors-host",
+			private: true,
+			type: "module",
+			dependencies: { "@deepseek-ai/dsh-llm-pi-ai": "0.1.5-rc.1" },
+		}),
 	);
-	if (pack.status !== 0) {
-		console.error(pack.stderr || pack.stdout);
-		process.exit(1);
-	}
-	const tgz = (pack.stdout || "").trim().split("\n").filter(Boolean).at(-1);
-	assert.ok(tgz, "expected npm pack output");
-	const extract = join(scratch, "pi-ai");
-	spawnSync("mkdir", ["-p", extract], { stdio: "inherit" });
-	const untar = spawnSync("tar", ["-xzf", join(scratch, tgz), "-C", extract], {
+	const install = spawnSync("npm", ["install", "--omit=dev", "--no-fund", "--no-audit"], {
+		cwd: hostDir,
 		encoding: "utf8",
 	});
-	if (untar.status !== 0) {
-		console.error(untar.stderr || untar.stdout);
+	if (install.status !== 0) {
+		console.error(install.stderr || install.stdout);
 		process.exit(1);
 	}
-	const { PiAiAdapter } = await import(pathToFileURL(join(extract, "package/lib/index.js")).href);
+	const { PiAiAdapter } = await import(
+		pathToFileURL(join(hostDir, "node_modules/@deepseek-ai/dsh-llm-pi-ai/lib/index.js")).href
+	);
 	const plugin = await import(pathToFileURL(pluginEntry).href);
 	const grok = new plugin.GrokBuildSession(new plugin.GrokBuildCredentialStore(join(scratch, "grok.json")));
 	const subscriptions = plugin.OAUTH_PROVIDER_DEFINITIONS.map(

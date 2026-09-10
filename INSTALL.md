@@ -22,7 +22,7 @@ dsh plugin --profile web update dsh-coding-subscription-oauth
 - 需要使用的个人编码订阅；没有 Claude/Google 账号也可以先安装路由
 - 部分网络需要 HTTP/HTTPS 代理
 
-`0.1.2-alpha.*` 与 `0.1.5-rc.1` 可作为 BOM **未验证候选**出现，但不是生产 pin。在把候选提升为 `verified` 之前，不要把它们当作正式兼容声明。面向 `0.1.5-rc.1` 的客户端 inject 已不再要求 `@deepseek-ai/dsh-client-runtime`（该包在候选宿主上不存在）；缺失的可选 inject 仍为 soft diagnostic。
+`0.1.2-alpha.*` 与 `0.1.5-rc.1` 可作为 BOM **未验证候选**出现，但不是生产 pin。在把候选提升为 `verified` 之前，不要把它们当作正式兼容声明。面向 `0.1.5-rc.1` 的客户端 inject 已不再要求 `@deepseek-ai/dsh-client-runtime`（该包在候选宿主上不存在）；缺失的可选 inject 仍为 soft diagnostic。OAuth provider profile 会初始化空的 `modelErrors` map，避免候选宿主在模型解析时对 undefined 调用 `.get`（见 `#38`）。
 
 ## 安装
 

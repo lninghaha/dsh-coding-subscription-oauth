@@ -118,7 +118,7 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 
 ## Install
 
-Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unverified candidates such as `0.1.5-rc.1` are recorded in `compatibility/dsh-bom.json` only — see [INSTALL.md](INSTALL.md).
+Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unverified candidates such as `0.1.5-rc.1` are recorded in `compatibility/dsh-bom.json` only — see [INSTALL.md](INSTALL.md). OAuth profiles initialize an empty `modelErrors` map so candidate hosts do not crash on model resolution (`#38`).
 
 ```bash
 # current npm release
