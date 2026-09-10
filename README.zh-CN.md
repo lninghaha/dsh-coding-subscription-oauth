@@ -1,5 +1,8 @@
 
 <!-- banner -->
+<!-- Unreleased compatibility note; do not attribute to the published 0.6.5 tarball. -->
+> 未发布：修复 DSH `0.1.5-alpha.2` 和 `0.1.5-rc.1` 上的 OAuth 模型解析。已验证的安装 BOM 仍为 `0.1.1-rc.2`；新版宿主的验证范围见 [INSTALL.md](INSTALL.md)。
+
 <div align="center">
 
 # 🔐 dsh-coding-subscription-oauth

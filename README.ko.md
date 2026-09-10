@@ -1,5 +1,8 @@
 
 <!-- banner -->
+<!-- Unreleased compatibility note; do not attribute to the published 0.6.5 tarball. -->
+> 미출시: DSH `0.1.5-alpha.2` 및 `0.1.5-rc.1`의 OAuth 모델 확인 오류를 수정합니다. 검증된 설치 BOM은 여전히 `0.1.1-rc.2`입니다. 새 호스트의 검증 범위는 [INSTALL.md](INSTALL.md)를 참고하세요.
+
 <div align="center">
 
 # 🔐 dsh-coding-subscription-oauth

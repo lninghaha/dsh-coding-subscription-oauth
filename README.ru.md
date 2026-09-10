@@ -1,5 +1,8 @@
 
 <!-- banner -->
+<!-- Unreleased compatibility note; do not attribute to the published 0.6.5 tarball. -->
+> Ещё не опубликовано: исправлено разрешение моделей OAuth в DSH `0.1.5-alpha.2` и `0.1.5-rc.1`. Проверенный BOM установки остаётся на `0.1.1-rc.2`; область проверок новых версий описана в [INSTALL.md](INSTALL.md).
+
 <div align="center">
 
 # 🔐 dsh-coding-subscription-oauth

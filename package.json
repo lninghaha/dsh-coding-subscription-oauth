@@ -63,6 +63,7 @@
     "release:pack": "node scripts/release.mjs --pack",
     "release:publish": "node scripts/release-publish.mjs",
     "verify:deployed": "node scripts/verify-deployed-catalog.mjs",
+    "verify:adapter-host": "node scripts/verify-adapter-host.mjs",
     "smoke:deployed": "node scripts/smoke-deployed-routes.mjs",
     "smoke:dsh-alpha": "node scripts/smoke-dsh-alpha.mjs",
     "prepack": "pnpm run release:build"
@@ -101,6 +102,7 @@
     "README.ru.md",
     "patches/dsh-agy@0.1.2.patch",
     "scripts/verify-deployed-catalog.mjs",
+    "scripts/verify-adapter-host.mjs",
     "scripts/smoke-deployed-routes.mjs",
     "scripts/release.mjs",
     "LICENSE",

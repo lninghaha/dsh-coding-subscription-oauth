@@ -130,7 +130,7 @@ function profile(
 	piProvider: ResolvedPiAiProviderProfile["piProvider"],
 	retryPolicy?: RetryPolicyConfig | undefined,
 	headers?: Record<string, string> | undefined,
-): ResolvedPiAiProviderProfile {
+): ResolvedPiAiProviderProfile & { modelErrors: Map<string, string> } {
 	return {
 		provider,
 		displayName,
@@ -140,6 +140,9 @@ function profile(
 			"dsh-coding-subscription-oauth retryPolicy",
 		),
 		configuredMaxTokens: new Map(),
+		// DSH 0.1.5 reads per-model diagnostics during resolution. These profiles
+		// come from provider catalogs, so there are no settings errors to retain.
+		modelErrors: new Map(),
 		...REQUEST_IMAGE_POLICY,
 		...(headers === undefined ? {} : { headers }),
 		piProvider,

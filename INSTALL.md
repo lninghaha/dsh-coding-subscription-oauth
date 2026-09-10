@@ -42,6 +42,21 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## 升级注意事项
 
+### Unreleased adapter compatibility fix
+
+DSH `0.1.5-alpha.2` and `0.1.5-rc.1` require a per-model diagnostics map when resolving a pi-ai provider profile. The unpublished source fix initializes this map for every OAuth route, including the standalone Grok adapter and Codex Fast. The published `0.6.5` tarball does not contain this fix.
+
+The exact installation BOM remains DSH `0.1.1-rc.2`. This change does not certify every feature on a newer host or widen the package's peer dependency pins. Validate a candidate in an isolated profile before changing those pins.
+
+After installing the candidate into an isolated host, run this offline check against that installed copy so it uses the host's actual runtime packages:
+
+```bash
+node scripts/verify-adapter-host.mjs "$DSH_HOME/profiles/web/node_modules/dsh-coding-subscription-oauth/lib/index.js"
+```
+
+It checks catalog lookup, model resolution, request preparation and unknown-model errors for all OAuth routes without contacting providers. Live generation, tool calls and conversation continuation require separate tests with authorized accounts.
+
+
 - 本版按 DSH `0.1.1-rc.2` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。
 - 从 `0.6.0` 升级到 `0.6.2` 后再重启：`0.6.0` 在严格 Cordis 注入检查下可能因读取尚未注入的可选服务而拖垮插件树。这个补丁不迁移或重置 OAuth 凭据、Gateway、模型/适配器 ID 与缓存。
 - 从 `0.6.3` 升级到 `0.6.4`：统一固定 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`；无配置、凭据、数据或路由迁移。

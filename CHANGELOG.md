@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Fixed
+
+- Initialize per-model diagnostics in OAuth provider profiles. DSH `0.1.5-alpha.2` and `0.1.5-rc.1` read this map during model resolution; its absence caused `Cannot read properties of undefined (reading 'get')` before a request could reach any OAuth provider.
+
 ### Added
 
 - Adopt Hub-aligned AuthDocument v2 multi-account store: read v1 and migrate under file lock, hard cap of 8 accounts, `upsertAccount` / `setActiveAccount` / `removeAccount` / `listAccounts` (token-free summaries).

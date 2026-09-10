@@ -143,6 +143,7 @@ describe("createCodingOAuthAdapter model discovery", () => {
 				maxRequestImageBytes: 20 * 1024 * 1024,
 				requestImagePixelBudget: 2048 * 2048,
 				requestImageMaxBytes: 1024 * 1024,
+				modelErrors: new Map(),
 			});
 		}
 		const auth = inner.config.auth as {
@@ -173,6 +174,7 @@ describe("createCodingOAuthAdapter model discovery", () => {
 			maxRequestImageBytes: 20 * 1024 * 1024,
 			requestImagePixelBudget: 2048 * 2048,
 			requestImageMaxBytes: 1024 * 1024,
+			modelErrors: new Map(),
 		});
 	});
 

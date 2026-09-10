@@ -1,5 +1,8 @@
 
 <!-- banner -->
+<!-- Unreleased compatibility note; do not attribute to the published 0.6.5 tarball. -->
+> 未リリース：DSH `0.1.5-alpha.2` と `0.1.5-rc.1` での OAuth モデル解決を修正しました。検証済みのインストール BOM は引き続き `0.1.1-rc.2` です。新しいホストでの検証範囲は [INSTALL.md](INSTALL.md) を参照してください。
+
 <div align="center">
 
 # 🔐 dsh-coding-subscription-oauth
