@@ -64,9 +64,13 @@ gateway:
   enabled: true
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 或在 Settings → Coding OAuth → Gateway 标签页打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
+
+可选的 **OpenCode Go** 聊天代理（`gateway.opencodeGo.enabled`，默认关）可在 Gateway 标签页单独打开：开启后 `POST /v1/chat/completions` 会转发到固定的 `https://opencode.ai/zen/go/v1/chat/completions`，并注入粘性 `x-opencode-session`。此时请把网关 Bearer key 设为你的 OpenCode API key；无需重启即可切换。
 
 ## 安全访问远程 Settings
 

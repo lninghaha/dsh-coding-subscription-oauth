@@ -73,7 +73,13 @@ async function request(
 
 describe("resolveGatewayConfig", () => {
 	it("defaults to disabled loopback", () => {
-		expect(resolveGatewayConfig()).toEqual({ enabled: false, bind: "127.0.0.1", port: 18080, rateLimit: 0 });
+		expect(resolveGatewayConfig()).toEqual({
+			enabled: false,
+			bind: "127.0.0.1",
+			port: 18080,
+			rateLimit: 0,
+			opencodeGo: { enabled: false },
+		});
 	});
 
 	it("rejects an out-of-range port", () => {

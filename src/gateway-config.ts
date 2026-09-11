@@ -13,12 +13,17 @@ export const GATEWAY_RANDOM_PORT_MIN = 18_100;
 export const GATEWAY_RANDOM_PORT_MAX = 18_999;
 const GATEWAY_RANDOM_RESERVED = new Set([22, 53, 3080, 7890, 9090, GATEWAY_DEFAULT_PORT]);
 
+export interface GatewayOpencodeGoConfig {
+	readonly enabled: boolean;
+}
+
 export interface GatewayConfig {
 	readonly enabled: boolean;
 	readonly bind: string;
 	readonly port: number;
 	readonly apiKey?: string;
 	readonly rateLimit: number;
+	readonly opencodeGo: GatewayOpencodeGoConfig;
 }
 
 export const GatewayConfigSchema: z<Partial<GatewayConfig>> = z.object({
@@ -27,6 +32,11 @@ export const GatewayConfigSchema: z<Partial<GatewayConfig>> = z.object({
 	port: z.number().default(GATEWAY_DEFAULT_PORT),
 	apiKey: z.string(),
 	rateLimit: z.number().default(0),
+	opencodeGo: z
+		.object({
+			enabled: z.boolean().default(false),
+		})
+		.default({ enabled: false }),
 });
 
 export function resolveGatewayConfig(raw?: Partial<GatewayConfig>): GatewayConfig {
@@ -41,12 +51,16 @@ export function resolveGatewayConfig(raw?: Partial<GatewayConfig>): GatewayConfi
 	if (apiKey !== undefined && (typeof apiKey !== "string" || apiKey.length === 0)) {
 		throw new Error("gateway.apiKey must be a non-empty string when set");
 	}
+	const opencodeGoRaw = raw?.opencodeGo;
 	return {
 		enabled: raw?.enabled === true,
 		bind: bind.trim(),
 		port,
 		...(apiKey === undefined ? {} : { apiKey }),
 		rateLimit,
+		opencodeGo: {
+			enabled: opencodeGoRaw?.enabled === true,
+		},
 	};
 }
 

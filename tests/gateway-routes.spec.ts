@@ -41,6 +41,7 @@ const idleStatus: GatewayPublicStatus = {
 	keyHint: "****key",
 	models: [],
 	warning: "",
+	opencodeGoEnabled: false,
 };
 
 function request(
@@ -68,6 +69,7 @@ function fakeController(): CodingOAuthGatewayController & { reveals: number; rot
 		startIfEnabled: async () => undefined,
 		setEnabled: async () => idleStatus,
 		setPort: async () => idleStatus,
+		setOpencodeGoEnabled: async () => idleStatus,
 		async revealKey() {
 			this.reveals += 1;
 			return { apiKey: "reveal-key-value-bbbb", keyHint: "****bbbb" };

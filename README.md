@@ -201,9 +201,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
+
+Optional **OpenCode Go** chat proxy (`gateway.opencodeGo.enabled`, default off) can also be toggled on the Gateway tab. When on, `POST /v1/chat/completions` is forwarded to pinned `https://opencode.ai/zen/go/v1/chat/completions` with a sticky `x-opencode-session`. Set the gateway Bearer key to your OpenCode API key for that mode; the toggle does not require a restart.
 
 On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key reveal is loopback-only and is never persisted to browser storage. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 

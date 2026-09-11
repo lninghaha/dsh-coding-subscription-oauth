@@ -15,6 +15,7 @@ import {
 import { createSessionGatewayBackend, type GatewayBackend } from "./gateway-backend.ts";
 import { assertGatewayPort, type GatewayConfig, resolveGatewayConfig } from "./gateway-config.ts";
 import { closeGateway, createGatewayHttpServer, listenGateway } from "./gateway-http.ts";
+import { createOpencodeGoSessionMap } from "./gateway-opencode-go.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
 import type { GrokBuildSession } from "./session.ts";
 
@@ -47,6 +48,7 @@ export interface GatewayPublicStatus {
 	keyHint: string;
 	models: string[];
 	warning: string;
+	opencodeGoEnabled: boolean;
 }
 
 export interface CodingOAuthGatewayController {
@@ -54,6 +56,7 @@ export interface CodingOAuthGatewayController {
 	startIfEnabled(): Promise<StartedGateway | undefined>;
 	setEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
 	setPort(port: number): Promise<GatewayPublicStatus>;
+	setOpencodeGoEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
 	revealKey(): Promise<{ apiKey: string; keyHint: string }>;
 	rotateKey(): Promise<{ apiKey: string; keyHint: string }>;
 	stop(): Promise<void>;
@@ -72,9 +75,11 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		if (options.grok === undefined) throw new Error("gateway requires a backend or Grok session");
 		return createSessionGatewayBackend(options.grok, options.subscriptions ?? []);
 	};
+	const sessionMap = createOpencodeGoSessionMap();
 	let server: Server | undefined;
 	let apiKey = yaml.apiKey ?? "";
 	let port = yaml.port;
+	let opencodeGoEnabled = yaml.opencodeGo.enabled;
 	let lock: Promise<void> = Promise.resolve();
 
 	const withLock = async <T>(work: () => Promise<T>): Promise<T> => {
@@ -98,7 +103,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		await closeGateway(current).catch(() => undefined);
 	};
 
-	const activeConfig = (): GatewayConfig => ({ ...yaml, port });
+	const activeConfig = (): GatewayConfig => ({ ...yaml, port, opencodeGo: { enabled: opencodeGoEnabled } });
 
 	const snapshot = async (enabled?: boolean): Promise<GatewayPublicStatus> => {
 		let models: string[] = [];
@@ -118,10 +123,16 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 			keyHint: apiKey.length === 0 ? "" : maskGatewayApiKey(apiKey),
 			models,
 			warning: GATEWAY_TOS_WARNING,
+			opencodeGoEnabled,
 		};
 	};
 
-	const persistState = async (next: { enabled?: boolean; port?: number; apiKey?: string }): Promise<void> => {
+	const persistState = async (next: {
+		enabled?: boolean;
+		port?: number;
+		apiKey?: string;
+		opencodeGoEnabled?: boolean;
+	}): Promise<void> => {
 		const document = await loadGatewayKeyDocument(path);
 		const nextKey = next.apiKey ?? (apiKey.length === 0 ? document?.apiKey : apiKey);
 		if (nextKey === undefined || nextKey.length === 0) throw new Error("gateway api key is missing");
@@ -129,18 +140,28 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		const nextEnabled = next.enabled ?? document?.enabled;
 		const nextPort = next.port ?? document?.port ?? port;
 		port = nextPort;
+		if (next.opencodeGoEnabled !== undefined) opencodeGoEnabled = next.opencodeGoEnabled;
+		const nextOpencodeGo = next.opencodeGoEnabled ?? document?.opencodeGoEnabled;
 		await persistGatewayKeyDocument(path, {
 			version: 1,
 			apiKey: nextKey,
 			...(nextEnabled === undefined ? {} : { enabled: nextEnabled }),
 			port: nextPort,
+			...(nextOpencodeGo === undefined ? {} : { opencodeGoEnabled: nextOpencodeGo }),
 		});
 	};
 
 	const listen = async (): Promise<StartedGateway> => {
 		if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
 		const config = activeConfig();
-		const http = createGatewayHttpServer({ config, apiKey, backend: backend() });
+		const http = createGatewayHttpServer({
+			config,
+			apiKey,
+			backend: backend(),
+			sessionMap,
+			isOpencodeGoEnabled: () => opencodeGoEnabled,
+			getUpstreamApiKey: () => apiKey,
+		});
 		try {
 			await listenGateway(http, config);
 		} catch (error) {
@@ -157,14 +178,24 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		return document?.enabled ?? yaml.enabled;
 	};
 
+	const desiredOpencodeGoEnabled = async (): Promise<boolean> => {
+		const document = await loadGatewayKeyDocument(path);
+		return document?.opencodeGoEnabled ?? yaml.opencodeGo.enabled;
+	};
+
 	const hydratePort = async (): Promise<void> => {
 		const document = await loadGatewayKeyDocument(path);
 		if (document?.port !== undefined) port = document.port;
 	};
 
+	const hydrateOpencodeGo = async (): Promise<void> => {
+		opencodeGoEnabled = await desiredOpencodeGoEnabled();
+	};
+
 	return {
 		async status() {
 			await hydratePort();
+			await hydrateOpencodeGo();
 			if (apiKey.length === 0) {
 				const document = await loadGatewayKeyDocument(path);
 				apiKey = document?.apiKey ?? "";
@@ -174,6 +205,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		startIfEnabled() {
 			return withLock(async () => {
 				await hydratePort();
+				await hydrateOpencodeGo();
 				if (!(await desiredEnabled())) return undefined;
 				if (server !== undefined) return { bind: yaml.bind, port, close: () => closeServer() };
 				try {
@@ -186,6 +218,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		setEnabled(enabled) {
 			return withLock(async () => {
 				await hydratePort();
+				await hydrateOpencodeGo();
 				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
 				await persistState({ enabled });
 				if (enabled && server === undefined) {
@@ -202,6 +235,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		setPort(nextPort) {
 			return withLock(async () => {
 				await hydratePort();
+				await hydrateOpencodeGo();
 				const wanted = assertGatewayPort(nextPort);
 				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
 				const previous = port;
@@ -224,6 +258,14 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 				}
 			});
 		},
+		setOpencodeGoEnabled(enabled) {
+			return withLock(async () => {
+				await hydratePort();
+				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
+				await persistState({ opencodeGoEnabled: enabled });
+				return snapshot();
+			});
+		},
 		revealKey() {
 			return withLock(async () => {
 				if (apiKey.length === 0) apiKey = await loadOrCreateGatewayApiKey(path, yaml.apiKey);
@@ -233,6 +275,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 		rotateKey() {
 			return withLock(async () => {
 				await hydratePort();
+				await hydrateOpencodeGo();
 				const next = generateGatewayApiKey();
 				const document = await loadGatewayKeyDocument(path);
 				await persistState({

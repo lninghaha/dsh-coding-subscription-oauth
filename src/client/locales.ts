@@ -206,6 +206,9 @@ export const en = {
 	gatewayEnableConfirmAction: "Confirm",
 	gatewayEnableCancel: "Cancel",
 	gatewayEnabled: "Enable local gateway",
+	gatewayOpencodeGoEnabled: "Proxy chat to OpenCode Go",
+	gatewayOpencodeGoHint:
+		"When on, POST /v1/chat/completions is forwarded to OpenCode Go with a sticky session header. Set the gateway Bearer key to your OpenCode API key. Default off. Follow OpenCode terms; this still consumes your OpenCode quota.",
 	gatewayBind: "Bind",
 	gatewayPort: "Port",
 	gatewayPortHint: "Integer from 1024 through 65535. Apply to save; Random fills a high port, then Apply.",
@@ -477,6 +480,9 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	gatewayEnableConfirmAction: "确认启用",
 	gatewayEnableCancel: "取消",
 	gatewayEnabled: "启用本地网关",
+	gatewayOpencodeGoEnabled: "将聊天代理到 OpenCode Go",
+	gatewayOpencodeGoHint:
+		"开启后，POST /v1/chat/completions 会转发到 OpenCode Go，并带上粘性会话头。请把网关 Bearer key 设为你的 OpenCode API key。默认关闭。请遵守 OpenCode 条款；仍会消耗你的 OpenCode 配额。",
 	gatewayBind: "绑定地址",
 	gatewayPort: "端口",
 	gatewayPortHint: "1024–65535 的整数。改完点确定保存；随机会填一个高位端口，仍需确定。",

@@ -85,15 +85,23 @@ async function handleGatewaySettings(
 		}
 		if (req.method === "PATCH") {
 			const raw = await readJsonRequest(req);
-			const payload = typeof raw === "object" && raw !== null ? (raw as { enabled?: unknown; port?: unknown }) : {};
+			const payload =
+				typeof raw === "object" && raw !== null
+					? (raw as { enabled?: unknown; port?: unknown; opencodeGoEnabled?: unknown })
+					: {};
 			const enabled = payload.enabled;
 			const port = payload.port;
-			if (enabled === undefined && port === undefined) {
-				json(res, 400, { error: "enabled or port is required" });
+			const opencodeGoEnabled = payload.opencodeGoEnabled;
+			if (enabled === undefined && port === undefined && opencodeGoEnabled === undefined) {
+				json(res, 400, { error: "enabled, port, or opencodeGoEnabled is required" });
 				return;
 			}
 			if (enabled !== undefined && typeof enabled !== "boolean") {
 				json(res, 400, { error: "enabled must be a boolean" });
+				return;
+			}
+			if (opencodeGoEnabled !== undefined && typeof opencodeGoEnabled !== "boolean") {
+				json(res, 400, { error: "opencodeGoEnabled must be a boolean" });
 				return;
 			}
 			if (port !== undefined) {
@@ -108,6 +116,9 @@ async function handleGatewaySettings(
 					return;
 				}
 				await controller.setPort(port);
+			}
+			if (typeof opencodeGoEnabled === "boolean") {
+				await controller.setOpencodeGoEnabled(opencodeGoEnabled);
 			}
 			const status = typeof enabled === "boolean" ? await controller.setEnabled(enabled) : await controller.status();
 			json(res, 200, status);

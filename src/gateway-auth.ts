@@ -20,6 +20,7 @@ export interface GatewayKeyDocument {
 	apiKey: string;
 	enabled?: boolean;
 	port?: number;
+	opencodeGoEnabled?: boolean;
 }
 
 export function gatewayKeyPath(dshHome?: string): string {
@@ -39,6 +40,16 @@ export function gatewayKeysEqual(left: string, right: string): boolean {
 export function maskGatewayApiKey(apiKey: string): string {
 	if (apiKey.length <= 4) return "****";
 	return `****${apiKey.slice(-4)}`;
+}
+
+function documentExtras(
+	existing: GatewayKeyDocument | undefined,
+): Pick<GatewayKeyDocument, "enabled" | "port" | "opencodeGoEnabled"> {
+	return {
+		...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
+		...(existing?.port === undefined ? {} : { port: existing.port }),
+		...(existing?.opencodeGoEnabled === undefined ? {} : { opencodeGoEnabled: existing.opencodeGoEnabled }),
+	};
 }
 
 export async function loadGatewayKeyDocument(path: string): Promise<GatewayKeyDocument | undefined> {
@@ -62,6 +73,9 @@ export async function loadGatewayKeyDocument(path: string): Promise<GatewayKeyDo
 			apiKey: document["apiKey"],
 			...(typeof document["enabled"] === "boolean" ? { enabled: document["enabled"] } : {}),
 			...(typeof port === "number" && Number.isSafeInteger(port) && port >= 1024 && port <= 65_535 ? { port } : {}),
+			...(typeof document["opencodeGoEnabled"] === "boolean"
+				? { opencodeGoEnabled: document["opencodeGoEnabled"] }
+				: {}),
 		};
 	} catch (error) {
 		if (error instanceof OAuthSourceError && error.code === "not_found") return undefined;
@@ -75,8 +89,7 @@ export async function loadOrCreateGatewayApiKey(path: string, configured?: strin
 		await persistGatewayKeyDocument(path, {
 			version: KEY_FORMAT_VERSION,
 			apiKey: configured,
-			...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
-			...(existing?.port === undefined ? {} : { port: existing.port }),
+			...documentExtras(existing),
 		});
 		return configured;
 	}
@@ -91,8 +104,7 @@ export async function persistGatewayApiKey(path: string, apiKey: string): Promis
 	await persistGatewayKeyDocument(path, {
 		version: KEY_FORMAT_VERSION,
 		apiKey,
-		...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
-		...(existing?.port === undefined ? {} : { port: existing.port }),
+		...documentExtras(existing),
 	});
 }
 
