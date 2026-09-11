@@ -46,6 +46,7 @@
 - 🗂️ **Настройки во вкладках** — Accounts, Gateway, Capabilities и About; на удалённых хостах предпочтителен device code и меньше шума CLI missing; вошедшие карточки свёрнуты, пока их не развернёшь.
 - 🎛️ **Опциональные возможности, по умолчанию выключены** — поиск Codex, использование/квота, генерация/редактирование изображений, Fast и Grok Imagine применяются сразу при включении. Дополнительный выключенный по умолчанию переключатель разрешает маршрутам не-Codex моделей вызывать инструменты изображений Codex, не обходя вход Codex, сессию и проверку владения вложениями.
 - 🔌 **Локальный API-шлюз по opt-in** — по умолчанию выключенный loopback-сервер, совместимый с OpenAI/Anthropic; для ваших собственных инструментов, а не публичный relay.
+- 🤝 **Опциональная совместимость с OpenCode Go** — шлюз может проксировать chat completions в OpenCode Go и вставлять sticky `x-opencode-session` (избегает `MissingSessionID`); по умолчанию выкл.
 
 ## Какие проблемы подключения закрывает этот плагин
 
@@ -60,6 +61,7 @@
 | Не вошедшие модели остаются в селекторе | Перечислялись все зарегистрированные маршруты | Неаутентифицированные маршруты пустые; вошедшие помечены `(OAuth)` |
 | PKCE на удалённом / headless DSH | Нельзя вернуться на `localhost` | Device-code для Grok/Codex/Kimi; Claude принимает вставленный redirect URL |
 | Прокси пускает Grok и ломает Kimi в Китае | Глобальный `HTTPS_PROXY` | Прокси только по allowlist; Kimi **напрямую**, пока не включён `proxyKimi: true` |
+| Чат OpenCode Go падает с `MissingSessionID` / без `x-opencode-session` | Клиенты не шлют sticky session-заголовки | Opt-in прокси OpenCode Go на шлюзе вставляет sticky `x-opencode-session` |
 
 ## Поддерживаемые провайдеры
 
@@ -189,9 +191,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 Эндпоинты: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Bearer-ключ хранится в `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). В настройках можно скопировать базовый URL OpenAI (база + `/v1`), базовый URL Anthropic и текущий Bearer-ключ без ротации; показ ключа возможен только через loopback и не сохраняется в хранилище браузера. Ротация — подтверждаемое деструктивное действие. Порт прослушивания можно отредактировать напрямую и сохранить через Apply или заполнить кнопкой Random (18100–18999); выбранный порт сохраняется в доступном только владельцу документе шлюза, а работающий listener перепривязывается. Bind по-прежнему задаётся только в YAML; для не-loopback bind требуется ключ. Это не удалённый relay.
+
+Опциональная **совместимость с OpenCode Go** (`gateway.opencodeGo.enabled`, по умолчанию выкл.) включается на вкладке Gateway. Когда включено, `POST /v1/chat/completions` уходит на зафиксированный `https://opencode.ai/zen/go/v1/chat/completions` со sticky `x-opencode-session`, чтобы клиенты без session affinity OpenCode (иначе часто `MissingSessionID`) могли работать через этот loopback-шлюз. Приоритет session id: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → сгенерированный UUID. Bearer key шлюза должен быть вашим OpenCode API key; переключение без перезапуска.
 
 ## CLI
 

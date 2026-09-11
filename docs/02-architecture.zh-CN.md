@@ -77,6 +77,7 @@ ctx.llm route
 - `client/`：四个原生账号卡片、CLI 拉取、能力开关、网关控制，以及外部 Antigravity 状态卡片。
 - `proxy.ts`：process-wide undici dispatcher，但只代理审核过的域名白名单。
 - `gateway*.ts`：可选的隔离 loopback OpenAI/Anthropic 兼容 HTTP 服务（默认关；独立于 DSH web 端口）。
+- `gateway-opencode-go.ts`：可选 OpenCode Go 兼容——当 `gateway.opencodeGo.enabled` 开启时，`POST /v1/chat/completions` 代理到固定 OpenCode Go 端点并注入粘性 `x-opencode-session`（会话 id 优先级：harness / opencode / x-session-id / body `session_id` / UUID）。
 - `dsh-host-adapter.ts` / `web-origin.ts`：隔离可变 DSH 服务，并优先使用宿主 `ownerRequestPolicy`；fallback 对 loopback/SSH 做 Host/Origin 约束，对 HTTPS 反代同时核验真实 peer、精确 Origin/Host、Fetch Metadata、owner proof 与独立 CSRF。宿主策略抛错或返回畸形结果时安全拒绝，不让异常越过路由边界。
 
 ## 4. Web API

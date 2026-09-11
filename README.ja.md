@@ -45,6 +45,7 @@
 - 🗂️ **タブ分けされた設定** — Accounts・Gateway・Capabilities・About。リモートホストではデバイスコード優先と CLI missing の静かな案内；サインイン済みカードは展開するまで折りたたまれます。
 - 🎛️ **オプション機能（既定オフ）** — Codex の検索・使用量/クォータ・画像生成/編集・Fast、Grok Imagine はスイッチをオンにすると即時適用されます。追加の既定オフのスイッチで非 Codex モデルルートから Codex 画像ツールを利用できますが、Codex ログイン、セッション、添付ファイル所有権の検証は維持されます。
 - 🔌 **オプトインのローカル API ゲートウェイ** — 既定オフのループバック OpenAI/Anthropic 互換サーバー。自分のツール専用で、公開リレーではありません。
+- 🤝 **オプトインの OpenCode Go 互換** — ゲートウェイが OpenCode Go へチャットをプロキシし、sticky な `x-opencode-session` を注入（`MissingSessionID` を回避）；デフォルト off。
 
 ## このプラグインが解く接続の問題
 
@@ -60,6 +61,7 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 | 未ログインのモデルがセレクターに残る | 全ルートを列挙 | 未認証は空リスト。認証済みは `(OAuth)` |
 | リモート / ヘッドレスで PKCE できない | localhost に戻れない | Grok/Codex/Kimi はデバイスコード。Claude は redirect URL を貼り付け可 |
 | プロキシで Grok は通るが中国の Kimi が落ちる | グローバル `HTTPS_PROXY` | 許可ドメインのみ。Kimi は既定で直結（`proxyKimi: true` でプロキシ） |
+| OpenCode Go チャットが `MissingSessionID` / `x-opencode-session` 欠如で失敗 | クライアントが sticky セッションヘッダを送らない | オプトインのゲートウェイ OpenCode Go プロキシが sticky `x-opencode-session` を注入 |
 
 ## 対応プロバイダー
 
@@ -189,9 +191,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 エンドポイント: `GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer キーは `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）に保存されます。設定ページから OpenAI ベース URL（ベース + `/v1`）、Anthropic ベース URL、現在の Bearer キーをローテーションせずにコピーできます。キーの表示はループバックからのみ可能で、ブラウザストレージには保存されません。ローテーションは確認付きの破壊的操作です。リッスンポートは直接編集して Apply で保存するか、Random（18100–18999）で自動入力できます。選択したポートはオーナー専用のゲートウェイドキュメントに永続化され、稼働中のリスナーは再バインドされます。bind は YAML のみで変更でき、非ループバックの bind にはキーが必須です。これはリモートリレーではありません。
+
+オプションの **OpenCode Go 互換**（`gateway.opencodeGo.enabled`、デフォルト off）は Gateway タブで切り替えられます。オンにすると `POST /v1/chat/completions` を固定の `https://opencode.ai/zen/go/v1/chat/completions` へ転送し、sticky な `x-opencode-session` を注入します。OpenCode のセッション親和性を送らないクライアント（さもなければ `MissingSessionID`）でも、このループバックゲートウェイ経由で会話できます。セッション id 優先順：`x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → 生成 UUID。そのモードではゲートウェイ Bearer key を OpenCode API key にしてください。再起動は不要です。
 
 ## CLI
 

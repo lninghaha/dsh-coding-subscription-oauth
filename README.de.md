@@ -45,6 +45,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 - 🗂️ **Einstellungen mit Tabs** — Accounts, Gateway, Capabilities und About; Remote-Hosts bevorzugen Device-Code mit ruhigeren CLI-Missing-Hinweisen; angemeldete Karten bleiben eingeklappt, bis sie erweitert werden.
 - 🎛️ **Optionale Funktionen, standardmäßig aus** — Codex-Suche, Nutzung/Kontingent, Bild erzeugen/bearbeiten, Fast und Grok Imagine wirken live beim Einschalten. Ein zusätzlicher, standardmäßig deaktivierter Schalter erlaubt Nicht-Codex-Modellrouten die Codex-Bildwerkzeuge, ohne Codex-Anmeldung, Sitzung oder Anhangseigentum zu umgehen.
 - 🔌 **Opt-in lokales API-Gateway** — standardmäßig ausgeschalteter Loopback-Server, OpenAI-/Anthropic-kompatibel; für Ihre eigenen Werkzeuge, niemals ein öffentliches Relay.
+- 🤝 **Opt-in OpenCode-Go-Kompatibilität** — Gateway kann Chat-Completions an OpenCode Go proxien und sticky `x-opencode-session` injizieren (vermeidet `MissingSessionID`); standardmäßig aus.
 
 ## Integrationsprobleme, die dieses Plugin löst
 
@@ -60,6 +61,7 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 | Nicht angemeldete Modelle bleiben im Wähler | Alle registrierten Routen wurden gelistet | Nicht authentifizierte Routen sind leer; angemeldete Namen tragen `(OAuth)` |
 | PKCE auf remote / headless DSH | Kein Weg zurück zu `localhost` | Device-Code für Grok/Codex/Kimi; Claude akzeptiert die eingefügte Redirect-URL |
 | Proxy lässt Grok durch und legt Kimi in China lahm | Ein globales `HTTPS_PROXY` | Nur Allowlist; Kimi bleibt **direkt**, außer `proxyKimi: true` |
+| OpenCode-Go-Chat scheitert mit `MissingSessionID` / fehlendem `x-opencode-session` | Clients senden keine sticky Session-Header | Opt-in Gateway-OpenCode-Go-Proxy injiziert sticky `x-opencode-session` |
 
 ## Unterstützte Anbieter
 
@@ -188,9 +190,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Ein Bearer-Schlüssel wird in `$DSH_HOME/.coding-oauth-gateway.json` (`0600`) gespeichert. In den Einstellungen lassen sich die OpenAI-Basis-URL (Basis + `/v1`), die Anthropic-Basis-URL und der aktuelle Bearer-Schlüssel kopieren, ohne ihn zu rotieren; die Schlüsselanzeige ist nur über Loopback möglich und wird nicht im Browser-Speicher persistiert. Die Rotation ist eine bestätigte destruktive Aktion. Der Listen-Port kann direkt bearbeitet und mit Apply gespeichert oder per Random (18100–18999) gefüllt werden; der gewählte Port wird im Nur-Eigentümer-Gateway-Dokument persistiert, und ein laufender Listener bindet sich neu. Das Bind bleibt YAML-only; ein Nicht-Loopback-Bind erfordert einen Schlüssel. Dies ist kein Remote-Relay.
+
+Optionale **OpenCode-Go-Kompatibilität** (`gateway.opencodeGo.enabled`, standardmäßig aus) lässt sich im Gateway-Tab schalten. Wenn an, wird `POST /v1/chat/completions` an festes `https://opencode.ai/zen/go/v1/chat/completions` weitergeleitet und sticky `x-opencode-session` injiziert — damit Clients ohne OpenCode-Session-Affinity (sonst oft `MissingSessionID`) über dieses Loopback-Gateway chatten können. Session-ID-Priorität: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → Body `session_id` → generierte UUID. Gateway-Bearer-Key auf Ihren OpenCode-API-Key setzen; Umschalten ohne Neustart.
 
 ## CLI
 

@@ -70,7 +70,7 @@ gateway:
 
 或在 Settings → Coding OAuth → Gateway 标签页打开。Bearer key 存在 `$DSH_HOME/.coding-oauth-gateway.json`。不要绑定 `0.0.0.0`。
 
-可选的 **OpenCode Go** 聊天代理（`gateway.opencodeGo.enabled`，默认关）可在 Gateway 标签页单独打开：开启后 `POST /v1/chat/completions` 会转发到固定的 `https://opencode.ai/zen/go/v1/chat/completions`，并注入粘性 `x-opencode-session`。此时请把网关 Bearer key 设为你的 OpenCode API key；无需重启即可切换。
+可选的 **OpenCode Go** 兼容（`gateway.opencodeGo.enabled`，默认关）可在 Gateway 标签页单独打开：开启后 `POST /v1/chat/completions` 会转发到固定的 `https://opencode.ai/zen/go/v1/chat/completions`，并注入粘性 `x-opencode-session`，用于兼容未带 OpenCode 会话粘性的客户端（否则常见 `MissingSessionID`）。会话 id 优先级：`x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → 生成 UUID。此时请把网关 Bearer key 设为你的 OpenCode API key；无需重启即可切换。
 
 ## 安全访问远程 Settings
 
