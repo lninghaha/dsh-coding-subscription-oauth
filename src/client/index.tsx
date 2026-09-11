@@ -11,6 +11,7 @@ import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import { GrokBuildSettings } from "./GrokBuildSettings.tsx";
 import type { GrokBuildSettingsKey } from "./locales.ts";
 import { en, zh } from "./locales.ts";
+import { hubClientLoaded } from "./owner.ts";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
 	interface LocaleNamespaceMap {
@@ -137,20 +138,26 @@ export function apply(ctx: ClientContext): void {
 	const namespace = "settings.grok-build";
 	dsh.effect(() => dsh.locale.register(namespace, { zh, en }), "dsh-coding-subscription-oauth: settings copy");
 	const t = dsh.locale.bind(namespace) as GrokBuildSettingsInjected["t"];
-	dsh.installSlots({
-		mountFallback: () => mountIndependentEntry(t),
-		register: (slots) =>
-			slots.inject("settings.section", () =>
-				slots.register(
-					{
-						name: "settings.section",
-						id: "grok-build",
-						order: 17,
-						label: () => t("nav"),
-						inject: (): GrokBuildSettingsInjected => ({ t }),
-					},
-					GrokBuildSettings,
+	// Co-install: the Usage Center hub publishes the single "Accounts & Models" surface,
+	// and a second entry with the same label would only open a dead placeholder page.
+	// Register this plugin's entry only when hub's browser half is absent; its own page
+	// takes over whenever it is installed, and returns here when it is not.
+	if (!hubClientLoaded()) {
+		dsh.installSlots({
+			mountFallback: () => mountIndependentEntry(t),
+			register: (slots) =>
+				slots.inject("settings.section", () =>
+					slots.register(
+						{
+							name: "settings.section",
+							id: "grok-build",
+							order: 17,
+							label: () => t("nav"),
+							inject: (): GrokBuildSettingsInjected => ({ t }),
+						},
+						GrokBuildSettings,
+					),
 				),
-			),
-	});
+		});
+	}
 }

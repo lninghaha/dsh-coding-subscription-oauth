@@ -12,14 +12,17 @@ describe("coinstall entry dispatch", () => {
 		};
 
 		vi.stubGlobal("window", fakeWindow);
-		vi.stubGlobal("CustomEvent", class MockCustomEvent {
-			type: string;
-			detail: unknown;
-			constructor(type: string, init?: { detail?: unknown }) {
-				this.type = type;
-				this.detail = init?.detail;
-			}
-		});
+		vi.stubGlobal(
+			"CustomEvent",
+			class MockCustomEvent {
+				type: string;
+				detail: unknown;
+				constructor(type: string, init?: { detail?: unknown }) {
+					this.type = type;
+					this.detail = init?.detail;
+				}
+			},
+		);
 
 		try {
 			openHubAccountsSettings();

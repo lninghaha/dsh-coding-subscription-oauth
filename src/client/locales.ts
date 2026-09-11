@@ -376,7 +376,8 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 		"为避免暴露无认证的凭据导出页面，默认禁用 dsh-agy Web 管理页；需要时使用 profile 内 CLI 管理 Google OAuth。",
 	antigravityCliCommand: "dsh plugin --profile web exec dsh-agy login --headless",
 	opencodeGoTitle: "OpenCode Go",
-	opencodeGoDescription: "用 API key 连接并应用模型后，请在对话模型列表中明确选择 opencode-go 下的模型；保存密钥不等于调用已验证。",
+	opencodeGoDescription:
+		"用 API key 连接并应用模型后，请在对话模型列表中明确选择 opencode-go 下的模型；保存密钥不等于调用已验证。",
 	opencodeGoActive: "已启用",
 	opencodeGoInactive: "等待 LLM 运行时",
 	opencodeGoReady: "可以使用",

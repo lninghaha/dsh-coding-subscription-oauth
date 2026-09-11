@@ -4,6 +4,11 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Fixed
+
+- Co-install no longer shows two identically labeled "Accounts & Models" / 账户与模型 settings entries: the browser half registers its own section only when the Usage Center hub's client is absent from the page (`window.__DSH_BOOT__.entries`). The hub always publishes the single complete surface when it is installed, and this plugin's standalone entry returns whenever hub is not part of the page. The check has to run inside the plugin's own apply window because a settings-section registration performed after that window never reaches the settings registry.
+
+
 ## v0.8.1 - 2026-09-11
 
 ### Changed
