@@ -160,7 +160,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 			backend: backend(),
 			sessionMap,
 			isOpencodeGoEnabled: () => opencodeGoEnabled,
-			getUpstreamApiKey: () => apiKey,
+			getUpstreamApiKey: () => "",
 		});
 		try {
 			await listenGateway(http, config);

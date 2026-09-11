@@ -72,6 +72,12 @@ import {
 import { OAUTH_PROVIDER_DEFINITIONS } from "./oauth-providers.ts";
 import { OAuthProviderSession } from "./oauth-session.ts";
 import type { OAuthSourceCredential } from "./oauth-sources.ts";
+import {
+	createOpenCodeGoConnectionController,
+	type OpenCodeGoSettingsProvider,
+	registerOpenCodeGoConnectionRoute,
+} from "./opencode-go-connection.ts";
+import { installOpenCodeGoHeaderCompatibility, OpenCodeGoHeaderState } from "./opencode-go-header.ts";
 import { acquireCodingOAuthProxy } from "./proxy.ts";
 import { GrokBuildSession } from "./session.ts";
 import { GrokBuildCredentialStore, type OAuthCredentialFileStore } from "./store.ts";
@@ -484,6 +490,7 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 			}),
 	);
 	const codex = requireSubscription(subscriptions, CODEX_PI_PROVIDER);
+	const opencodeGo = new OpenCodeGoHeaderState();
 	const codexAuth = codexAuthFromSession(codex);
 	const usage = createCodexUsageReader({ auth: codexAuth });
 	const codexModels = createCodexModelCapabilities({ auth: codexAuth });
@@ -581,6 +588,17 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		});
 		return () => gateway.stop();
 	}, "dsh-coding-subscription-oauth: local API gateway");
+	ctx.inject(["webServer", "credentials", "settings"], (goCtx) => {
+		registerOpenCodeGoConnectionRoute(
+			goCtx,
+			createOpenCodeGoConnectionController({
+				credentials: goCtx.get("credentials") as CredentialProvider,
+				settings: goCtx.get("settings") as OpenCodeGoSettingsProvider,
+				callStatus: () => opencodeGo.snapshot(),
+			}),
+			ownerRequestPolicy,
+		);
+	});
 
 	registerCapabilityRoutes(ctx, {
 		controller: capabilityRoutesController,
@@ -589,12 +607,18 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		ownerRequestPolicy,
 	});
 	registerGatewayRoutes(ctx, gateway, ownerRequestPolicy);
-	registerCodingOAuthRoutes(ctx, grok, subscriptions, ownerRequestPolicy, (accessMode) =>
-		host.compatibility({
-			accessMode,
-			uiOwner: "standalone",
-			diagnostics: ownerRequestPolicy.diagnostics(),
-		}),
+	registerCodingOAuthRoutes(
+		ctx,
+		grok,
+		subscriptions,
+		ownerRequestPolicy,
+		(accessMode) =>
+			host.compatibility({
+				accessMode,
+				uiOwner: "standalone",
+				diagnostics: ownerRequestPolicy.diagnostics(),
+			}),
+		() => opencodeGo.snapshot(),
 	);
 	registerOAuthImportRoutes(ctx, oauthImportDestinations(grok, subscriptions), {
 		ownerRequestPolicy,
@@ -692,7 +716,7 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 	// Only adapters and LLM-backed model resolution depend on this service. Its
 	// child fiber may unload and reload without disturbing OAuth/Web ownership.
 	ctx.inject(["llm"], (llmCtx) =>
-		applyOwnedLlm(llmCtx, config, { grok, subscriptions, runtime, codexAuth, codexModels, logger }),
+		applyOwnedLlm(llmCtx, config, { grok, subscriptions, runtime, codexAuth, codexModels, opencodeGo, logger }),
 	);
 }
 
@@ -702,12 +726,17 @@ interface OwnedLlmDependencies {
 	readonly runtime: CapabilityRuntimeState;
 	readonly codexAuth: ReturnType<typeof codexAuthFromSession>;
 	readonly codexModels: ReturnType<typeof createCodexModelCapabilities>;
+	readonly opencodeGo: OpenCodeGoHeaderState;
 	readonly logger: ReturnType<Context["logger"]>;
 }
 
 /** LLM-only child runtime, independently restarted by Cordis when LLM changes. */
 function applyOwnedLlm(ctx: Context, config: Config, owner: OwnedLlmDependencies): void {
 	createDshHostAdapter(ctx).assertCompatible();
+	ctx.effect(
+		() => installOpenCodeGoHeaderCompatibility(ctx, owner.opencodeGo),
+		"dsh-coding-subscription-oauth: OpenCode Go session header",
+	);
 	const resolveCodexImageRoute: ResolveCodexImageRoute = (exec) =>
 		resolveCodexImageRouteFromLlm(exec, (provider, model, signal) => ctx.llm.resolveModelInfo(provider, model, signal));
 	const adapterRegistration = ctx.llm.registerAdapter(

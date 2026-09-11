@@ -182,6 +182,7 @@ describe("Coding OAuth Antigravity status", () => {
 				route: "agy",
 				management: "cli",
 			});
+			expect(JSON.parse(response.body).opencodeGo).toEqual({ active: false, lastCall: "no-call", updatedAt: null });
 		});
 	}
 
@@ -197,6 +198,7 @@ describe("Coding OAuth Antigravity status", () => {
 			route: "agy",
 			management: "cli",
 		});
+		expect(JSON.parse(response.body).opencodeGo).toEqual({ active: false, lastCall: "no-call", updatedAt: null });
 	});
 
 	it("returns trusted-https-proxy accessMode only after the full owner proof succeeds", async () => {

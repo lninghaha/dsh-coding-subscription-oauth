@@ -11,7 +11,7 @@ export interface OpencodeGoSessionMap {
     readonly size: number;
 }
 export declare function createOpencodeGoSessionMap(maxEntries?: number): OpencodeGoSessionMap;
-export declare function resolveSessionId(req: IncomingMessage, bodyRecord: Record<string, unknown>, sessionMap: OpencodeGoSessionMap): string;
+export declare function resolveSessionId(req: IncomingMessage, bodyRecord: Record<string, unknown>, sessionMap: OpencodeGoSessionMap): string | undefined;
 export interface OpencodeGoChatCompletionsDeps {
     fetchImpl: typeof fetch;
     sessionMap: OpencodeGoSessionMap;

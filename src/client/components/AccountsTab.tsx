@@ -27,6 +27,7 @@ import type {
 import { Badge } from "./Badge.tsx";
 import { CliPullPreview } from "./CliPullPreview.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
+import { OpenCodeGoCard } from "./OpenCodeGoCard.tsx";
 import { ProviderCard } from "./ProviderCard.tsx";
 
 export interface AccountsTabProps {
@@ -56,9 +57,10 @@ export interface AccountsTabProps {
 	onCodeChange: (slug: ProviderSlug, value: string) => void;
 	onToggleExpanded: (slug: ProviderSlug) => void;
 	onPreviewSource: (slug: ProviderSlug) => void;
-	onSaveModels: (slug: ProviderSlug, selected: string[]) => void;
+	onSaveModels: (slug: ProviderSlug, selected: string[]) => Promise<string | undefined>;
 	onSetDefaultAccount: (slug: ProviderSlug, accountId: string) => void;
-	onRemoveAccount: (slug: ProviderSlug, accountId: string) => void;
+	onRemoveAccount: (slug: ProviderSlug, accountId: string) => Promise<boolean>;
+	onRetryStatus: () => void;
 	onConfirmOverwriteChange: (checked: boolean) => void;
 	onCommitSource: () => void;
 	onCancelSourcePreview: () => void;
@@ -96,6 +98,7 @@ export function AccountsTab({
 	onSaveModels,
 	onSetDefaultAccount,
 	onRemoveAccount,
+	onRetryStatus,
 	onConfirmOverwriteChange,
 	onCommitSource,
 	onCancelSourcePreview,
@@ -160,6 +163,7 @@ export function AccountsTab({
 				/>
 			)}
 			<div style={accountGridStyle}>
+				<OpenCodeGoCard t={t} fallback={status.opencodeGo} />
 				{PROVIDERS.map((definition) => {
 					const providerStatus = status.providers[definition.slug];
 					const expanded = providerStatus.status === "signing-in" || expandedProviders[definition.slug] === true;
@@ -201,15 +205,12 @@ export function AccountsTab({
 								onPreviewSource={() => {
 									onPreviewSource(definition.slug);
 								}}
-								onSaveModels={(selected) => {
-									onSaveModels(definition.slug, selected);
-								}}
+								onSaveModels={(selected) => onSaveModels(definition.slug, selected)}
 								onSetDefaultAccount={(accountId) => {
 									onSetDefaultAccount(definition.slug, accountId);
 								}}
-								onRemoveAccount={(accountId) => {
-									onRemoveAccount(definition.slug, accountId);
-								}}
+								onRemoveAccount={(accountId) => onRemoveAccount(definition.slug, accountId)}
+								onRetryStatus={onRetryStatus}
 							/>
 							{preview?.kind === definition.slug ? (
 								<div style={{ gridColumn: "1 / -1", minWidth: 0 }}>

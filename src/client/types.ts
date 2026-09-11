@@ -89,6 +89,11 @@ export interface CodingOAuthStatus {
 		claude: SubscriptionStatus;
 	};
 	antigravity: { installed: boolean; route: "agy"; management: "cli" };
+	opencodeGo: {
+		active: boolean;
+		lastCall: "no-call" | "success" | "failure" | "missing-session";
+		updatedAt: number | null;
+	};
 }
 
 export interface LoginChallenge {

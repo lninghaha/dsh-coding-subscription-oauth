@@ -32,6 +32,7 @@ import type {
 } from "./types.ts";
 
 export const STATUS_PATH = CODING_OAUTH_STATUS_PATH;
+export const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/opencode-go";
 export const LOGIN_PATH = CODING_OAUTH_LOGIN_PATH;
 export const LOGIN_CODE_PATH = CODING_OAUTH_LOGIN_CODE_PATH;
 export const LOGIN_CANCEL_PATH = CODING_OAUTH_LOGIN_CANCEL_PATH;

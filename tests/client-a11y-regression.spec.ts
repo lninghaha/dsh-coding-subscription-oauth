@@ -34,9 +34,10 @@ describe("client accessibility regressions", () => {
 	});
 
 	it("keeps the account connection target separate from the model disclosure", async () => {
-		const [providerCard, settings] = await Promise.all([
+		const [providerCard, settings, opencodeGo] = await Promise.all([
 			readFile(join(root, "src/client/components/ProviderCard.tsx"), "utf8"),
 			readFile(join(root, "src/client/GrokBuildSettings.tsx"), "utf8"),
+			readFile(join(root, "src/client/components/OpenCodeGoCard.tsx"), "utf8"),
 		]);
 
 		const slugExpression = "$" + "{definition.slug}";
@@ -47,5 +48,24 @@ describe("client accessibility regressions", () => {
 		);
 		expect(providerCard).toContain(`document.getElementById(\`coding-oauth-login-${slugExpression}\`)?.focus();`);
 		expect(settings).toContain('document.getElementById("coding-oauth-login-codex")?.focus()');
+		expect(opencodeGo).toContain("data-opencode-go-status={currentCall.lastCall}");
+		expect(opencodeGo).toContain('t("opencodeGoDescription")');
+	});
+
+	it("keeps local model drafts and account recovery actions inside the standalone card", async () => {
+		const [providerCard, settings, locales] = await Promise.all([
+			readFile(join(root, "src/client/components/ProviderCard.tsx"), "utf8"),
+			readFile(join(root, "src/client/GrokBuildSettings.tsx"), "utf8"),
+			readFile(join(root, "src/client/locales.ts"), "utf8"),
+		]);
+
+		expect(providerCard).toContain("if (!modelDraftDirty) setModelDraft(selected);");
+		expect(providerCard).toContain("accountRemoveConfirmHint");
+		expect(providerCard).toContain("removeCancel.current?.focus()");
+		expect(providerCard).toContain("onRetryStatus");
+		expect(settings).toContain("onSaveModels={saveModels}");
+		expect(settings).toContain("onRetryStatus={() => {");
+		expect(locales).toContain("This is header compatibility, not OAuth");
+		expect(locales).toContain("does not represent quota or a successful model call");
 	});
 });

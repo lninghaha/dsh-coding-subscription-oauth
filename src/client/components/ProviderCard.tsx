@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SOURCE_REASON_KEY } from "../constants.ts";
 import { methodLabel, orderedLoginMethods, shouldShowPerCardSourceReason } from "../display.ts";
-import { formatEpoch, modelFields, usageHasVisibleFields } from "../parsers.ts";
+import { formatEpoch, looksSecret, modelFields, usageHasVisibleFields } from "../parsers.ts";
 import {
 	bodyStyle,
 	buttonStyle,
@@ -60,9 +60,10 @@ export interface ProviderCardProps {
 	onCodeChange: (value: string) => void;
 	onToggleExpanded: () => void;
 	onPreviewSource: () => void;
-	onSaveModels: (selected: string[]) => void;
+	onSaveModels: (selected: string[]) => Promise<string | undefined>;
 	onSetDefaultAccount: (accountId: string) => void;
-	onRemoveAccount: (accountId: string) => void;
+	onRemoveAccount: (accountId: string) => Promise<boolean>;
+	onRetryStatus: () => void;
 }
 
 function SignInSteps({
@@ -172,13 +173,19 @@ export function ProviderCard({
 	onSaveModels,
 	onSetDefaultAccount,
 	onRemoveAccount,
+	onRetryStatus,
 }: ProviderCardProps) {
 	const [showAltMethods, setShowAltMethods] = useState(false);
 	const [modelFilter, setModelFilter] = useState("");
 	const [logoutConfirm, setLogoutConfirm] = useState(false);
+	const [removing, setRemoving] = useState<{ id: string; title: string } | undefined>(undefined);
+	const [modelSaveError, setModelSaveError] = useState<string | undefined>(undefined);
 	const logoutTrigger = useRef<HTMLButtonElement>(null);
-	const logoutConfirmAction = useRef<HTMLButtonElement>(null);
+	const logoutCancel = useRef<HTMLButtonElement>(null);
+	const removeTrigger = useRef<HTMLButtonElement>(null);
+	const removeCancel = useRef<HTMLButtonElement>(null);
 	const restoreLogoutFocus = useRef(false);
+	const restoreRemoveFocus = useRef(false);
 
 	const ordered = orderedLoginMethods(definition, remote);
 	const primaryMethod: LoginMethod = ordered[0] ?? definition.recommended;
@@ -195,15 +202,17 @@ export function ProviderCard({
 	const activeMethod = providerStatus.status === "signing-in" ? providerStatus.method : primaryMethod;
 	const { available, selected } = useMemo(() => modelFields(providerStatus), [providerStatus]);
 	const [modelDraft, setModelDraft] = useState<string[]>(selected);
+	const modelDraftDirty =
+		modelDraft.length !== selected.length || modelDraft.some((model, index) => model !== selected[index]);
 	useEffect(() => {
-		setModelDraft(selected);
-	}, [selected]);
+		if (!modelDraftDirty) setModelDraft(selected);
+	}, [selected, modelDraftDirty]);
 	useEffect(() => {
 		if (providerStatus.status !== "signed-in") setLogoutConfirm(false);
 	}, [providerStatus.status]);
 	useEffect(() => {
 		if (logoutConfirm) {
-			logoutConfirmAction.current?.focus();
+			logoutCancel.current?.focus();
 			return;
 		}
 		if (!restoreLogoutFocus.current) return;
@@ -214,8 +223,15 @@ export function ProviderCard({
 		}
 		document.getElementById(`coding-oauth-login-${definition.slug}`)?.focus();
 	}, [definition.slug, logoutConfirm, providerStatus.status]);
-	const modelDraftDirty =
-		modelDraft.length !== selected.length || modelDraft.some((model, index) => model !== selected[index]);
+	useEffect(() => {
+		if (removing !== undefined) {
+			removeCancel.current?.focus();
+			return;
+		}
+		if (!restoreRemoveFocus.current) return;
+		restoreRemoveFocus.current = false;
+		removeTrigger.current?.focus();
+	}, [removing]);
 	const grokProviderStatus = definition.slug === "grok" ? (providerStatus as GrokStatus) : undefined;
 	const showSourceReason = shouldShowPerCardSourceReason(source);
 
@@ -263,7 +279,7 @@ export function ProviderCard({
 								<p style={bodyStyle}>{t("logoutConfirmHint")}</p>
 								<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 									<button
-										ref={logoutConfirmAction}
+										ref={logoutCancel}
 										type="button"
 										style={primaryButtonStyle}
 										disabled={busy}
@@ -410,7 +426,27 @@ export function ProviderCard({
 				)}
 			</div>
 			{providerStatus.status === "error" ? (
-				<p style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }}>{providerStatus.message}</p>
+				<div style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }} role="alert">
+					<p>
+						{/invalid|expired|denied|unauthori[sz]ed|forbidden/u.test(providerStatus.message.toLowerCase())
+							? t("recoveryReauthorize")
+							: /atomic|writer|lock|storage|network|timeout|fetch|econn/u.test(providerStatus.message.toLowerCase())
+								? t("recoveryRetryRead")
+								: t("recoveryRetry")}
+					</p>
+					<button type="button" style={compactButtonStyle} onClick={() => onSignIn(primaryMethod)}>
+						{t("recoveryReauthorizeAction")}
+					</button>
+					<button type="button" style={compactButtonStyle} onClick={onRetryStatus}>
+						{t("recoveryRetryAction")}
+					</button>
+					<details>
+						<summary>{t("technicalDetails")}</summary>
+						<span>
+							{looksSecret(providerStatus.message) ? t("technicalDetailsUnavailable") : providerStatus.message}
+						</span>
+					</details>
+				</div>
 			) : null}
 			{providerStatus.status === "signing-in" ? (
 				<SignInSteps
@@ -497,11 +533,12 @@ export function ProviderCard({
 													</button>
 												)}
 												<button
+													ref={removeTrigger}
 													type="button"
 													style={compactButtonStyle}
 													disabled={busy}
 													onClick={() => {
-														onRemoveAccount(account.id);
+														setRemoving({ id: account.id, title });
 													}}
 												>
 													{t("accountRemove")}
@@ -511,6 +548,41 @@ export function ProviderCard({
 									);
 								})}
 							</ul>
+						)}
+						{removing === undefined ? null : (
+							<fieldset style={nestedStyle} role="alert">
+								<legend style={visuallyHiddenStyle}>{t("accountRemoveConfirmTitle")}</legend>
+								<p style={bodyStyle}>{t("accountRemoveConfirmHint", { account: removing.title })}</p>
+								<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+									<button
+										type="button"
+										style={primaryButtonStyle}
+										disabled={busy}
+										onClick={() =>
+											void onRemoveAccount(removing.id).then((ok) => {
+												if (ok) {
+													restoreRemoveFocus.current = true;
+													setRemoving(undefined);
+												}
+											})
+										}
+									>
+										{t("accountRemoveConfirmAction")}
+									</button>
+									<button
+										ref={removeCancel}
+										type="button"
+										style={buttonStyle}
+										disabled={busy}
+										onClick={() => {
+											restoreRemoveFocus.current = true;
+											setRemoving(undefined);
+										}}
+									>
+										{t("cancel")}
+									</button>
+								</div>
+							</fieldset>
 						)}
 					</div>
 					<div style={rowStyle}>
@@ -602,12 +674,17 @@ export function ProviderCard({
 							type="button"
 							style={primaryButtonStyle}
 							disabled={busy || !modelDraftDirty}
-							onClick={() => onSaveModels(modelDraft)}
+							onClick={() => void onSaveModels(modelDraft).then((error) => setModelSaveError(error))}
 						>
 							{busy ? t("working") : t("applyModelDraft")}
 						</button>
 						{modelDraftDirty ? <span style={hintStyle}>{t("modelDraftPending")}</span> : null}
 					</div>
+					{modelSaveError === undefined ? null : (
+						<p style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }} role="alert">
+							{modelSaveError}
+						</p>
+					)}
 					{filteredModels.length === 0 ? <p style={hintStyle}>{t("modelFilterPlaceholder")}</p> : null}
 					{grokProviderStatus?.status === "signed-in" && grokProviderStatus.catalogError !== undefined ? (
 						<p style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }}>{t("catalogError")}</p>

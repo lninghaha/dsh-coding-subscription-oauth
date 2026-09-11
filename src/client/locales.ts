@@ -1,6 +1,6 @@
 /** English copy for the Coding OAuth settings section. */
 export const en = {
-	nav: "Coding OAuth",
+	nav: "Accounts & Models",
 	title: "Coding subscriptions",
 	intro:
 		"Use your own Grok Build, ChatGPT Codex, Kimi Code, and Claude Code subscriptions in dsh. API-key routes remain separate.",
@@ -58,6 +58,30 @@ export const en = {
 	antigravityCliHint:
 		"The unauthenticated dsh-agy web export dashboard is disabled. Manage Google OAuth with the profile-local CLI when needed.",
 	antigravityCliCommand: "dsh plugin --profile web exec dsh-agy login --headless",
+	opencodeGoTitle: "OpenCode Go",
+	opencodeGoDescription:
+		"Connect with an API key, fetch and apply a model, then explicitly choose its opencode-go entry in the conversation model list. Saving a key does not verify a call.",
+	opencodeGoActive: "Active",
+	opencodeGoInactive: "Waiting for the LLM runtime",
+	opencodeGoReady: "Ready",
+	opencodeGoCredential: "Credential source",
+	opencodeGoConfigured: "configured",
+	opencodeGoChooseCredential: "Different Go credentials were found. Choose the account to use.",
+	opencodeGoApiKey: "API key",
+	opencodeGoReuseHint: "Leave blank to reuse the saved credential",
+	opencodeGoReuse: "Reuse credential",
+	opencodeGoSaveKey: "Save key",
+	opencodeGoFetchModels: "Fetch models",
+	opencodeGoModel: "Model ID",
+	opencodeGoConfirmConflict: "Correct the existing Go settings before applying: {conflicts}",
+	opencodeGoApply: "Apply to DSH",
+	opencodeGoStartHint: "Configuration applied. Close Settings and select the model to start a conversation.",
+	"opencodeGoStatus.no-call": "No OpenCode Go conversation request has run yet.",
+	"opencodeGoStatus.success": "The latest OpenCode Go conversation request carried the session identity.",
+	"opencodeGoStatus.failure": "The latest OpenCode Go conversation request failed. Check DSH model settings and retry.",
+	"opencodeGoStatus.missing-session": "DSH did not provide a session identity. Return to the conversation and retry.",
+	opencodeGoCompatibilityNote:
+		"This is header compatibility, not OAuth. It does not represent quota or a successful model call.",
 	sourcesTitle: "Pull a copy from official CLI files",
 	sourcesIntro:
 		"dsh can discover a local official CLI login and pull a one-way copy into its own store. Official CLI files stay read-only and are never modified.",
@@ -208,7 +232,7 @@ export const en = {
 	gatewayEnabled: "Enable local gateway",
 	gatewayOpencodeGoEnabled: "Proxy chat to OpenCode Go",
 	gatewayOpencodeGoHint:
-		"When on, POST /v1/chat/completions is forwarded to OpenCode Go with a sticky session header. Set the gateway Bearer key to your OpenCode API key. Default off. Follow OpenCode terms; this still consumes your OpenCode quota.",
+		"Legacy migration state only. The local gateway key is no longer reused as the OpenCode Go upstream credential.",
 	gatewayBind: "Bind",
 	gatewayPort: "Port",
 	gatewayPortHint: "Integer from 1024 through 65535. Apply to save; Random fills a high port, then Apply.",
@@ -279,13 +303,25 @@ export const en = {
 	accountActive: "Default",
 	accountSetDefault: "Set default",
 	accountRemove: "Remove",
+	accountRemoveConfirmTitle: "Confirm account removal",
+	accountRemoveConfirmHint:
+		"Remove {account} from DSH local storage? Official CLI authorization files are not changed.",
+	accountRemoveConfirmAction: "Confirm removal",
+	recoveryReauthorize: "The credential expired or authorization was denied. Authorize again.",
+	recoveryRetryRead:
+		"Local storage, its writer lock, or the local connection needs attention. Reload the status after resolving it.",
+	recoveryRetry: "The account status could not be read. Reload it and try again.",
+	recoveryReauthorizeAction: "Authorize again",
+	recoveryRetryAction: "Reload status",
+	technicalDetails: "Technical details",
+	technicalDetailsUnavailable: "The technical error detail was hidden because it may contain a credential.",
 	accountsEmpty: "No saved accounts yet.",
 };
 
 export type GrokBuildSettingsKey = keyof typeof en;
 
 export const zh: { [Key in GrokBuildSettingsKey]: string } = {
-	nav: "编码 OAuth",
+	nav: "账户与模型",
 	title: "编码订阅账户",
 	intro:
 		"在 dsh 中使用自己的 Grok Build、ChatGPT Codex、Kimi Code 和 Claude Code 订阅；现有 API-key 路由继续独立保留。",
@@ -339,6 +375,28 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	antigravityCliHint:
 		"为避免暴露无认证的凭据导出页面，默认禁用 dsh-agy Web 管理页；需要时使用 profile 内 CLI 管理 Google OAuth。",
 	antigravityCliCommand: "dsh plugin --profile web exec dsh-agy login --headless",
+	opencodeGoTitle: "OpenCode Go",
+	opencodeGoDescription: "用 API key 连接并应用模型后，请在对话模型列表中明确选择 opencode-go 下的模型；保存密钥不等于调用已验证。",
+	opencodeGoActive: "已启用",
+	opencodeGoInactive: "等待 LLM 运行时",
+	opencodeGoReady: "可以使用",
+	opencodeGoCredential: "凭据来源",
+	opencodeGoConfigured: "已配置",
+	opencodeGoChooseCredential: "检测到多个不同的 Go 凭据，请明确选择本次使用的账户。",
+	opencodeGoApiKey: "API key",
+	opencodeGoReuseHint: "留空以复用已有凭据",
+	opencodeGoReuse: "复用此凭据",
+	opencodeGoSaveKey: "保存密钥",
+	opencodeGoFetchModels: "获取模型",
+	opencodeGoModel: "模型 ID",
+	opencodeGoConfirmConflict: "应用前修正这些既有 Go 配置冲突：{conflicts}",
+	opencodeGoApply: "应用到 DSH",
+	opencodeGoStartHint: "配置已应用。关闭设置，在模型选择器中选择该模型开始对话。",
+	"opencodeGoStatus.no-call": "尚未发出 OpenCode Go 对话请求。",
+	"opencodeGoStatus.success": "最近一次 OpenCode Go 对话请求已发送会话标识。",
+	"opencodeGoStatus.failure": "最近一次 OpenCode Go 对话请求失败；检查 DSH 模型配置后重试。",
+	"opencodeGoStatus.missing-session": "DSH 未提供会话标识。返回对话后重试。",
+	opencodeGoCompatibilityNote: "以上状态仅表示请求头兼容，不代表 OAuth 登录，也不代表配额或模型调用成功。",
 	sourcesTitle: "从官方 CLI 文件拉取副本",
 	sourcesIntro:
 		"dsh 可以自动发现本机官方 CLI 登录，并单向拉取一份副本到自己的存储。官方 CLI 文件保持只读，绝不会被修改。",
@@ -481,8 +539,7 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	gatewayEnableCancel: "取消",
 	gatewayEnabled: "启用本地网关",
 	gatewayOpencodeGoEnabled: "将聊天代理到 OpenCode Go",
-	gatewayOpencodeGoHint:
-		"开启后，POST /v1/chat/completions 会转发到 OpenCode Go，并带上粘性会话头。请把网关 Bearer key 设为你的 OpenCode API key。默认关闭。请遵守 OpenCode 条款；仍会消耗你的 OpenCode 配额。",
+	gatewayOpencodeGoHint: "仅显示旧模式迁移状态；本地网关 key 不再作为 OpenCode Go 上游凭据。",
 	gatewayBind: "绑定地址",
 	gatewayPort: "端口",
 	gatewayPortHint: "1024–65535 的整数。改完点确定保存；随机会填一个高位端口，仍需确定。",
@@ -552,5 +609,15 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	accountActive: "默认",
 	accountSetDefault: "设为默认",
 	accountRemove: "移除",
+	accountRemoveConfirmTitle: "确认移除账号",
+	accountRemoveConfirmHint: "确认从 DSH 本地存储移除 {account}？不会修改官方 CLI 的授权文件。",
+	accountRemoveConfirmAction: "确认移除",
+	recoveryReauthorize: "凭据已过期或授权被拒绝，请重新授权。",
+	recoveryRetryRead: "本机存储、写入锁或本机连接需要处理，处理后请重新读取状态。",
+	recoveryRetry: "无法读取账号状态，请重新读取后重试。",
+	recoveryReauthorizeAction: "重新授权",
+	recoveryRetryAction: "重新读取状态",
+	technicalDetails: "技术详情",
+	technicalDetailsUnavailable: "技术错误详情可能包含凭据，已隐藏。",
 	accountsEmpty: "尚无已保存账号。",
 };

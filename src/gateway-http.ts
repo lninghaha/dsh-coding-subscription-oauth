@@ -90,7 +90,7 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 			await handleOpencodeGoChatCompletions(req, res, {
 				fetchImpl: options.fetchImpl ?? fetch,
 				sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
-				getUpstreamApiKey: options.getUpstreamApiKey ?? (() => options.apiKey),
+				getUpstreamApiKey: options.getUpstreamApiKey ?? (() => ""),
 				isEnabled: options.isOpencodeGoEnabled,
 			});
 			return;

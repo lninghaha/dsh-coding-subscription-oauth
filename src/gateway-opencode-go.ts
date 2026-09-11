@@ -3,7 +3,6 @@
  * @module dsh-coding-subscription-oauth/gateway-opencode-go
  */
 
-import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -63,7 +62,7 @@ export function resolveSessionId(
 	req: IncomingMessage,
 	bodyRecord: Record<string, unknown>,
 	sessionMap: OpencodeGoSessionMap,
-): string {
+): string | undefined {
 	const inbound =
 		headerValue(req, "x-deepseek-harness-session-id") ??
 		headerValue(req, "x-opencode-session") ??
@@ -71,7 +70,7 @@ export function resolveSessionId(
 		(typeof bodyRecord["session_id"] === "string" && bodyRecord["session_id"].trim().length > 0
 			? bodyRecord["session_id"].trim()
 			: undefined);
-	if (inbound === undefined) return randomUUID();
+	if (inbound === undefined) return undefined;
 	const sticky = sessionMap.get(inbound);
 	if (sticky !== undefined) return sticky;
 	sessionMap.set(inbound, inbound);
@@ -124,6 +123,16 @@ export async function handleOpencodeGoChatCompletions(
 
 	const bodyRecord = await readGatewayJsonBody(req);
 	const sessionId = resolveSessionId(req, bodyRecord, deps.sessionMap);
+	if (sessionId === undefined) {
+		writeGatewayJson(res, 400, {
+			error: {
+				message: "OpenCode Go requires a stable session id header",
+				type: "invalid_request_error",
+				code: "opencode_go_session_required",
+			},
+		});
+		return;
+	}
 	const wantStream = bodyRecord["stream"] === true;
 	const body = `${JSON.stringify(bodyRecord)}\n`;
 

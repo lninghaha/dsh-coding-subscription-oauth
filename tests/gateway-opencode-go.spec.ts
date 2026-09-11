@@ -115,10 +115,10 @@ describe("resolveSessionId", () => {
 		expect(second).toBe(first);
 	});
 
-	it("generates a UUID when no inbound session is present", () => {
+	it("rejects an absent stable inbound session instead of inventing an identity", () => {
 		const map = createOpencodeGoSessionMap();
 		const id = resolveSessionId(requestHeaders() as never, {}, map);
-		expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+		expect(id).toBeUndefined();
 	});
 });
 

@@ -754,6 +754,11 @@ export interface CodingOAuthWebStatus {
 		route: typeof ANTIGRAVITY_ROUTE;
 		management: "cli";
 	};
+	opencodeGo: {
+		active: boolean;
+		lastCall: "no-call" | "success" | "failure" | "missing-session";
+		updatedAt: number | null;
+	};
 }
 
 function recordBody(body: unknown): Record<string, unknown> {
@@ -776,6 +781,11 @@ export function registerCodingOAuthRoutes(
 	subscriptionSessions: readonly OAuthProviderSession[],
 	ownerRequestPolicy: OwnerRequestPolicy = LOOPBACK_OWNER_REQUEST_POLICY,
 	compatibility?: (accessMode: OwnerAccessMode) => DshCompatibility,
+	opencodeGoStatus: () => CodingOAuthWebStatus["opencodeGo"] = () => ({
+		active: false,
+		lastCall: "no-call",
+		updatedAt: null,
+	}),
 ): void {
 	const grok = new GrokBuildWebAuth(grokSession);
 	const subscriptions = new Map(
@@ -823,6 +833,7 @@ export function registerCodingOAuthRoutes(
 				route: ANTIGRAVITY_ROUTE,
 				management: "cli",
 			},
+			opencodeGo: opencodeGoStatus(),
 		};
 	};
 

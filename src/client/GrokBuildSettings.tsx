@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cancelPreviewTicket, copyText, isConflictError, isConsumedPreviewError, jsonRequest } from "./api.ts";
-import { openHubAccountsSettings } from "./display.ts";
 import { AboutTab } from "./components/AboutTab.tsx";
 import { AccountsTab } from "./components/AccountsTab.tsx";
 import { CapabilitiesTab } from "./components/CapabilitiesTab.tsx";
@@ -31,6 +30,7 @@ import {
 	SOURCES_PREVIEW_PATH,
 	STATUS_PATH,
 } from "./constants.ts";
+import { openHubAccountsSettings } from "./display.ts";
 import { ensureMicroStyles } from "./microStyles.ts";
 import {
 	emptyCapabilitySettings,
@@ -323,12 +323,13 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
-	const saveModels = async (provider: ProviderSlug, selected: string[]): Promise<void> => {
+	const saveModels = async (provider: ProviderSlug, selected: string[]): Promise<string | undefined> => {
 		setBusyProvider(provider);
 		try {
 			setStatus(await jsonRequest<CodingOAuthStatus>(MODELS_PATH, "POST", { provider, selected }));
+			return undefined;
 		} catch (error: unknown) {
-			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+			return error instanceof Error ? error.message : t("requestFailed");
 		} finally {
 			setBusyProvider(undefined);
 		}
@@ -345,12 +346,14 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
-	const removeAccount = async (provider: ProviderSlug, accountId: string): Promise<void> => {
+	const removeAccount = async (provider: ProviderSlug, accountId: string): Promise<boolean> => {
 		setBusyProvider(provider);
 		try {
 			setStatus(await jsonRequest<CodingOAuthStatus>(ACCOUNTS_REMOVE_PATH, "POST", { provider, accountId }));
+			return true;
 		} catch (error: unknown) {
 			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+			return false;
 		} finally {
 			setBusyProvider(undefined);
 		}
@@ -643,11 +646,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 					{t("coinstallTitle")}
 				</h2>
 				<p style={bodyStyle}>{t("coinstallSummary", { count: signedInCount })}</p>
-				<button
-					type="button"
-					style={buttonStyle}
-					onClick={openHubAccountsSettings}
-				>
+				<button type="button" style={buttonStyle} onClick={openHubAccountsSettings}>
 					{t("coinstallManageAccounts")}
 				</button>
 			</section>
@@ -724,14 +723,13 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						onPreviewSource={(slug) => {
 							void previewSource(slug);
 						}}
-						onSaveModels={(slug, selected) => {
-							void saveModels(slug, selected);
-						}}
+						onSaveModels={saveModels}
 						onSetDefaultAccount={(slug, accountId) => {
 							void setDefaultAccount(slug, accountId);
 						}}
-						onRemoveAccount={(slug, accountId) => {
-							void removeAccount(slug, accountId);
+						onRemoveAccount={removeAccount}
+						onRetryStatus={() => {
+							void refresh();
 						}}
 						onConfirmOverwriteChange={setConfirmOverwrite}
 						onCommitSource={() => {
