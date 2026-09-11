@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.1 - 2026-09-11
+
+### Changed
+
+- When co-installed with and managed by Usage Center (`uiOwner === "hub"`), the compact placeholder button now directly dispatches `usage-stats:open-settings` with `{ detail: { tab: "accounts" } }` and is relabeled "Manage subscription accounts" (管理订阅账号), taking operators straight to Settings → Subscription accounts. Note: requires `dsh-hub-oauth-gateway >= 1.10.0`.
+
 ## v0.8.0 - 2026-09-11
 
 ### Added

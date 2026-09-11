@@ -59,3 +59,9 @@ export function methodLabel(
 	if (method === "browser") return t("browserLogin");
 	return t("pkceLogin");
 }
+
+export function openHubAccountsSettings(): void {
+	if (typeof window !== "undefined") {
+		window.dispatchEvent(new CustomEvent("usage-stats:open-settings", { detail: { tab: "accounts" } }));
+	}
+}

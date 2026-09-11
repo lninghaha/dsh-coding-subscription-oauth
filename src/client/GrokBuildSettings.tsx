@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cancelPreviewTicket, copyText, isConflictError, isConsumedPreviewError, jsonRequest } from "./api.ts";
+import { openHubAccountsSettings } from "./display.ts";
 import { AboutTab } from "./components/AboutTab.tsx";
 import { AccountsTab } from "./components/AccountsTab.tsx";
 import { CapabilitiesTab } from "./components/CapabilitiesTab.tsx";
@@ -645,9 +646,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 				<button
 					type="button"
 					style={buttonStyle}
-					onClick={() => window.dispatchEvent(new CustomEvent("usage-stats:open-dashboard"))}
+					onClick={openHubAccountsSettings}
 				>
-					{t("coinstallOpenHub")}
+					{t("coinstallManageAccounts")}
 				</button>
 			</section>
 		);
