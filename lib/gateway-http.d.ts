@@ -5,10 +5,15 @@
 import { type Server } from "node:http";
 import { type GatewayBackend } from "./gateway-backend.js";
 import { type GatewayConfig } from "./gateway-config.js";
+import { type OpencodeGoSessionMap } from "./gateway-opencode-go.js";
 export interface GatewayHttpOptions {
     config: GatewayConfig;
     apiKey: string;
     backend: GatewayBackend;
+    isOpencodeGoEnabled?: () => boolean;
+    getUpstreamApiKey?: () => string;
+    sessionMap?: OpencodeGoSessionMap;
+    fetchImpl?: typeof fetch;
 }
 export declare function createGatewayHttpServer(options: GatewayHttpOptions): Server;
 export declare function listenGateway(server: Server, config: GatewayConfig): Promise<void>;

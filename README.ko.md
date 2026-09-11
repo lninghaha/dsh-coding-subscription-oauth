@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.7.1 · 이전 이름 `dsh-grok-build`
+**v0.8.0 · 이전 이름 `dsh-grok-build`
 
 **[DeepSeek Harness](https://github.com/deepseek-ai/dsh)용 코딩 구독 OAuth 플러그인.** 이미 결제한 구독으로 한 번에 로그인하고, dsh 설정 페이지나 CLI에서 그 모델을 사용하세요. **채팅에 토큰을 붙여넣을 필요가 없습니다.**
 
@@ -27,7 +27,7 @@
 | | 이것을 쓰세요 | 계속 동작 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（같은 `main`） |
-| npm | `dsh-coding-subscription-oauth@0.7.1`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
+| npm | `dsh-coding-subscription-oauth@0.8.0`（현재 릴리스） | 레거시 npm 패키지는 게시된 적 없음 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 플러그인 id | `llm-grok-build-oauth` | 그대로 |
 | 설정 페이지 HTTP API | `/plugins/dsh-grok-build/*` | 그대로 |
@@ -45,6 +45,7 @@
 - 🗂️ **탭으로 나뉜 설정** — Accounts, Gateway, Capabilities, About. 원격 호스트에서는 device code를 우선하고 CLI missing 소음을 줄이며, 로그인된 카드는 펼칠 때까지 접혀 있습니다.
 - 🎛️ **선택적 기능 (기본 꺼짐)** — Codex 검색, 사용량/쿼터, 이미지 생성/편집, Fast, Grok Imagine은 스위치를 켜면 즉시 적용됩니다. 추가 기본 꺼짐 스위치로 비 Codex 모델 라우트가 Codex 이미지 도구를 호출할 수 있지만 Codex 로그인, 세션, 첨부 파일 소유권 검사는 그대로 유지됩니다.
 - 🔌 **옵트인 로컬 API 게이트웨이** — 기본 꺼짐의 루프백 OpenAI/Anthropic 호환 서버. 내 도구 전용이며 공개 릴레이가 아닙니다.
+- 🤝 **옵트인 OpenCode Go 호환** — 게이트웨이가 OpenCode Go로 채팅을 프록시하고 sticky `x-opencode-session`을 주입(`MissingSessionID` 방지); 기본 off.
 
 ## 이 플러그인이 푸는 연동 문제
 
@@ -60,6 +61,7 @@
 | 로그인하지 않은 모델이 선택기에 남음 | 등록된 모든 라우트를 나열 | 미인증은 빈 목록. 인증됨은 `(OAuth)` |
 | 원격/헤드리스에서 PKCE 불가 | localhost로 돌아올 수 없음 | Grok/Codex/Kimi는 디바이스 코드. Claude는 redirect URL 붙여넣기 |
 | 프록시로 Grok은 되고 중국 Kimi는 죽음 | 전역 `HTTPS_PROXY` | 허용 도메인만. Kimi는 기본 직결(`proxyKimi: true`일 때만 프록시) |
+| OpenCode Go 채팅이 `MissingSessionID` / `x-opencode-session` 누락으로 실패 | 클라이언트가 sticky 세션 헤더를 보내지 않음 | 옵트인 게이트웨이 OpenCode Go 프록시가 sticky `x-opencode-session` 주입 |
 
 ## 지원 프로바이더
 
@@ -77,7 +79,7 @@
 
 ```bash
 # 1. web 프로필에 플러그인 설치 (현재 npm 릴리스)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 2. 선택 사항 — Google Antigravity (검증된 고정 버전)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +120,7 @@ DeepSeek Harness `0.1.1-rc.2` 및 Node.js 22.19+가 필요합니다. 자세한 �
 
 ```bash
 # 현재 npm 릴리스 (권장)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 개발/대안: GitHub에서
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -189,9 +191,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 엔드포인트: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Bearer 키는 `$DSH_HOME/.coding-oauth-gateway.json`(`0600`)에 저장됩니다. 설정에서 OpenAI 베이스 URL(베이스 + `/v1`), Anthropic 베이스 URL, 현재 Bearer 키를 로테이션 없이 복사할 수 있습니다. 키 표시는 루프백에서만 가능하며 브라우저 스토리지에 저장되지 않습니다. 로테이션은 확인이 필요한 파괴적 작업입니다. 리슨 포트는 직접 편집해 Apply로 저장하거나 Random(18100–18999)으로 채울 수 있습니다. 선택한 포트는 소유자 전용 게이트웨이 문서에 저장되고 실행 중인 리스너가 다시 바인딩됩니다. bind는 YAML에서만 변경할 수 있으며, 루프백이 아닌 bind에는 키가 필요합니다. 원격 릴레이가 아닙니다.
+
+선택적 **OpenCode Go 호환**(`gateway.opencodeGo.enabled`, 기본 off)은 Gateway 탭에서 켤 수 있습니다. 켜면 `POST /v1/chat/completions`를 고정 URL `https://opencode.ai/zen/go/v1/chat/completions`로 전달하고 sticky `x-opencode-session`을 주입하여, OpenCode 세션 친화성을 보내지 않는 클라이언트(아니면 `MissingSessionID`)도 이 루프백 게이트웨이로 대화할 수 있습니다. 세션 id 우선순위: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → 생성 UUID. 해당 모드에서는 게이트웨이 Bearer key를 OpenCode API key로 설정하세요. 재시작 없이 전환됩니다.
 
 ## CLI
 

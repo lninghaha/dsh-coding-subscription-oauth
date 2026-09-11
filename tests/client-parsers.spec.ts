@@ -70,6 +70,7 @@ describe("client parsers", () => {
 			keyHint: "ab…",
 			models: ["gpt-5.3-codex"],
 			warning: "",
+			opencodeGoEnabled: false,
 		});
 		expect(
 			parseGateway({
@@ -80,8 +81,9 @@ describe("client parsers", () => {
 				model: "codex/gpt-5",
 				keyAvailable: true,
 				keyHint: "dsh_…abcd",
+				opencodeGoEnabled: true,
 			}),
-		).toEqual(expect.objectContaining({ models: ["codex/gpt-5"], keyConfigured: true }));
+		).toEqual(expect.objectContaining({ models: ["codex/gpt-5"], keyConfigured: true, opencodeGoEnabled: true }));
 	});
 
 	it("parses preview tickets and imagine credential status", () => {

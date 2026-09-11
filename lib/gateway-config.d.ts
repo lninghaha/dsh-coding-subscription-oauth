@@ -9,12 +9,16 @@ export declare const GATEWAY_MIN_PORT = 1024;
 export declare const GATEWAY_MAX_PORT = 65535;
 export declare const GATEWAY_RANDOM_PORT_MIN = 18100;
 export declare const GATEWAY_RANDOM_PORT_MAX = 18999;
+export interface GatewayOpencodeGoConfig {
+    readonly enabled: boolean;
+}
 export interface GatewayConfig {
     readonly enabled: boolean;
     readonly bind: string;
     readonly port: number;
     readonly apiKey?: string;
     readonly rateLimit: number;
+    readonly opencodeGo: GatewayOpencodeGoConfig;
 }
 export declare const GatewayConfigSchema: z<Partial<GatewayConfig>>;
 export declare function resolveGatewayConfig(raw?: Partial<GatewayConfig>): GatewayConfig;

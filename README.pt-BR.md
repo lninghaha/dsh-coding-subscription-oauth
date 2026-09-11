@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.7.1 · antigo `dsh-grok-build`
+**v0.8.0 · antigo `dsh-grok-build`
 
 **Plugin de OAuth para assinaturas de codificação do [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Entre com as assinaturas que você já paga — depois use os modelos delas a partir da página de configurações do dsh ou da CLI. **Nenhum token colado no chat.**
 
@@ -28,7 +28,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 | | Use isto | Ainda funciona |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (mesmo `main`) |
-| npm | `dsh-coding-subscription-oauth@0.7.1` (versão atual) | Nenhum pacote npm legado foi publicado |
+| npm | `dsh-coding-subscription-oauth@0.8.0` (versão atual) | Nenhum pacote npm legado foi publicado |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | inalterado |
 | API HTTP das configurações | `/plugins/dsh-grok-build/*` | inalterado |
@@ -46,6 +46,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 - 🗂️ **Configurações em abas** — Accounts, Gateway, Capabilities e About; hosts remotos preferem device code com menos ruído de CLI missing; cartões conectados ficam recolhidos até serem expandidos.
 - 🎛️ **Capacidades opcionais, padrão desligado** — busca do Codex, uso/cota, geração/edição de imagens, Fast e Grok Imagine são aplicadas ao vivo quando ativadas. Outro interruptor, também desligado por padrão, permite que rotas de modelos não Codex usem as ferramentas de imagem Codex sem ignorar login, sessão ou propriedade dos anexos.
 - 🔌 **Gateway de API local opt-in** — servidor loopback compatível com OpenAI/Anthropic, desligado por padrão; para as suas próprias ferramentas, nunca um relé público.
+- 🤝 **Compatibilidade opt-in com OpenCode Go** — o gateway pode fazer proxy de chat completions para o OpenCode Go e injetar `x-opencode-session` sticky (evita `MissingSessionID`); desligado por padrão.
 
 ## Problemas de integração que este plugin resolve
 
@@ -60,6 +61,7 @@ Estas são as buscas e erros do DSH que costumam trazer as pessoas até aqui.
 | Modelos sem login ainda no seletor | Todas as rotas registradas apareciam | Rotas sem auth ficam vazias; nomes autenticados levam `(OAuth)` |
 | PKCE em DSH remoto / headless | Não há como voltar ao `localhost` | Device-code para Grok/Codex/Kimi; Claude aceita a URL de redirect colada |
 | Proxy libera Grok e quebra Kimi na China | Um `HTTPS_PROXY` global | Proxy só na allowlist; Kimi fica **direto** salvo `proxyKimi: true` |
+| Chat do OpenCode Go falha com `MissingSessionID` / falta `x-opencode-session` | Clientes não enviam headers sticky de sessão | Proxy opt-in OpenCode Go do gateway injeta `x-opencode-session` sticky |
 
 ## Provedores suportados
 
@@ -77,7 +79,7 @@ Estas são as buscas e erros do DSH que costumam trazer as pessoas até aqui.
 
 ```bash
 # 1. instale o plugin no perfil web (versão atual do npm)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 2. opcional — Google Antigravity (versão fixa revisada)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -118,7 +120,7 @@ Requer DeepSeek Harness `0.1.1-rc.2` e Node.js 22.19+. Detalhes completos nas [n
 
 ```bash
 # versão atual do npm (recomendado)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # desenvolvimento/alternativo: do GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -189,9 +191,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Uma chave Bearer é armazenada em `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). As configurações podem copiar a URL base OpenAI (base + `/v1`), a URL base Anthropic e a chave Bearer atual sem rotacioná-la; a revelação da chave é apenas via loopback e não é persistida no armazenamento do navegador. A rotação é uma ação destrutiva com confirmação. A porta de escuta pode ser editada diretamente e salva com Apply, ou preenchida pelo botão Random (18100–18999); a porta escolhida é persistida no documento do gateway somente-dono, e um listener em execução é religado. O bind continua sendo somente via YAML; bind não-loopback exige uma chave. Isto não é um relé remoto.
+
+A **compatibilidade opt-in com OpenCode Go** (`gateway.opencodeGo.enabled`, desligada por padrão) pode ser ativada na aba Gateway. Quando ligada, `POST /v1/chat/completions` é encaminhado para `https://opencode.ai/zen/go/v1/chat/completions` fixo com `x-opencode-session` sticky, para que clientes que omitem afinidade de sessão do OpenCode (e veriam `MissingSessionID`) continuem funcionando por este gateway loopback. Preferência de session id: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → UUID gerado. Defina a Bearer key do gateway como sua OpenCode API key; o interruptor não exige reinício.
 
 ## CLI
 

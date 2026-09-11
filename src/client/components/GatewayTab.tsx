@@ -43,6 +43,7 @@ export interface GatewayTabProps {
 	copiedField: CopyField | undefined;
 	copyFailedField: CopyField | undefined;
 	onEnabledChange: (enabled: boolean) => void;
+	onOpencodeGoEnabledChange: (enabled: boolean) => void;
 	onRetry: () => void;
 	onPortDraftChange: (value: string) => void;
 	onApplyPort: () => void;
@@ -77,6 +78,7 @@ export function GatewayTab({
 	copiedField,
 	copyFailedField,
 	onEnabledChange,
+	onOpencodeGoEnabledChange,
 	onRetry,
 	onPortDraftChange,
 	onApplyPort,
@@ -264,6 +266,27 @@ export function GatewayTab({
 							/>
 						</label>
 					)}
+					<label
+						htmlFor="coding-oauth-gateway-opencode-go"
+						style={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							gap: 12,
+							fontSize: 14,
+							color: "var(--dsw-alias-label-primary)",
+							opacity: gateway.enabled ? 1 : 0.6,
+						}}
+					>
+						<span>{t("gatewayOpencodeGoEnabled")}</span>
+						<ToggleSwitch
+							id="coding-oauth-gateway-opencode-go"
+							checked={gateway.opencodeGoEnabled}
+							disabled={gatewayBusy || !gateway.enabled}
+							onChange={onOpencodeGoEnabledChange}
+						/>
+					</label>
+					<p style={hintStyle}>{t("gatewayOpencodeGoHint")}</p>
 					<div>
 						<label
 							htmlFor="coding-oauth-gateway-port"

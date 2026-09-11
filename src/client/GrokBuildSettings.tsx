@@ -601,6 +601,21 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			});
 	};
 
+	const setOpencodeGoEnabled = (opencodeGoEnabled: boolean): void => {
+		setGatewayBusy(true);
+		void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { opencodeGoEnabled })
+			.then((value) => {
+				setGateway(parseGateway(value) ?? gateway);
+				setGatewayError(undefined);
+			})
+			.catch((error: unknown) => {
+				setGatewayError(error instanceof Error ? error.message : t("gatewaySaveFailed"));
+			})
+			.finally(() => {
+				setGatewayBusy(false);
+			});
+	};
+
 	const dismissRemoteTip = (): void => {
 		setRemoteTipDismissed(true);
 		try {
@@ -767,6 +782,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 							void refreshGateway();
 						}}
 						onEnabledChange={setGatewayEnabled}
+						onOpencodeGoEnabledChange={setOpencodeGoEnabled}
 						onPortDraftChange={setPortDraft}
 						onApplyPort={() => {
 							void applyGatewayPort();

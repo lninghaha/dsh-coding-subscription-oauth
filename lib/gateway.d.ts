@@ -31,12 +31,14 @@ export interface GatewayPublicStatus {
     keyHint: string;
     models: string[];
     warning: string;
+    opencodeGoEnabled: boolean;
 }
 export interface CodingOAuthGatewayController {
     status(): Promise<GatewayPublicStatus>;
     startIfEnabled(): Promise<StartedGateway | undefined>;
     setEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
     setPort(port: number): Promise<GatewayPublicStatus>;
+    setOpencodeGoEnabled(enabled: boolean): Promise<GatewayPublicStatus>;
     revealKey(): Promise<{
         apiKey: string;
         keyHint: string;

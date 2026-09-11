@@ -77,6 +77,7 @@ ctx.llm route
 - `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
 - `gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
+- `gateway-opencode-go.ts`: opt-in OpenCode Go compatibility — when `gateway.opencodeGo.enabled` is on, `POST /v1/chat/completions` proxies to pinned OpenCode Go and injects sticky `x-opencode-session` (session id preference: harness / opencode / x-session-id / body `session_id` / UUID).
 - `dsh-host-adapter.ts` / `web-origin.ts`: isolate the changing DSH service surface and prefer a host-native `ownerRequestPolicy`; the fallback constrains loopback/SSH Host and Origin, while HTTPS proxy access jointly verifies the real peer, exact Origin/Host, Fetch Metadata, owner proof, and independent CSRF. A throwing or malformed host policy is denied without escaping the route boundary.
 
 ## 4. Web API
@@ -122,7 +123,7 @@ This project does not replicate the private Google Antigravity protocol. The pro
 
 ## 6. Compatibility
 
-The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.7.1`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1`), verified against DSH **`0.1.1-rc.2`**. `0.1.5-rc.1` is recorded only as an unverified BOM candidate; client inject no longer requires `@deepseek-ai/dsh-client-runtime` (absent on that candidate). GitHub and local tarball installs remain valid.
+The canonical package and repository name is **`dsh-coding-subscription-oauth`**. The previous GitHub URL still resolves to the same `main`, so old `dsh plugin add github:lninghaha/dsh-grok-build` commands continue to install the renamed package. The first public npm/GitHub Release was **`0.4.1`**. The current release is **`0.8.0`** (`dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0`), verified against DSH **`0.1.1-rc.2`**. `0.1.5-rc.1` is recorded only as an unverified BOM candidate; client inject no longer requires `@deepseek-ai/dsh-client-runtime` (absent on that candidate). GitHub and local tarball installs remain valid.
 
 Stable on-disk / in-process identifiers (do not rename without a migration):
 

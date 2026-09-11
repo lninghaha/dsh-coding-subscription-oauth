@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.7.1** · 原名 `dsh-grok-build`
+**v0.8.0** · 原名 `dsh-grok-build`
 
 **面向 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 的编码订阅 OAuth 插件。** 把 SuperGrok / X Premium（Grok Build）、ChatGPT Plus/Pro（Codex）、Kimi Code、Claude Pro/Max 和 Google Antigravity 接到 DSH——不必再开一份按量 API-key，**也不要把 token 粘贴进聊天。**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.7.1` 在 `0.7.0` 基础上修复 DSH `0.1.5-rc.1` 的 `modelErrors` 崩溃；继续将共享 dispatcher runtime 固定为 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`，并将 Gateway key 的 reveal/rotate 限制为 loopback 访问；无需迁移配置、凭据、数据或路由。Grok Imagine 保留显式 pinned dispatcher。`0.6.2` 及之后版本已包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。
+> **升级：** 按 [`INSTALL.md`](INSTALL.md) 的版本化步骤操作。`0.8.0` 新增可选 OpenCode Go 兼容（本地网关粘性 `x-opencode-session`）；继续将共享 dispatcher runtime 固定为 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`，并将 Gateway key 的 reveal/rotate 限制为 loopback 访问；无需迁移配置、凭据、数据或路由。Grok Imagine 保留显式 pinned dispatcher。`0.6.2` 及之后版本已包含严格 Cordis 注入启动修复并正式支持 DSH `0.1.1-rc.2`；保留 profile、配置和凭据文件，更新后再重启一次现有 DSH Web 进程。
 
 ---
 
@@ -27,7 +27,7 @@
 
 | | 请用这个 | 仍然可用 |
 |---|---|---|
-| npm（推荐） | 当前版本是 `0.7.1`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1` | 没有发布过旧 npm 包 |
+| npm（推荐） | 当前版本是 `0.8.0`：`dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0` | 没有发布过旧 npm 包 |
 | GitHub / 开发安装 | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | 旧仓库 `dsh-grok-build` 已删除 |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis 插件 id | `llm-grok-build-oauth` | 不变 |
@@ -46,6 +46,7 @@
 - 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About；远程主机优先设备码登录并弱化 CLI 缺失提示；已登录供应商卡片默认收起，展开后再编辑。
 - 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。另有默认关闭的开关，允许非 Codex 模型路由调用 Codex 图像工具，同时保留 Codex 登录、会话和附件归属检查。
 - 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
+- 🤝 **可选兼容 OpenCode Go** —— 网关可将聊天请求代理到 OpenCode Go，并注入粘性 `x-opencode-session`（客户端未带会话粘性时避免 `MissingSessionID`）；默认关闭。
 
 ## 本插件解决的接入问题
 
@@ -62,6 +63,7 @@
 | **远程 / 无头** DSH 没法浏览器登录 | PKCE 回不到本机 `localhost` | Grok/Codex/Kimi 走设备码；Claude 可粘贴完整 localhost 回调 URL |
 | 开了代理 Grok 通了、国内 Kimi 挂了 | 全局 `HTTPS_PROXY` 一刀切 | 白名单代理；Kimi 默认**直连**（`proxyKimi: true` 才走代理）。`auth.kimi.com` ≠ `api.moonshot.cn` |
 | 想在 DSH 用 ChatGPT Plus / Claude Pro，又不想再买 API | 另开 OpenAI / Anthropic API-key | `codex-oauth` / `claude-code-oauth` 本地 OAuth，与现有 `openai` / `kimi-coding` API-key 路由共存 |
+| OpenCode Go 聊天报 `MissingSessionID` / 缺少 `x-opencode-session` | 客户端不发送粘性会话头 | 可选网关 OpenCode Go 代理注入粘性 `x-opencode-session` |
 
 ## 支持的供应商
 
@@ -79,7 +81,7 @@
 
 ```bash
 # 1. 安装当前 npm 发布版到 web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 2. 可选 —— Google Antigravity（固定审核过的版本）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -120,7 +122,7 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ```bash
 # 当前 npm 版本
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 开发 / 备用：从 GitHub 安装
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -199,9 +201,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 端点：`GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer key 保存在 `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）。
+
+可选 **OpenCode Go** 兼容（`gateway.opencodeGo.enabled`，默认关）可在 Gateway 标签页单独打开：开启后 `POST /v1/chat/completions` 会转发到固定的 `https://opencode.ai/zen/go/v1/chat/completions`，并注入粘性 `x-opencode-session`，让未带 OpenCode 会话粘性的客户端（否则常见 `MissingSessionID`）仍可通过本机回环网关聊天。会话 id 优先级：`x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → 生成 UUID。此时请把网关 Bearer key 设为你的 OpenCode API key；无需重启即可切换。
 
 在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；密钥显示仅限 loopback，且不会写入浏览器存储；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
 

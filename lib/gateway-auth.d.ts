@@ -9,6 +9,7 @@ export interface GatewayKeyDocument {
     apiKey: string;
     enabled?: boolean;
     port?: number;
+    opencodeGoEnabled?: boolean;
 }
 export declare function gatewayKeyPath(dshHome?: string): string;
 export declare function generateGatewayApiKey(): string;

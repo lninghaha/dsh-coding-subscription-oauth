@@ -200,6 +200,7 @@ export interface GatewayView {
 	keyHint: string;
 	models: string[];
 	warning: string;
+	opencodeGoEnabled: boolean;
 }
 
 export interface GrokBuildSettingsInjected {

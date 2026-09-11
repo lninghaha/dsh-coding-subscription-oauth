@@ -10,19 +10,32 @@ import { type GatewayBackend, gatewayErrorEnvelope } from "./gateway-backend.ts"
 import { type GatewayConfig, isLoopbackBind } from "./gateway-config.ts";
 import { handleOpenAiChatCompletions } from "./gateway-openai-chat.ts";
 import { handleOpenAiResponses } from "./gateway-openai-responses.ts";
+import {
+	createOpencodeGoSessionMap,
+	handleOpencodeGoChatCompletions,
+	type OpencodeGoSessionMap,
+} from "./gateway-opencode-go.ts";
 
 export interface GatewayHttpOptions {
 	config: GatewayConfig;
 	apiKey: string;
 	backend: GatewayBackend;
+	isOpencodeGoEnabled?: () => boolean;
+	getUpstreamApiKey?: () => string;
+	sessionMap?: OpencodeGoSessionMap;
+	fetchImpl?: typeof fetch;
 }
 
 export function createGatewayHttpServer(options: GatewayHttpOptions): Server {
 	if (!isLoopbackBind(options.config.bind) && options.apiKey.length === 0) {
 		throw new Error("gateway bind outside loopback requires a Bearer API key");
 	}
+	const resolved: GatewayHttpOptions = {
+		...options,
+		sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
+	};
 	return createServer((req, res) => {
-		void route(req, res, options).catch((error) => {
+		void route(req, res, resolved).catch((error) => {
 			if (res.headersSent) {
 				res.end();
 				return;
@@ -73,6 +86,15 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 		return;
 	}
 	if (req.method === "POST" && url.pathname === "/v1/chat/completions") {
+		if (options.isOpencodeGoEnabled?.() === true) {
+			await handleOpencodeGoChatCompletions(req, res, {
+				fetchImpl: options.fetchImpl ?? fetch,
+				sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
+				getUpstreamApiKey: options.getUpstreamApiKey ?? (() => options.apiKey),
+				isEnabled: options.isOpencodeGoEnabled,
+			});
+			return;
+		}
 		await handleOpenAiChatCompletions(req, res, options.backend);
 		return;
 	}

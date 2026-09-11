@@ -4,7 +4,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.7.1** · formerly `dsh-grok-build`
+**v0.8.0** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). Current main pins the shared dispatcher runtime on `dsh-coding-oauth-core@0.1.2` and `undici@7.29.0`, and restricts gateway key reveal/rotate to loopback access; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating.
+> **Upgrade / 升级：** Follow the versioned steps in [`INSTALL.md`](INSTALL.md). `0.8.0` adds opt-in OpenCode Go compatibility (sticky `x-opencode-session` on the local gateway). Current main pins the shared dispatcher runtime on `dsh-coding-oauth-core@0.1.2` and `undici@7.29.0`, and restricts gateway key reveal/rotate to loopback access; no configuration, credential, data, or route migration is required. Grok Imagine retains its explicit pinned dispatcher. Releases from `0.6.2` onward include the strict Cordis injection startup fix and DSH `0.1.1-rc.2` support; keep profile/config/credential files and restart one existing DSH Web process only after updating.
 
 ---
 
@@ -27,7 +27,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| npm (recommended) | Current release is `0.7.1`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1` | No legacy npm package was published |
+| npm (recommended) | Current release is `0.8.0`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0` | No legacy npm package was published |
 | GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
@@ -46,6 +46,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About; remote hosts prefer device-code sign-in with quieter CLI-missing tips; signed-in cards stay collapsed until expanded.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on. An additional default-off switch lets non-Codex model routes call Codex image tools while preserving Codex sign-in, session, and attachment-ownership checks.
 - 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
+- 🤝 **Opt-in OpenCode Go compatibility** — gateway can proxy chat completions to OpenCode Go and inject sticky `x-opencode-session` (avoids `MissingSessionID` when clients omit session affinity); default off.
 
 ## Problems this plugin solves
 
@@ -62,6 +63,7 @@ These are the searches and DSH errors that usually lead here. If one of them is 
 | Device login on a **remote / headless** DSH | Browser PKCE cannot reach `localhost` | Device-code for Grok, Codex and Kimi; Claude accepts a pasted localhost redirect URL |
 | Proxy works for Grok/Codex but breaks Kimi in China | One global `HTTPS_PROXY` | Allowlisted proxy; Kimi stays **direct** unless `proxyKimi: true`. `auth.kimi.com` ≠ `api.moonshot.cn` |
 | ChatGPT Plus / Claude Pro in DSH without another API bill | Separate OpenAI / Anthropic API keys | Local OAuth on `codex-oauth` / `claude-code-oauth`, coexist with existing `openai` / `kimi-coding` API-key routes |
+| OpenCode Go chat fails with `MissingSessionID` / missing `x-opencode-session` | Clients do not send sticky session headers | Opt-in gateway OpenCode Go proxy injects sticky `x-opencode-session` |
 
 Grok Build device login, live `/v1/models-v2` and Responses streaming are verified on real deployments. Codex / Kimi / Claude reuse `@earendil-works/pi-ai` native OAuth instead of re-implementing vendor flows.
 
@@ -81,7 +83,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -122,7 +124,7 @@ Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unveri
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.7.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.0
 
 # development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -201,9 +203,13 @@ gateway:
   enabled: false
   bind: 127.0.0.1
   port: 18080
+  opencodeGo:
+    enabled: false
 ```
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
+
+Optional **OpenCode Go** compatibility (`gateway.opencodeGo.enabled`, default off) can also be toggled on the Gateway tab. When on, `POST /v1/chat/completions` is forwarded to pinned `https://opencode.ai/zen/go/v1/chat/completions` with a sticky `x-opencode-session` so tools that omit OpenCode session affinity (and would otherwise see `MissingSessionID`) keep working through this loopback gateway. Session id preference: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → generated UUID. Set the gateway Bearer key to your OpenCode API key for that mode; the toggle does not require a restart.
 
 On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key reveal is loopback-only and is never persisted to browser storage. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 

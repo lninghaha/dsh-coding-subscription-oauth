@@ -345,6 +345,7 @@ export function parseGateway(value: unknown): GatewayView | undefined {
 		keyHint: optionalString(value["keyHint"]) ?? "",
 		models,
 		warning: optionalString(value["warning"]) ?? "",
+		opencodeGoEnabled: value["opencodeGoEnabled"] === true,
 	};
 }
 
