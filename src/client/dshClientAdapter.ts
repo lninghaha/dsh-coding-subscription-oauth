@@ -13,7 +13,7 @@ export interface DshClientCompatibilityDiagnostic {
 }
 
 /** Structural slots face discovered at runtime (Cordis may omit typed `slots`). */
-type SlotsApi = {
+export type SlotsApi = {
 	readonly inject: (key: string, callback: () => unknown) => () => void;
 	readonly register: (options: object, component: unknown) => () => void;
 };

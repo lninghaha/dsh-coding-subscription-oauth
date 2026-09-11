@@ -6,6 +6,7 @@ import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
 import type {} from "@deepseek-ai/dsh-client-ui-slots";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { registerCodexImageToolviews } from "./CodexImageToolview.tsx";
 import { createDshClientAdapter } from "./dshClientAdapter.ts";
 import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import { GrokBuildSettings } from "./GrokBuildSettings.tsx";
@@ -139,8 +140,8 @@ export function apply(ctx: ClientContext): void {
 	const t = dsh.locale.bind(namespace) as GrokBuildSettingsInjected["t"];
 	dsh.installSlots({
 		mountFallback: () => mountIndependentEntry(t),
-		register: (slots) =>
-			slots.inject("settings.section", () =>
+		register: (slots) => {
+			const disposeSettings = slots.inject("settings.section", () =>
 				slots.register(
 					{
 						name: "settings.section",
@@ -151,6 +152,12 @@ export function apply(ctx: ClientContext): void {
 					},
 					GrokBuildSettings,
 				),
-			),
+			);
+			const disposeToolviews = registerCodexImageToolviews(slots, t);
+			return () => {
+				disposeToolviews();
+				disposeSettings();
+			};
+		},
 	});
 }
