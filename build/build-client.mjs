@@ -36,6 +36,17 @@ const options = {
 	},
 };
 
+// esbuild must follow package symlinks for peer dependency resolution in the
+// browser bundle. Canonicalize only the generated source-map paths afterwards
+// so pnpm's platform-specific virtual-store suffixes cannot cause CI drift.
+const pnpmSourcePath = /node_modules\/\.pnpm\/[^/]+\/node_modules\/((?:@[^/]+\/)?[^/]+)\//g;
+
+async function normalizeSourceMap(path) {
+	const source = await readFile(path, "utf8");
+	const normalized = source.replace(pnpmSourcePath, "node_modules/$1/");
+	if (normalized !== source) await writeFile(path, normalized);
+}
+
 await mkdir(outdir, { recursive: true });
 
 if (watch) {
@@ -45,6 +56,7 @@ if (watch) {
 	await new Promise(() => {});
 } else {
 	const result = await build(options);
+	await normalizeSourceMap(resolve(outdir, "client.js.map"));
 	await writeFile(resolve(outdir, "client.meta.json"), JSON.stringify(result.metafile, null, 2));
 	console.log(`built ${options.outfile} against dsh-client-web ${platform.version}`);
 }
