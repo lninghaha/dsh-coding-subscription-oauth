@@ -41,6 +41,10 @@ const REQUIRE_BANNER =
 
 const shared = {
 	bundle: true,
+	// Resolve workspace symlinks through their stable node_modules paths. This
+	// keeps esbuild's generated module labels and source-map entries identical
+	// on Windows (pnpm hashes peer paths) and Linux (pnpm expands them).
+	preserveSymlinks: true,
 	format: "esm",
 	platform: "node",
 	target: "node22.19",
