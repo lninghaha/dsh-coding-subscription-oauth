@@ -1,6 +1,6 @@
 
 
-> Repair candidate / 修复候选：0.8.2-rc.1。See [usage, migration and rollback](docs/repair-candidate.md). This candidate is not a public registry release.
+> Repair candidate / 修复候选：0.8.2-rc.1。详见[使用、迁移与回退](docs/repair-candidate.md)。本候选使用 npm `next` 标签，不替换稳定的 `latest` 版本。
 
 <!-- banner -->
 <div align="center">
