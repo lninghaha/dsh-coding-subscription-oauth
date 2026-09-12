@@ -16,9 +16,11 @@ import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const nvmrc = readFileSync(join(root, ".nvmrc"), "utf8").trim();
 const nvmBin = join(homedir(), ".nvm", "versions", "node", `v${nvmrc}`, "bin");
 const nvmNode = join(nvmBin, "node");
+const publishTag = typeof manifest.version === "string" && manifest.version.includes("-") ? "next" : "latest";
 
 function run(command, args, options = {}) {
 	let executable = command;
@@ -75,6 +77,6 @@ if (existsSync(nvmNode)) {
 
 run(process.execPath, [join(root, "scripts/assert-node.mjs")]);
 run("pnpm", ["run", "release:inspect"]);
-run("npm", ["publish", "--access", "public", "--registry", "https://registry.npmjs.org/"]);
+run("npm", ["publish", "--access", "public", "--tag", publishTag, "--registry", "https://registry.npmjs.org/"]);
 run("npm", ["view", "dsh-coding-subscription-oauth", "version", "--registry", "https://registry.npmjs.org/"]);
 run("npm", ["view", "dsh-coding-subscription-oauth", "dist-tags", "--registry", "https://registry.npmjs.org/"]);

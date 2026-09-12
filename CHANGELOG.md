@@ -4,7 +4,7 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
-## 0.8.2-rc.1 (candidate)
+## 0.8.2-rc.1
 
 - 修复设置草稿冲突、空模型集合持久化、多账户默认与定向重新授权。
 - Go 连接复用凭据引用、保留模型配置并明确协议及流终态；兼容层保持真实会话关联。
