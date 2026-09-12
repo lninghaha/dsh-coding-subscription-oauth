@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { registerAccountEntry } from "./account-entry-owner.ts";
 import { jsonRequest } from "./api.ts";
+import { registerCodexImageToolviews } from "./CodexImageToolview.tsx";
 import { STATUS_PATH } from "./constants.ts";
 import { createDshClientAdapter } from "./dshClientAdapter.ts";
 import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
@@ -191,8 +192,9 @@ export function apply(ctx: ClientContext): void {
 						bridge.setVisible(true);
 						return () => bridge.setVisible(false);
 					},
-					register: (slots) =>
-						slots.inject("settings.section", () => {
+					register: (slots) => {
+						const disposeToolviews = registerCodexImageToolviews(slots, t);
+						const disposeSettings = slots.inject("settings.section", () => {
 							try {
 								const release = slots.register(
 									{
@@ -213,7 +215,12 @@ export function apply(ctx: ClientContext): void {
 								queueMicrotask(failed);
 								return undefined;
 							}
-						}),
+						});
+						return () => {
+							disposeToolviews();
+							disposeSettings();
+						};
+					},
 				});
 			});
 			void Promise.resolve(child).catch(failed);

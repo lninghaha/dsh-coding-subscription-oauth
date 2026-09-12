@@ -193,6 +193,11 @@ DSH 主机在远端时优先使用设备码。浏览器/PKCE 登录会打开供�
 
 Codex 搜索、用量和图像是**需显式打开**的私有 `chatgpt.com/backend-api` 端点。图像生成固定使用 `gpt-image-2`。图像编辑只接受当前会话顶层、且由本会话持有的附件 id。
 
+<p align="center">
+  <a href="media/zh-CN/codex_image_tool.png"><img src="media/zh-CN/codex_image_tool.png" alt="Codex 图片工具结果内联显示" width="640" /></a><br />
+  <sub>Codex 图片工具结果会直接显示在 dsh Web 对话中。</sub>
+</p>
+
 Grok Imagine 只走官方 `https://api.x.ai`，模型为 `grok-imagine-image-2.0` 与 `grok-imagine-video-1.5`。凭据是独立的 DSH 凭据引用 `XAI_API_KEY`——不用 Grok OAuth，也不回退到进程环境变量。生成结果在 MIME / 大小 / 超时 / 重定向 / DNS 控制下，仅从冻结主机 `imgen.x.ai`、`videogen.x.ai`、`vidgen.x.ai` 下载，存入私有产物库（单件与唯一对象总量均硬限 256 MiB，最长七天），并只通过同源 loopback 路由提供。
 
 ## 本地 API 网关
