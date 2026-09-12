@@ -97,6 +97,7 @@ FROM dsh-installed AS rc2-compatibility
 ENV DSH_HOME=/tmp/dsh-rc2-home \
     DSH_RC2_PORT=17802
 COPY --from=package-build /tmp/export/ /tmp/candidate/
+COPY --from=source /workspace/package.json /opt/dsh/expected-package.json
 COPY docker/rc2-compatibility.mjs docker/rc2-http-status.mjs /opt/dsh/
 COPY docker/rc2-compatibility.test.mjs /opt/dsh/rc2-compatibility.test.mjs
 RUN node --test /opt/dsh/rc2-compatibility.test.mjs \

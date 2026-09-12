@@ -14,6 +14,10 @@ if (home === undefined || !Number.isSafeInteger(port)) throw new Error("rc2 smok
 const candidates = (await readdir("/tmp/candidate")).filter((name) => name.endsWith(".tgz"));
 if (candidates.length !== 1) throw new Error(`expected one candidate tarball, found ${String(candidates.length)}`);
 const candidate = join("/tmp/candidate", candidates[0]);
+// Read the expected identity from the repository manifest baked into the image
+// instead of pinning a version here, so a release bump cannot leave this smoke
+// asserting a stale version while the real candidate installs fine.
+const expected = JSON.parse(await readFile(join(root, "expected-package.json"), "utf8"));
 const environment = { ...process.env, DSH_HOME: home };
 const execute = async (...args) => run(bin, args, { cwd: root, env: environment, timeout: 30_000 });
 let child;
@@ -22,8 +26,10 @@ let child;
 try {
 	await execute("plugin", "--profile", "web", "add", candidate);
 	const pluginManifest = JSON.parse(await readFile(join(home, "profiles", "web", "node_modules", "dsh-coding-subscription-oauth", "package.json"), "utf8"));
-	if (pluginManifest.name !== "dsh-coding-subscription-oauth" || pluginManifest.version !== "0.8.1") {
-		throw new Error("candidate package was not installed into a fresh DSH web profile");
+	if (pluginManifest.name !== expected.name || pluginManifest.version !== expected.version) {
+		throw new Error(
+			`candidate package was not installed into a fresh DSH web profile (expected ${String(expected.name)}@${String(expected.version)}, found ${String(pluginManifest.name)}@${String(pluginManifest.version)})`,
+		);
 	}
 	if (JSON.stringify(pluginManifest).includes("file:../dsh-coding-oauth-core")) {
 		throw new Error("packed manifest retained a sibling core path");
