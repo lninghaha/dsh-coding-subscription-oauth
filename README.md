@@ -1,4 +1,7 @@
 
+
+> Repair candidate / 修复候选：0.8.2-rc.1。See [usage, migration and rollback](docs/repair-candidate.md). This candidate is not a public registry release.
+
 <!-- banner -->
 <div align="center">
 
@@ -46,7 +49,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About; remote hosts prefer device-code sign-in with quieter CLI-missing tips; signed-in cards stay collapsed until expanded.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on. An additional default-off switch lets non-Codex model routes call Codex image tools while preserving Codex sign-in, session, and attachment-ownership checks.
 - 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
-- 🤝 **Opt-in OpenCode Go compatibility** — gateway can proxy chat completions to OpenCode Go and inject sticky `x-opencode-session` (avoids `MissingSessionID` when clients omit session affinity); default off.
+- **OpenCode Go** — Connect OpenCode Go in **Accounts & Models** and use the existing DSH model route without enabling Gateway. External tools use explicitly configured `opencode-go/<model-id>` routes and the matching protocol, with a stable conversation header. The local gateway key and upstream credential are separate; missing session IDs are rejected. Review the migration preview before replacing the old global mode.
 
 ## Problems this plugin solves
 
@@ -63,7 +66,7 @@ These are the searches and DSH errors that usually lead here. If one of them is 
 | Device login on a **remote / headless** DSH | Browser PKCE cannot reach `localhost` | Device-code for Grok, Codex and Kimi; Claude accepts a pasted localhost redirect URL |
 | Proxy works for Grok/Codex but breaks Kimi in China | One global `HTTPS_PROXY` | Allowlisted proxy; Kimi stays **direct** unless `proxyKimi: true`. `auth.kimi.com` ≠ `api.moonshot.cn` |
 | ChatGPT Plus / Claude Pro in DSH without another API bill | Separate OpenAI / Anthropic API keys | Local OAuth on `codex-oauth` / `claude-code-oauth`, coexist with existing `openai` / `kimi-coding` API-key routes |
-| OpenCode Go chat fails with `MissingSessionID` / missing `x-opencode-session` | Clients do not send sticky session headers | Opt-in gateway OpenCode Go proxy injects sticky `x-opencode-session` |
+| OpenCode Go: `MissingSessionID` | Missing stable conversation ID | DSH: use Accounts & Models; external tools: provide `x-opencode-session`. See [migration](docs/repair-candidate.md). |
 
 Grok Build device login, live `/v1/models-v2` and Responses streaming are verified on real deployments. Codex / Kimi / Claude reuse `@earendil-works/pi-ai` native OAuth instead of re-implementing vendor flows.
 
@@ -209,7 +212,7 @@ gateway:
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
 
-Optional **OpenCode Go** compatibility (`gateway.opencodeGo.enabled`, default off) can also be toggled on the Gateway tab. When on, `POST /v1/chat/completions` is forwarded to pinned `https://opencode.ai/zen/go/v1/chat/completions` with a sticky `x-opencode-session` so tools that omit OpenCode session affinity (and would otherwise see `MissingSessionID`) keep working through this loopback gateway. Session id preference: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → generated UUID. Set the gateway Bearer key to your OpenCode API key for that mode; the toggle does not require a restart.
+Connect OpenCode Go in **Accounts & Models** and use the existing DSH model route without enabling Gateway. External tools use explicitly configured `opencode-go/<model-id>` routes and the matching protocol, with a stable conversation header. The local gateway key and upstream credential are separate; missing session IDs are rejected. Review the migration preview before replacing the old global mode. [Migration / 迁移](docs/repair-candidate.md).
 
 On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key reveal is loopback-only and is never persisted to browser storage. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 

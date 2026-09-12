@@ -4,5 +4,5 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { type GatewayBackend } from "./gateway-backend.js";
-export declare function handleAnthropicMessages(req: IncomingMessage, res: ServerResponse, backend: GatewayBackend): Promise<void>;
+export declare function handleAnthropicMessages(req: IncomingMessage, res: ServerResponse, backend: GatewayBackend, parsed?: Record<string, unknown>): Promise<void>;
 //# sourceMappingURL=gateway-anthropic-messages.d.ts.map

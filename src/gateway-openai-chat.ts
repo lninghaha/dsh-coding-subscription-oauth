@@ -13,8 +13,9 @@ export async function handleOpenAiChatCompletions(
 	req: IncomingMessage,
 	res: ServerResponse,
 	backend: GatewayBackend,
+	parsed?: Record<string, unknown>,
 ): Promise<void> {
-	const payload = await readGatewayJsonBody(req);
+	const payload = parsed ?? (await readGatewayJsonBody(req));
 	const request = parseOpenAiChatRequest(payload);
 	const stream = payload["stream"] !== false;
 	const id = `chatcmpl_gateway_${Date.now().toString(36)}`;

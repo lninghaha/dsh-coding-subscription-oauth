@@ -5,14 +5,13 @@
 import { type Server } from "node:http";
 import { type GatewayBackend } from "./gateway-backend.js";
 import { type GatewayConfig } from "./gateway-config.js";
-import { type OpencodeGoSessionMap } from "./gateway-opencode-go.js";
+import type { GatewayGoRoute } from "./gateway-go-routing.js";
 export interface GatewayHttpOptions {
     config: GatewayConfig;
     apiKey: string;
     backend: GatewayBackend;
-    isOpencodeGoEnabled?: () => boolean;
-    getUpstreamApiKey?: () => string;
-    sessionMap?: OpencodeGoSessionMap;
+    getOpencodeGoRoute?: () => GatewayGoRoute | null;
+    resolveGoCredential?: (ref: string) => Promise<string | undefined>;
     fetchImpl?: typeof fetch;
 }
 export declare function createGatewayHttpServer(options: GatewayHttpOptions): Server;

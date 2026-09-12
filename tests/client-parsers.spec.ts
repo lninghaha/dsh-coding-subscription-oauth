@@ -71,6 +71,9 @@ describe("client parsers", () => {
 			models: ["gpt-5.3-codex"],
 			warning: "",
 			opencodeGoEnabled: false,
+			opencodeGoRoute: null,
+			opencodeGoPreview: null,
+			opencodeGoMigration: "none",
 		});
 		expect(
 			parseGateway({

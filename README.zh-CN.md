@@ -1,4 +1,7 @@
 
+
+> Repair candidate / 修复候选：0.8.2-rc.1。See [usage, migration and rollback](docs/repair-candidate.md). This candidate is not a public registry release.
+
 <!-- banner -->
 <div align="center">
 
@@ -46,7 +49,7 @@
 - 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About；远程主机优先设备码登录并弱化 CLI 缺失提示；已登录供应商卡片默认收起，展开后再编辑。
 - 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。另有默认关闭的开关，允许非 Codex 模型路由调用 Codex 图像工具，同时保留 Codex 登录、会话和附件归属检查。
 - 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
-- 🤝 **可选兼容 OpenCode Go** —— 网关可将聊天请求代理到 OpenCode Go，并注入粘性 `x-opencode-session`（客户端未带会话粘性时避免 `MissingSessionID`）；默认关闭。
+- **OpenCode Go** — 在**账户与模型**连接 OpenCode Go，即可通过 DSH 原有模型路径对话，无需开启网关。外部工具需使用明确配置的 `opencode-go/<model-id>` 与对应协议，并发送稳定的会话标识。本地网关密钥与上游凭据分开；缺少会话标识会明确失败。旧全局模式需先查看迁移预览再应用。
 
 ## 本插件解决的接入问题
 
@@ -63,7 +66,7 @@
 | **远程 / 无头** DSH 没法浏览器登录 | PKCE 回不到本机 `localhost` | Grok/Codex/Kimi 走设备码；Claude 可粘贴完整 localhost 回调 URL |
 | 开了代理 Grok 通了、国内 Kimi 挂了 | 全局 `HTTPS_PROXY` 一刀切 | 白名单代理；Kimi 默认**直连**（`proxyKimi: true` 才走代理）。`auth.kimi.com` ≠ `api.moonshot.cn` |
 | 想在 DSH 用 ChatGPT Plus / Claude Pro，又不想再买 API | 另开 OpenAI / Anthropic API-key | `codex-oauth` / `claude-code-oauth` 本地 OAuth，与现有 `openai` / `kimi-coding` API-key 路由共存 |
-| OpenCode Go 聊天报 `MissingSessionID` / 缺少 `x-opencode-session` | 客户端不发送粘性会话头 | 可选网关 OpenCode Go 代理注入粘性 `x-opencode-session` |
+| OpenCode Go: `MissingSessionID` | Missing stable conversation ID | DSH: use Accounts & Models; external tools: provide `x-opencode-session`. See [migration](docs/repair-candidate.md). |
 
 ## 支持的供应商
 
@@ -207,7 +210,7 @@ gateway:
 
 端点：`GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer key 保存在 `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）。
 
-可选 **OpenCode Go** 兼容（`gateway.opencodeGo.enabled`，默认关）可在 Gateway 标签页单独打开：开启后 `POST /v1/chat/completions` 会转发到固定的 `https://opencode.ai/zen/go/v1/chat/completions`，并注入粘性 `x-opencode-session`，让未带 OpenCode 会话粘性的客户端（否则常见 `MissingSessionID`）仍可通过本机回环网关聊天。会话 id 优先级：`x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → 生成 UUID。此时请把网关 Bearer key 设为你的 OpenCode API key；无需重启即可切换。
+在**账户与模型**连接 OpenCode Go，即可通过 DSH 原有模型路径对话，无需开启网关。外部工具需使用明确配置的 `opencode-go/<model-id>` 与对应协议，并发送稳定的会话标识。本地网关密钥与上游凭据分开；缺少会话标识会明确失败。旧全局模式需先查看迁移预览再应用。 [Migration / 迁移](docs/repair-candidate.md).
 
 在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；密钥显示仅限 loopback，且不会写入浏览器存储；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
 

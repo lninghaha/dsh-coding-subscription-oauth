@@ -49,9 +49,11 @@ async function listen(options: {
 		config,
 		apiKey: "test-key",
 		backend: mockBackend(backendCalls),
-		isOpencodeGoEnabled: () => options.opencodeGoEnabled,
-		getUpstreamApiKey: () => "test-key",
-		sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
+		getOpencodeGoRoute: () =>
+			options.opencodeGoEnabled
+				? { credentialRef: "GO_KEY", models: [{ id: "test-go", protocol: "openai-completions" }] }
+				: null,
+		resolveGoCredential: async () => "test-upstream-key",
 		...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
 	});
 	await listenGateway(server, config);
@@ -148,7 +150,7 @@ describe("opencodeGo chat proxy HTTP", () => {
 			const url = String(input);
 			const headers = new Headers(init?.headers);
 			seen.push({ url, session: headers.get("x-opencode-session") });
-			expect(headers.get("authorization")).toBe("Bearer test-key");
+			expect(headers.get("authorization")).toBe("Bearer test-upstream-key");
 			return new Response(JSON.stringify({ id: "upstream", object: "chat.completion", choices: [] }), {
 				status: 200,
 				headers: { "content-type": "application/json" },
@@ -157,7 +159,7 @@ describe("opencodeGo chat proxy HTTP", () => {
 		const sessionMap = createOpencodeGoSessionMap();
 		const port = await listen({ opencodeGoEnabled: true, fetchImpl, sessionMap });
 		const body = JSON.stringify({
-			model: "opencode-go",
+			model: "opencode-go/test-go",
 			messages: [{ role: "user", content: "hi" }],
 			stream: false,
 		});

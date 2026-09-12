@@ -77,7 +77,7 @@ ctx.llm route
 - `client/`: four native account cards, CLI Pull, capability switches, gateway controls, and the external Antigravity status card.
 - `proxy.ts`: process-wide undici dispatcher, but proxies only a reviewed domain whitelist.
 - `gateway*.ts`: opt-in isolated loopback OpenAI/Anthropic-compatible HTTP server (default off; independent of the DSH web port).
-- `gateway-opencode-go.ts`: opt-in OpenCode Go compatibility — when `gateway.opencodeGo.enabled` is on, `POST /v1/chat/completions` proxies to pinned OpenCode Go and injects sticky `x-opencode-session` (session id preference: harness / opencode / x-session-id / body `session_id` / UUID).
+- `gateway-opencode-go.ts`: explicit `opencode-go/<model-id>` routing for Chat Completions, Responses and Messages. The model/protocol map also feeds `/v1/models`; upstream credentials are resolved separately. Stable client session IDs are required. See [migration](repair-candidate.md).
 - `dsh-host-adapter.ts` / `web-origin.ts`: isolate the changing DSH service surface and prefer a host-native `ownerRequestPolicy`; the fallback constrains loopback/SSH Host and Origin, while HTTPS proxy access jointly verifies the real peer, exact Origin/Host, Fetch Metadata, owner proof, and independent CSRF. A throwing or malformed host policy is denied without escaping the route boundary.
 
 ## 4. Web API

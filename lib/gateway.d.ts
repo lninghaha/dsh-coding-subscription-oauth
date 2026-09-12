@@ -4,10 +4,13 @@
  */
 import { type GatewayBackend } from "./gateway-backend.js";
 import { type GatewayConfig } from "./gateway-config.js";
+import { type GatewayGoRoute } from "./gateway-go-routing.js";
 import type { OAuthProviderSession } from "./oauth-session.js";
 import type { GrokBuildSession } from "./session.js";
 export declare const GATEWAY_TOS_WARNING = "local API gateway is enabled; exposing a subscription as a local API can violate provider ToS and consumes your quota";
 export interface StartGatewayOptions {
+    getGoPreview?: () => GatewayGoRoute | null;
+    resolveGoCredential?: (ref: string) => Promise<string | undefined>;
     config?: Partial<GatewayConfig>;
     dshHome?: string;
     backend?: GatewayBackend;
@@ -32,8 +35,18 @@ export interface GatewayPublicStatus {
     models: string[];
     warning: string;
     opencodeGoEnabled: boolean;
+    opencodeGoRoute?: GatewayGoRoute | null;
+    opencodeGoPreview?: GatewayGoRoute | null;
+    opencodeGoMigration?: "required" | "none";
+}
+export interface GatewaySettingsPatch {
+    enabled?: boolean;
+    port?: number;
+    opencodeGoEnabled?: boolean;
+    opencodeGoRoute?: GatewayGoRoute | null;
 }
 export interface CodingOAuthGatewayController {
+    applySettings(patch: GatewaySettingsPatch): Promise<GatewayPublicStatus>;
     status(): Promise<GatewayPublicStatus>;
     startIfEnabled(): Promise<StartedGateway | undefined>;
     setEnabled(enabled: boolean): Promise<GatewayPublicStatus>;

@@ -8,10 +8,18 @@ declare const AUTH_FORMAT_VERSION: 2;
 /** Operator-owned account hard cap (Settings + store). Aligned with Hub. */
 export declare const OAUTH_MAX_ACCOUNTS = 8;
 /** How a login or import writes into the multi-account document. */
-export type LoginPersistMode = "add" | "overwrite-active";
+export type LoginPersistMode = "add" | "overwrite-active" | "reauthorize";
 export interface LoginPersistOptions {
     mode: LoginPersistMode;
     confirmOverwrite?: boolean;
+    targetAccountId?: string;
+    /** 仅由服务端在授权开始时捕获，不接受 HTTP 调用方指定。 */
+    targetVersion?: string;
+}
+export declare class AccountOperationError extends Error {
+    readonly code: string;
+    readonly status = 409;
+    constructor(code: string, message: string);
 }
 /** Non-empty account id; max 128; restricted charset for path-safe operator labels. */
 export type AccountId = string;
@@ -53,7 +61,8 @@ export declare class OAuthCredentialFileStore implements CredentialStore {
     readonly providerId: string;
     private readonly label;
     readonly filename: string;
-    private loginPersist;
+    private readonly loginPersist;
+    private loginPending;
     constructor(providerId: string, filename: string, label: string);
     private readCurrent;
     /**
@@ -75,8 +84,9 @@ export declare class OAuthCredentialFileStore implements CredentialStore {
      * Redirect `modify` writes (pi-ai `models.login`) through multi-account upsert
      * semantics for the duration of `fn`.
      */
+    prepareLoginPersist(options: LoginPersistOptions): Promise<LoginPersistOptions>;
     runLoginPersist<T>(options: LoginPersistOptions, fn: () => Promise<T>): Promise<T>;
-    /** Persist a login/import credential without going through pi-ai `modify`. */
+    /** 登录完成时在同一文件锁内校验目标，失败保留所有原有凭据。 */
     persistLoginCredential(credential: OAuthCredential, options: LoginPersistOptions): Promise<void>;
     /**
      * Force the next `getAuth()` to refresh by backdating `expires` into the past.

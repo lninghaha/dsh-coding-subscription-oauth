@@ -7,22 +7,19 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { handleAnthropicMessages } from "./gateway-anthropic-messages.ts";
 import { gatewayKeysEqual } from "./gateway-auth.ts";
 import { type GatewayBackend, gatewayErrorEnvelope } from "./gateway-backend.ts";
+import { readGatewayJsonBody } from "./gateway-body.ts";
 import { type GatewayConfig, isLoopbackBind } from "./gateway-config.ts";
+import type { GatewayGoRoute } from "./gateway-go-routing.ts";
 import { handleOpenAiChatCompletions } from "./gateway-openai-chat.ts";
 import { handleOpenAiResponses } from "./gateway-openai-responses.ts";
-import {
-	createOpencodeGoSessionMap,
-	handleOpencodeGoChatCompletions,
-	type OpencodeGoSessionMap,
-} from "./gateway-opencode-go.ts";
+import { handleOpencodeGoInference } from "./gateway-opencode-go.ts";
 
 export interface GatewayHttpOptions {
 	config: GatewayConfig;
 	apiKey: string;
 	backend: GatewayBackend;
-	isOpencodeGoEnabled?: () => boolean;
-	getUpstreamApiKey?: () => string;
-	sessionMap?: OpencodeGoSessionMap;
+	getOpencodeGoRoute?: () => GatewayGoRoute | null;
+	resolveGoCredential?: (ref: string) => Promise<string | undefined>;
 	fetchImpl?: typeof fetch;
 }
 
@@ -30,14 +27,11 @@ export function createGatewayHttpServer(options: GatewayHttpOptions): Server {
 	if (!isLoopbackBind(options.config.bind) && options.apiKey.length === 0) {
 		throw new Error("gateway bind outside loopback requires a Bearer API key");
 	}
-	const resolved: GatewayHttpOptions = {
-		...options,
-		sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
-	};
+	const resolved = options;
 	return createServer((req, res) => {
 		void route(req, res, resolved).catch((error) => {
 			if (res.headersSent) {
-				res.end();
+				res.destroy(error instanceof Error ? error : undefined);
 				return;
 			}
 			const envelope = gatewayErrorEnvelope(error);
@@ -78,34 +72,36 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 		return;
 	}
 	if (req.method === "GET" && url.pathname === "/v1/models") {
-		const models = await options.backend.listModels();
+		const local = await options.backend.listModels();
+		const route = options.getOpencodeGoRoute?.();
+		const models = [
+			...local.filter((m) => !m.id.startsWith("opencode-go/")),
+			...(route?.models.map((m) => ({ id: "opencode-go/" + m.id, owned_by: "opencode-go", protocol: m.protocol })) ??
+				[]),
+		];
 		writeJson(res, 200, {
 			object: "list",
-			data: models.map((model) => ({ id: model.id, object: "model", owned_by: model.owned_by })),
+			data: models.map((model) => ({ ...model, object: "model" })),
 		});
 		return;
 	}
-	if (req.method === "POST" && url.pathname === "/v1/chat/completions") {
-		if (options.isOpencodeGoEnabled?.() === true) {
-			await handleOpencodeGoChatCompletions(req, res, {
+
+	if (req.method === "POST" && ["/v1/chat/completions", "/v1/responses", "/v1/messages"].includes(url.pathname)) {
+		const payload = await readGatewayJsonBody(req);
+		if (typeof payload["model"] === "string" && payload["model"].startsWith("opencode-go/")) {
+			await handleOpencodeGoInference(req, res, payload, url.pathname, {
+				route: options.getOpencodeGoRoute?.() ?? null,
+				resolveCredential: options.resolveGoCredential ?? (async () => undefined),
 				fetchImpl: options.fetchImpl ?? fetch,
-				sessionMap: options.sessionMap ?? createOpencodeGoSessionMap(),
-				getUpstreamApiKey: options.getUpstreamApiKey ?? (() => ""),
-				isEnabled: options.isOpencodeGoEnabled,
 			});
 			return;
 		}
-		await handleOpenAiChatCompletions(req, res, options.backend);
+		if (url.pathname === "/v1/chat/completions") await handleOpenAiChatCompletions(req, res, options.backend, payload);
+		else if (url.pathname === "/v1/responses") await handleOpenAiResponses(req, res, options.backend, payload);
+		else await handleAnthropicMessages(req, res, options.backend, payload);
 		return;
 	}
-	if (req.method === "POST" && url.pathname === "/v1/responses") {
-		await handleOpenAiResponses(req, res, options.backend);
-		return;
-	}
-	if (req.method === "POST" && url.pathname === "/v1/messages") {
-		await handleAnthropicMessages(req, res, options.backend);
-		return;
-	}
+
 	writeJson(res, 404, { error: { message: "not found", type: "invalid_request_error", code: "not_found" } });
 }
 

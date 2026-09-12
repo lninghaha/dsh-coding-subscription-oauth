@@ -24,6 +24,20 @@ const CSS = `
   }
 }
 @media (max-width: 560px) {
+  /* 仅对本插件的宿主设置页调整双栏布局，保留其他页面的宿主样式。 */
+  [role="dialog"]:has([data-dsh-coding-oauth="management"]) { flex-direction: column; }
+  [role="dialog"]:has([data-dsh-coding-oauth="management"]) > nav {
+    width: 100%; flex: 0 0 auto; padding: 12px; box-sizing: border-box;
+  }
+  [role="dialog"]:has([data-dsh-coding-oauth="management"]) > nav > div:last-child {
+    flex-direction: row; overflow-x: auto; min-width: 0;
+  }
+  [role="dialog"]:has([data-dsh-coding-oauth="management"]) > nav button {
+    flex: 0 0 auto; white-space: nowrap;
+  }
+  [role="dialog"]:has([data-dsh-coding-oauth="management"]) > nav + div { width: 100%; min-height: 0; }
+  [data-dsh-coding-oauth="management"] input,
+  [data-dsh-coding-oauth="management"] select { min-width: 0; max-width: 100%; box-sizing: border-box; }
   [data-dsh-coding-oauth] button,
   [data-dsh-coding-oauth] input,
   [data-dsh-coding-oauth] [role="switch"] {

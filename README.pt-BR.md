@@ -1,4 +1,7 @@
 
+
+> Repair candidate / 修复候选：0.8.2-rc.1。See [usage, migration and rollback](docs/repair-candidate.md). This candidate is not a public registry release.
+
 <!-- banner -->
 <div align="center">
 
@@ -46,7 +49,7 @@ O projeto começou como **`dsh-grok-build`** (só Grok Build). Agora cobre Super
 - 🗂️ **Configurações em abas** — Accounts, Gateway, Capabilities e About; hosts remotos preferem device code com menos ruído de CLI missing; cartões conectados ficam recolhidos até serem expandidos.
 - 🎛️ **Capacidades opcionais, padrão desligado** — busca do Codex, uso/cota, geração/edição de imagens, Fast e Grok Imagine são aplicadas ao vivo quando ativadas. Outro interruptor, também desligado por padrão, permite que rotas de modelos não Codex usem as ferramentas de imagem Codex sem ignorar login, sessão ou propriedade dos anexos.
 - 🔌 **Gateway de API local opt-in** — servidor loopback compatível com OpenAI/Anthropic, desligado por padrão; para as suas próprias ferramentas, nunca um relé público.
-- 🤝 **Compatibilidade opt-in com OpenCode Go** — o gateway pode fazer proxy de chat completions para o OpenCode Go e injetar `x-opencode-session` sticky (evita `MissingSessionID`); desligado por padrão.
+- **OpenCode Go** — Conecte o OpenCode Go em **Contas e modelos** para usá-lo no DSH sem ativar o Gateway. Ferramentas externas usam rotas explícitas `opencode-go/<model-id>`, o protocolo correspondente e um identificador estável de conversa. A chave local e as credenciais do provedor são separadas. A ausência do identificador gera erro; revise a migração antes de substituir o modo global antigo.
 
 ## Problemas de integração que este plugin resolve
 
@@ -61,7 +64,7 @@ Estas são as buscas e erros do DSH que costumam trazer as pessoas até aqui.
 | Modelos sem login ainda no seletor | Todas as rotas registradas apareciam | Rotas sem auth ficam vazias; nomes autenticados levam `(OAuth)` |
 | PKCE em DSH remoto / headless | Não há como voltar ao `localhost` | Device-code para Grok/Codex/Kimi; Claude aceita a URL de redirect colada |
 | Proxy libera Grok e quebra Kimi na China | Um `HTTPS_PROXY` global | Proxy só na allowlist; Kimi fica **direto** salvo `proxyKimi: true` |
-| Chat do OpenCode Go falha com `MissingSessionID` / falta `x-opencode-session` | Clientes não enviam headers sticky de sessão | Proxy opt-in OpenCode Go do gateway injeta `x-opencode-session` sticky |
+| OpenCode Go: `MissingSessionID` | Missing stable conversation ID | DSH: use Accounts & Models; external tools: provide `x-opencode-session`. See [migration](docs/repair-candidate.md). |
 
 ## Provedores suportados
 
@@ -197,7 +200,7 @@ gateway:
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. Uma chave Bearer é armazenada em `$DSH_HOME/.coding-oauth-gateway.json` (`0600`). As configurações podem copiar a URL base OpenAI (base + `/v1`), a URL base Anthropic e a chave Bearer atual sem rotacioná-la; a revelação da chave é apenas via loopback e não é persistida no armazenamento do navegador. A rotação é uma ação destrutiva com confirmação. A porta de escuta pode ser editada diretamente e salva com Apply, ou preenchida pelo botão Random (18100–18999); a porta escolhida é persistida no documento do gateway somente-dono, e um listener em execução é religado. O bind continua sendo somente via YAML; bind não-loopback exige uma chave. Isto não é um relé remoto.
 
-A **compatibilidade opt-in com OpenCode Go** (`gateway.opencodeGo.enabled`, desligada por padrão) pode ser ativada na aba Gateway. Quando ligada, `POST /v1/chat/completions` é encaminhado para `https://opencode.ai/zen/go/v1/chat/completions` fixo com `x-opencode-session` sticky, para que clientes que omitem afinidade de sessão do OpenCode (e veriam `MissingSessionID`) continuem funcionando por este gateway loopback. Preferência de session id: `x-deepseek-harness-session-id` → `x-opencode-session` → `x-session-id` → body `session_id` → UUID gerado. Defina a Bearer key do gateway como sua OpenCode API key; o interruptor não exige reinício.
+Conecte o OpenCode Go em **Contas e modelos** para usá-lo no DSH sem ativar o Gateway. Ferramentas externas usam rotas explícitas `opencode-go/<model-id>`, o protocolo correspondente e um identificador estável de conversa. A chave local e as credenciais do provedor são separadas. A ausência do identificador gera erro; revise a migração antes de substituir o modo global antigo. [Migration / 迁移](docs/repair-candidate.md).
 
 ## CLI
 

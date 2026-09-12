@@ -543,7 +543,7 @@ describe("OAuthCredentialFileStore AuthDocument v2", () => {
 			oauthCredential({ access: "access-2", refresh: "refresh-2", accountId: "user-two" }),
 			{ mode: "add" },
 		);
-		expect(await store.getActiveAccountId()).toBe("user-two");
+		expect(await store.getActiveAccountId()).toBe("user-one");
 		expect(await store.listAccounts()).toEqual([
 			expect.objectContaining({ id: "user-one", accountId: "user-one" }),
 			expect.objectContaining({ id: "user-two", accountId: "user-two" }),

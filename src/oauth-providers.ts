@@ -57,7 +57,7 @@ function selectedProvider(
 	selectedIds: readonly string[] | undefined,
 	apiKey: ApiKeyAuth | undefined,
 ): Provider<Api> {
-	const selected = selectedIds === undefined || selectedIds.length === 0 ? undefined : new Set(selectedIds);
+	const selected = selectedIds === undefined ? undefined : new Set(selectedIds);
 	return {
 		...base,
 		auth: apiKey === undefined ? base.auth : { ...base.auth, apiKey },

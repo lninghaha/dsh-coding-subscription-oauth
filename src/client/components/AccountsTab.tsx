@@ -1,6 +1,6 @@
 /** Accounts tab: provider cards, CLI tips, and pull preview. */
 
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, type ReactNode, useEffect, useRef } from "react";
 import { PROVIDERS } from "../constants.ts";
 import { allOfficialCliMissing, anyOfficialCliAvailable } from "../display.ts";
 import {
@@ -31,6 +31,9 @@ import { OpenCodeGoCard } from "./OpenCodeGoCard.tsx";
 import { ProviderCard } from "./ProviderCard.tsx";
 
 export interface AccountsTabProps {
+	renderCapabilities?: ((scope: "codex" | "grok") => ReactNode) | undefined;
+	onLoadCapabilities?: (() => void) | undefined;
+	onStartConversation?: (() => void) | undefined;
 	t: GrokBuildSettingsInjected["t"];
 	status: CodingOAuthStatus | undefined;
 	remote: boolean;
@@ -50,14 +53,18 @@ export interface AccountsTabProps {
 	usage: UsageView | undefined;
 	usageError: string | undefined;
 	usageLoading: boolean;
-	onSignIn: (slug: ProviderSlug, method: LoginMethod) => void;
+	onSignIn: (slug: ProviderSlug, method: LoginMethod, targetAccountId?: string) => void | Promise<void>;
 	onSignOut: (slug: ProviderSlug) => void;
 	onCancelLogin: (slug: ProviderSlug) => void;
 	onSubmitCode: (slug: ProviderSlug) => void;
 	onCodeChange: (slug: ProviderSlug, value: string) => void;
 	onToggleExpanded: (slug: ProviderSlug) => void;
 	onPreviewSource: (slug: ProviderSlug) => void;
-	onSaveModels: (slug: ProviderSlug, selected: string[]) => Promise<string | undefined>;
+	onSaveModels: (
+		slug: ProviderSlug,
+		selected: string[],
+		selectionMode?: "default" | "selected",
+	) => Promise<string | undefined>;
 	onSetDefaultAccount: (slug: ProviderSlug, accountId: string) => void;
 	onRemoveAccount: (slug: ProviderSlug, accountId: string) => Promise<boolean>;
 	onRetryStatus: () => void;
@@ -69,6 +76,9 @@ export interface AccountsTabProps {
 }
 
 export function AccountsTab({
+	renderCapabilities,
+	onLoadCapabilities,
+	onStartConversation,
 	t,
 	status,
 	remote,
@@ -163,13 +173,19 @@ export function AccountsTab({
 				/>
 			)}
 			<div style={accountGridStyle}>
-				<OpenCodeGoCard t={t} fallback={status.opencodeGo} />
+				<OpenCodeGoCard t={t} fallback={status.opencodeGo} onStartConversation={onStartConversation} />
 				{PROVIDERS.map((definition) => {
 					const providerStatus = status.providers[definition.slug];
 					const expanded = providerStatus.status === "signing-in" || expandedProviders[definition.slug] === true;
 					return (
 						<Fragment key={definition.slug}>
 							<ProviderCard
+								capabilitiesPanel={
+									definition.slug === "codex" || definition.slug === "grok"
+										? renderCapabilities?.(definition.slug)
+										: undefined
+								}
+								onLoadCapabilities={onLoadCapabilities}
 								t={t}
 								definition={definition}
 								providerStatus={providerStatus}
@@ -184,9 +200,7 @@ export function AccountsTab({
 								usage={usage}
 								usageError={usageError}
 								usageLoading={usageLoading}
-								onSignIn={(method) => {
-									onSignIn(definition.slug, method);
-								}}
+								onSignIn={(method, targetAccountId) => onSignIn(definition.slug, method, targetAccountId)}
 								onSignOut={() => {
 									onSignOut(definition.slug);
 								}}
@@ -205,7 +219,7 @@ export function AccountsTab({
 								onPreviewSource={() => {
 									onPreviewSource(definition.slug);
 								}}
-								onSaveModels={(selected) => onSaveModels(definition.slug, selected)}
+								onSaveModels={(selected, selectionMode) => onSaveModels(definition.slug, selected, selectionMode)}
 								onSetDefaultAccount={(accountId) => {
 									onSetDefaultAccount(definition.slug, accountId);
 								}}

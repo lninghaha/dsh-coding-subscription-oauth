@@ -295,3 +295,67 @@ describe("startCodingOAuthGateway", () => {
 		expect((await controller.status()).port).toBe(19_172);
 	});
 });
+
+it("validates a whole migration before persistence and preserves the local key", async () => {
+	const dir = await mkdtemp(join(tmpdir(), "gateway-migration-"));
+	const preview = {
+		credentialRef: "GO_REF",
+		models: [{ id: "deepseek-v4.1-flash", protocol: "openai-completions" as const }],
+	};
+	const controller = createCodingOAuthGatewayController({
+		dshHome: dir,
+		config: { enabled: false, port: 19185, apiKey: "unchanged-local-key", opencodeGo: { enabled: true } },
+		backend: mockBackend(),
+		getGoPreview: () => preview,
+		resolveGoCredential: async (ref) => (ref === "GO_REF" ? "upstream-only" : undefined),
+	});
+	servers.push({ close: () => controller.stop() });
+	expect(await controller.status()).toMatchObject({
+		opencodeGoEnabled: false,
+		opencodeGoMigration: "required",
+		opencodeGoPreview: preview,
+	});
+	await expect(
+		controller.applySettings({ port: 19186, opencodeGoRoute: { ...preview, credentialRef: "MISSING" } }),
+	).rejects.toThrow("unavailable");
+	expect((await controller.status()).port).toBe(19185);
+	await expect(controller.applySettings({ port: 19186, opencodeGoEnabled: true })).rejects.toThrow("Review");
+	expect((await controller.status()).port).toBe(19185);
+	const migrated = await controller.applySettings({ opencodeGoRoute: preview });
+	expect(migrated).toMatchObject({ opencodeGoEnabled: true, opencodeGoMigration: "none", opencodeGoRoute: preview });
+	expect((await controller.revealKey()).apiKey).toBe("unchanged-local-key");
+	const reopened = createCodingOAuthGatewayController({
+		dshHome: dir,
+		config: { port: 19185 },
+		backend: mockBackend(),
+	});
+	expect((await reopened.status()).opencodeGoRoute).toEqual(preview);
+	expect(JSON.stringify(migrated)).not.toContain("upstream-only");
+});
+it("does not publish settings on disk failure and rolls back a failed port bind", async () => {
+	const { mkdir, rm } = await import("node:fs/promises");
+	const { gatewayKeyPath } = await import("../src/gateway-auth.ts");
+	const dir = await mkdtemp(join(tmpdir(), "gateway-rollback-"));
+	const c = createCodingOAuthGatewayController({
+		dshHome: dir,
+		config: { port: 19187, apiKey: "local-before" },
+		backend: mockBackend(),
+	});
+	servers.push({ close: () => c.stop() });
+	await c.setEnabled(true);
+	const blocker = createGatewayHttpServer({
+		config: resolveGatewayConfig({ port: 19188 }),
+		apiKey: "blocker",
+		backend: mockBackend(),
+	});
+	await listenGateway(blocker, resolveGatewayConfig({ port: 19188 }));
+	servers.push({ close: () => closeGateway(blocker) });
+	await expect(c.applySettings({ port: 19188 })).rejects.toThrow();
+	expect(await c.status()).toMatchObject({ port: 19187, running: true });
+	const path = gatewayKeyPath(dir);
+	await rm(path);
+	await mkdir(path);
+	await expect(c.applySettings({ port: 19189 })).rejects.toThrow();
+	expect((await request(19187, "/healthz")).status).toBe(200);
+	await rm(path, { recursive: true });
+});

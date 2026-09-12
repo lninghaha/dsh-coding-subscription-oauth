@@ -1,8 +1,3 @@
-/**
- * Optional xAI Grok Build bundle with OAuth, account model catalog,
- * and an account section inside dsh Settings.
- * @module dsh-coding-subscription-oauth
- */
 import type { Context } from "@deepseek-ai/cordis";
 import { type RetryPolicyConfig } from "@deepseek-ai/dsh-llm";
 import z from "@deepseek-ai/schemastery";

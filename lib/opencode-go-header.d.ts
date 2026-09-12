@@ -6,23 +6,20 @@ export interface OpenCodeGoStatus {
     httpStatus: "no-call" | "accepted" | "rejected" | "network-error";
     streamStatus: "no-call" | "completed" | "failed" | "cancelled" | "missing-session";
     updatedAt: number | null;
+    pending?: boolean;
+    configurationConflict?: boolean;
 }
-/** Owner-private, deliberately secret-free diagnostic state. */
+/** 每次 LLM 调用单独关联 HTTP 与流终态，迟到调用不覆盖新的状态。 */
 export declare class OpenCodeGoHeaderState {
-    private active;
-    private lastCall;
-    private httpStatus;
-    private streamStatus;
-    private updatedAt;
+    private generation;
+    private value;
     snapshot(): OpenCodeGoStatus;
     setActive(active: boolean): void;
-    record(result: Exclude<OpenCodeGoCallResult, "no-call">): void;
-    recordHttp(result: Exclude<OpenCodeGoStatus["httpStatus"], "no-call">): void;
-    recordStream(result: Exclude<OpenCodeGoStatus["streamStatus"], "no-call">): void;
+    invalidate(): void;
+    begin(): number;
+    recordHttp(result: OpenCodeGoStatus["httpStatus"], call?: number): void;
+    recordStream(result: OpenCodeGoStatus["streamStatus"], call?: number): void;
+    conflict(call: number): void;
 }
-/**
- * Adds the DSH session id only while an OpenCode Go LLM stream is actually
- * iterated. The fetch wrapper remains inert for every other request.
- */
 export declare function installOpenCodeGoHeaderCompatibility(ctx: Context, state: OpenCodeGoHeaderState): () => void;
 //# sourceMappingURL=opencode-go-header.d.ts.map

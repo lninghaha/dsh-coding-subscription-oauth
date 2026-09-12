@@ -103,9 +103,9 @@ export function createDshClientAdapter(context: ClientContext): DshClientAdapter
 			const install = (slotContext: ClientContext): boolean => {
 				const slots = slotsOf(slotContext);
 				if (disposed || installed || slots === undefined) return false;
-				installed = true;
 				disposeCurrent();
 				disposeCurrent = options.register(slots);
+				installed = true;
 				return true;
 			};
 
@@ -114,7 +114,13 @@ export function createDshClientAdapter(context: ClientContext): DshClientAdapter
 				const inject = candidate["inject"];
 				if (typeof inject === "function") {
 					(inject as ClientContext["inject"]).call(context, ["slots"], (slotContext) => {
-						install(slotContext);
+						if (!install(slotContext)) return;
+						const release = disposeCurrent;
+						slotContext.effect(() => () => {
+							release();
+							installed = false;
+							if (!disposed) disposeCurrent = options.mountFallback();
+						});
 					});
 				}
 			}

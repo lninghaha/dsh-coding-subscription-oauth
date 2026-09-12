@@ -160,9 +160,11 @@ describe("DSH compatibility contracts", () => {
 		createDshClientAdapter(context).installSlots({ mountFallback, register });
 
 		activateSlots?.({
+			...context,
 			slots: { inject() {}, register() {} },
 		} as unknown as Context);
 		activateSlots?.({
+			...context,
 			slots: { inject() {}, register() {} },
 		} as unknown as Context);
 

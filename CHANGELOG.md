@@ -4,6 +4,13 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## 0.8.2-rc.1 (candidate)
+
+- 修复设置草稿冲突、空模型集合持久化、多账户默认与定向重新授权。
+- Go 连接复用凭据引用、保留模型配置并明确协议及流终态；兼容层保持真实会话关联。
+- 整合账户入口与高级能力，修正用量空状态；外部网关采用前缀路由、独立上游凭据和迁移预览。
+- [使用、迁移、回退和验证边界](docs/repair-candidate.md)。
+
 ### Fixed
 
 - Co-install no longer shows two identically labeled "Accounts & Models" / 账户与模型 settings entries: the browser half registers its own section only when the Usage Center hub's client is absent from the page (`window.__DSH_BOOT__.entries`). The hub always publishes the single complete surface when it is installed, and this plugin's standalone entry returns whenever hub is not part of the page. The check has to run inside the plugin's own apply window because a settings-section registration performed after that window never reaches the settings registry.

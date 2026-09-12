@@ -5,8 +5,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OwnerRequestDecision } from "dsh-coding-oauth-core";
-import type { CodingOAuthGatewayController } from "./gateway.ts";
-import { assertGatewayPort } from "./gateway-config.ts";
+import type { CodingOAuthGatewayController, GatewaySettingsPatch } from "./gateway.ts";
 import { readJsonRequest, requestErrorStatus } from "./http-json.ts";
 import { GATEWAY_REVEAL_PATH, GATEWAY_ROTATE_PATH, GATEWAY_SETTINGS_PATH } from "./ids.ts";
 import { safeMessage } from "./redact.ts";
@@ -85,48 +84,29 @@ async function handleGatewaySettings(
 		}
 		if (req.method === "PATCH") {
 			const raw = await readJsonRequest(req);
-			const payload =
-				typeof raw === "object" && raw !== null
-					? (raw as { enabled?: unknown; port?: unknown; opencodeGoEnabled?: unknown })
-					: {};
-			const enabled = payload.enabled;
-			const port = payload.port;
-			const opencodeGoEnabled = payload.opencodeGoEnabled;
-			if (enabled === undefined && port === undefined && opencodeGoEnabled === undefined) {
-				json(res, 400, { error: "enabled, port, or opencodeGoEnabled is required" });
+			if (
+				!raw ||
+				typeof raw !== "object" ||
+				Array.isArray(raw) ||
+				!Object.keys(raw).length ||
+				Object.keys(raw).some((key) => !["enabled", "port", "opencodeGoEnabled", "opencodeGoRoute"].includes(key))
+			) {
+				json(res, 400, { error: "Provide gateway settings fields" });
 				return;
 			}
-			if (enabled !== undefined && typeof enabled !== "boolean") {
-				json(res, 400, { error: "enabled must be a boolean" });
-				return;
-			}
-			if (opencodeGoEnabled !== undefined && typeof opencodeGoEnabled !== "boolean") {
-				json(res, 400, { error: "opencodeGoEnabled must be a boolean" });
-				return;
-			}
-			if (port !== undefined) {
-				if (typeof port !== "number" || !Number.isSafeInteger(port)) {
-					json(res, 400, { error: "port must be an integer" });
-					return;
-				}
-				try {
-					assertGatewayPort(port);
-				} catch (error) {
-					json(res, 400, { error: safeMessage(error) });
-					return;
-				}
-				await controller.setPort(port);
-			}
-			if (typeof opencodeGoEnabled === "boolean") {
-				await controller.setOpencodeGoEnabled(opencodeGoEnabled);
-			}
-			const status = typeof enabled === "boolean" ? await controller.setEnabled(enabled) : await controller.status();
+			const status = await controller.applySettings(raw as GatewaySettingsPatch);
 			json(res, 200, status);
 			return;
 		}
 		json(res, 405, { error: "method not allowed" });
 	} catch (error) {
-		json(res, requestErrorStatus(error, 500), { error: safeMessage(error) });
+		json(
+			res,
+			error instanceof Error && "status" in error && typeof error.status === "number"
+				? error.status
+				: requestErrorStatus(error, 500),
+			{ error: safeMessage(error) },
+		);
 	}
 }
 

@@ -1,3 +1,4 @@
+import { type GoGatewayRoute, GoGatewayRouteView } from "./GoGatewayRouteView.tsx";
 /** Local API gateway settings tab. */
 
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -43,7 +44,7 @@ export interface GatewayTabProps {
 	copiedField: CopyField | undefined;
 	copyFailedField: CopyField | undefined;
 	onEnabledChange: (enabled: boolean) => void;
-	onOpencodeGoEnabledChange: (enabled: boolean) => void;
+	onGoRouteChange: (route: GoGatewayRoute | null) => void;
 	onRetry: () => void;
 	onPortDraftChange: (value: string) => void;
 	onApplyPort: () => void;
@@ -78,7 +79,7 @@ export function GatewayTab({
 	copiedField,
 	copyFailedField,
 	onEnabledChange,
-	onOpencodeGoEnabledChange,
+	onGoRouteChange,
 	onRetry,
 	onPortDraftChange,
 	onApplyPort,
@@ -120,13 +121,23 @@ export function GatewayTab({
 	const portChanged = gateway !== undefined && portDraft !== String(gateway.port);
 
 	const snippets = useMemo(() => {
-		if (gateway === undefined || !gatewayKeyVisible || gatewayOnceKey === undefined || gateway.models.length === 0) {
+		if (
+			gateway === undefined ||
+			!gatewayKeyVisible ||
+			gatewayOnceKey === undefined ||
+			!gateway.models.some((id) => !id.startsWith("opencode-go/"))
+		) {
 			return undefined;
 		}
 		const openAi = `${formatGatewayBaseUrl(gateway.bind, gateway.port)}/v1`;
 		const anthropic = formatGatewayBaseUrl(gateway.bind, gateway.port);
 		// A masked keyHint is display-only and can never produce an executable command.
-		return buildGatewaySnippets(openAi, anthropic, gatewayOnceKey, gateway.models[0]);
+		return buildGatewaySnippets(
+			openAi,
+			anthropic,
+			gatewayOnceKey,
+			gateway.models.find((id) => !id.startsWith("opencode-go/")),
+		);
 	}, [gateway, gatewayKeyVisible, gatewayOnceKey]);
 
 	const copyLabel = (field: CopyField, idle?: string): string => {
@@ -266,27 +277,14 @@ export function GatewayTab({
 							/>
 						</label>
 					)}
-					<label
-						htmlFor="coding-oauth-gateway-opencode-go"
-						style={{
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-							gap: 12,
-							fontSize: 14,
-							color: "var(--dsw-alias-label-primary)",
-							opacity: gateway.enabled ? 1 : 0.6,
-						}}
-					>
-						<span>{t("gatewayOpencodeGoEnabled")}</span>
-						<ToggleSwitch
-							id="coding-oauth-gateway-opencode-go"
-							checked={gateway.opencodeGoEnabled}
-							disabled={gatewayBusy || !gateway.enabled}
-							onChange={onOpencodeGoEnabledChange}
-						/>
-					</label>
-					<p style={hintStyle}>{t("gatewayOpencodeGoHint")}</p>
+					<GoGatewayRouteView
+						route={gateway.opencodeGoRoute}
+						preview={gateway.opencodeGoPreview}
+						migration={gateway.opencodeGoMigration}
+						busy={gatewayBusy}
+						onApply={onGoRouteChange}
+						t={(key) => t(`gatewayGo.${key}`)}
+					/>
 					<div>
 						<label
 							htmlFor="coding-oauth-gateway-port"

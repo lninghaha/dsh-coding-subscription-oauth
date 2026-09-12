@@ -63,6 +63,7 @@ function request(
 
 function fakeController(): CodingOAuthGatewayController & { reveals: number; rotates: number } {
 	return {
+		applySettings: async () => idleStatus,
 		reveals: 0,
 		rotates: 0,
 		status: async () => idleStatus,

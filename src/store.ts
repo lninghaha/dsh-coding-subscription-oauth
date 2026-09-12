@@ -3,7 +3,8 @@
  * @module dsh-coding-subscription-oauth/store
  */
 
-import { randomBytes } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { withFileLock, writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
@@ -23,11 +24,28 @@ const ACCOUNT_ID_PATTERN = /^[A-Za-z0-9._:@+-]+$/u;
 const UNCHANGED = Symbol("unchanged");
 
 /** How a login or import writes into the multi-account document. */
-export type LoginPersistMode = "add" | "overwrite-active";
+export type LoginPersistMode = "add" | "overwrite-active" | "reauthorize";
 
 export interface LoginPersistOptions {
 	mode: LoginPersistMode;
 	confirmOverwrite?: boolean;
+	targetAccountId?: string;
+	/** 仅由服务端在授权开始时捕获，不接受 HTTP 调用方指定。 */
+	targetVersion?: string;
+}
+
+export class AccountOperationError extends Error {
+	readonly status = 409;
+	constructor(
+		readonly code: string,
+		message: string,
+	) {
+		super(message);
+		this.name = "AccountOperationError";
+	}
+}
+function accountVersion(account: AccountRecord): string {
+	return createHash("sha256").update(JSON.stringify(account)).digest("base64url");
 }
 
 /** Non-empty account id; max 128; restricted charset for path-safe operator labels. */
@@ -295,7 +313,8 @@ export function grokBuildAuthPath(dshHome?: string): string {
  */
 export class OAuthCredentialFileStore implements CredentialStore {
 	readonly filename: string;
-	private loginPersist: LoginPersistOptions | undefined;
+	private readonly loginPersist = new AsyncLocalStorage<LoginPersistOptions>();
+	private loginPending = false;
 
 	constructor(
 		readonly providerId: string,
@@ -374,12 +393,28 @@ export class OAuthCredentialFileStore implements CredentialStore {
 		options: LoginPersistOptions,
 	): AuthDocumentV2 {
 		const parsed = parseOAuthCredential(credential, this.filename, this.label);
-		if (options.mode === "overwrite-active") {
-			if (current === undefined) return documentFromCredential(parsed);
-			if (options.confirmOverwrite !== true) {
-				throw new Error(`${this.label}: confirmOverwrite is required to replace the active account`);
-			}
-			return withUpdatedActiveCredential(current, parsed);
+		if (options.mode === "overwrite-active" || options.mode === "reauthorize") {
+			const account = current?.accounts.find((item) => item.id === options.targetAccountId);
+			if (!account || options.targetVersion !== accountVersion(account))
+				throw new AccountOperationError("account-conflict", "Account changed or was removed; restart authorization");
+			const beforeId = account.credential.accountId,
+				afterId = parsed.accountId;
+			if (beforeId && afterId && beforeId !== afterId)
+				throw new AccountOperationError(
+					"account-identity-mismatch",
+					"This authorization belongs to a different account; add it separately",
+				);
+			if ((!beforeId || !afterId) && options.confirmOverwrite !== true)
+				throw new AccountOperationError(
+					"account-identity-unverified",
+					"Account identity could not be verified; explicit replacement confirmation is required",
+				);
+			return {
+				...current!,
+				accounts: current!.accounts.map((item) =>
+					item.id === account.id ? { ...item, credential: cloneCredential(parsed) } : cloneAccount(item),
+				),
+			};
 		}
 		const id = resolveAccountIdForCredential(parsed);
 		if (current === undefined) {
@@ -420,7 +455,7 @@ export class OAuthCredentialFileStore implements CredentialStore {
 		}
 		return {
 			version: AUTH_FORMAT_VERSION,
-			activeAccountId: id,
+			activeAccountId: current.activeAccountId,
 			accounts,
 		};
 	}
@@ -467,45 +502,63 @@ export class OAuthCredentialFileStore implements CredentialStore {
 		if (providerId !== this.providerId) {
 			throw new Error(`${this.label}: credential store does not own provider "${providerId}"`);
 		}
-		const document = await this.mutateDocument({ allowUnreadable: true }, async (current) => {
+		let written: Credential | undefined;
+		const intent = this.loginPersist.getStore();
+		const document = await this.mutateDocument({ allowUnreadable: intent === undefined }, async (current) => {
 			const active = current === undefined ? undefined : activeCredential(current);
 			const candidate = await fn(active);
 			if (candidate === undefined) return UNCHANGED;
 			if (candidate.type !== "oauth") {
 				throw new Error(`${this.label}: ${this.filename} credential type must be oauth`);
 			}
-			if (this.loginPersist !== undefined) {
-				return this.nextDocumentAfterLogin(current, candidate, this.loginPersist);
+			if (intent !== undefined) {
+				written = cloneCredential(candidate);
+				return this.nextDocumentAfterLogin(current, candidate, intent);
 			}
 			if (current === undefined) return documentFromCredential(candidate);
 			return withUpdatedActiveCredential(current, candidate);
 		});
-		return document === undefined ? undefined : activeCredential(document);
+		return written ?? (document === undefined ? undefined : activeCredential(document));
 	}
 
 	/**
 	 * Redirect `modify` writes (pi-ai `models.login`) through multi-account upsert
 	 * semantics for the duration of `fn`.
 	 */
+	async prepareLoginPersist(options: LoginPersistOptions): Promise<LoginPersistOptions> {
+		if (options.mode === "add" || options.targetVersion !== undefined) return { ...options };
+		if (options.mode === "overwrite-active" && options.confirmOverwrite !== true)
+			throw new AccountOperationError(
+				"account-confirmation-required",
+				"confirmOverwrite is required to replace the active account",
+			);
+		const loaded = await this.loadDocument({ allowUnreadable: false, persistMigration: false });
+		if (!loaded && options.mode === "overwrite-active") return { mode: "add" };
+		const id =
+			options.targetAccountId ?? (options.mode === "overwrite-active" ? loaded?.document.activeAccountId : undefined);
+		const account = loaded?.document.accounts.find((item) => item.id === id);
+		if (!account)
+			throw new AccountOperationError("account-conflict", "Target account is unavailable; refresh the account list");
+		return { ...options, targetAccountId: account.id, targetVersion: accountVersion(account) };
+	}
+
 	async runLoginPersist<T>(options: LoginPersistOptions, fn: () => Promise<T>): Promise<T> {
-		if (this.loginPersist !== undefined) {
-			throw new Error(`${this.label}: login persist already in progress`);
-		}
-		this.loginPersist = options;
+		if (this.loginPending) throw new Error(`${this.label}: login persist already in progress`);
+		this.loginPending = true;
 		try {
-			return await fn();
+			return await this.loginPersist.run(await this.prepareLoginPersist(options), fn);
 		} finally {
-			this.loginPersist = undefined;
+			this.loginPending = false;
 		}
 	}
 
-	/** Persist a login/import credential without going through pi-ai `modify`. */
+	/** 登录完成时在同一文件锁内校验目标，失败保留所有原有凭据。 */
 	async persistLoginCredential(credential: OAuthCredential, options: LoginPersistOptions): Promise<void> {
-		await this.mutateDocument({ allowUnreadable: true }, async (current) =>
-			this.nextDocumentAfterLogin(current, credential, options),
+		const intent = await this.prepareLoginPersist(options);
+		await this.mutateDocument({ allowUnreadable: false }, async (current) =>
+			this.nextDocumentAfterLogin(current, credential, intent),
 		);
 	}
-
 	/**
 	 * Force the next `getAuth()` to refresh by backdating `expires` into the past.
 	 * Used after an upstream 401: the stored access token was rejected even though

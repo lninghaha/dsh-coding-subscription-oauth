@@ -1,7 +1,4 @@
-/**
- * Owner-only gateway API key file.
- * @module dsh-coding-subscription-oauth/gateway-auth
- */
+import { type GatewayGoRoute } from "./gateway-go-routing.js";
 export { GATEWAY_KEY_FILENAME } from "./ids.js";
 declare const KEY_FORMAT_VERSION = 1;
 export interface GatewayKeyDocument {
@@ -10,6 +7,7 @@ export interface GatewayKeyDocument {
     enabled?: boolean;
     port?: number;
     opencodeGoEnabled?: boolean;
+    opencodeGoRoute?: GatewayGoRoute | null;
 }
 export declare function gatewayKeyPath(dshHome?: string): string;
 export declare function generateGatewayApiKey(): string;

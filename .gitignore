@@ -21,6 +21,8 @@ docs/*
 !docs/02-architecture.md
 !docs/02-architecture.zh-CN.md
 !docs/MIGRATION.md
+!docs/repair-candidate.md
+!docs/repair-verification.md
 !docs/03-dsh-alpha-smoke.md
 !docs/research/
 !docs/research/**

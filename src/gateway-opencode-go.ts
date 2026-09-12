@@ -6,7 +6,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { readGatewayJsonBody, writeGatewayJson } from "./gateway-body.ts";
+import { GatewayRequestError } from "./gateway-backend.ts";
+import { type GatewayGoRoute, GO_PROTOCOL_PATHS } from "./gateway-go-routing.ts";
 
 export const OPENCODE_GO_ORIGIN = "https://opencode.ai";
 export const OPENCODE_GO_CHAT_COMPLETIONS_URL = `${OPENCODE_GO_ORIGIN}/zen/go/v1/chat/completions`;
@@ -77,116 +78,91 @@ export function resolveSessionId(
 	return inbound;
 }
 
-export interface OpencodeGoChatCompletionsDeps {
-	fetchImpl: typeof fetch;
-	sessionMap: OpencodeGoSessionMap;
-	getUpstreamApiKey: () => string;
-	isEnabled: () => boolean;
-}
-
-export async function handleOpencodeGoChatCompletions(
+/** 仅显式前缀模型进入这里。密钥、模型及协议均由已确认路由解析。 */
+export async function handleOpencodeGoInference(
 	req: IncomingMessage,
 	res: ServerResponse,
-	deps: OpencodeGoChatCompletionsDeps,
+	payload: Record<string, unknown>,
+	path: string,
+	deps: {
+		route: GatewayGoRoute | null;
+		resolveCredential: (ref: string) => Promise<string | undefined>;
+		fetchImpl: typeof fetch;
+	},
 ): Promise<void> {
-	if (deps.isEnabled() !== true) {
-		writeGatewayJson(res, 503, {
-			error: {
-				message: "OpenCode Go proxy is disabled",
-				type: "api_error",
-				code: "opencode_go_disabled",
-			},
-		});
-		return;
-	}
-	if (OPENCODE_GO_CHAT_COMPLETIONS_URL !== `${OPENCODE_GO_ORIGIN}/zen/go/v1/chat/completions`) {
-		writeGatewayJson(res, 503, {
-			error: {
-				message: "OpenCode Go upstream is misconfigured",
-				type: "api_error",
-				code: "opencode_go_misconfigured",
-			},
-		});
-		return;
-	}
-	const upstreamKey = deps.getUpstreamApiKey().trim();
-	if (upstreamKey.length === 0) {
-		writeGatewayJson(res, 503, {
-			error: {
-				message: "OpenCode Go upstream API key is not configured",
-				type: "api_error",
-				code: "opencode_go_key_missing",
-			},
-		});
-		return;
-	}
-
-	const bodyRecord = await readGatewayJsonBody(req);
-	const sessionId = resolveSessionId(req, bodyRecord, deps.sessionMap);
-	if (sessionId === undefined) {
-		writeGatewayJson(res, 400, {
-			error: {
-				message: "OpenCode Go requires a stable session id header",
-				type: "invalid_request_error",
-				code: "opencode_go_session_required",
-			},
-		});
-		return;
-	}
-	const wantStream = bodyRecord["stream"] === true;
-	const body = `${JSON.stringify(bodyRecord)}\n`;
-
-	let upstream: Response;
-	try {
-		upstream = await deps.fetchImpl(OPENCODE_GO_CHAT_COMPLETIONS_URL, {
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${upstreamKey}`,
-				"content-type": "application/json",
-				accept: wantStream ? "text/event-stream" : "application/json",
-				"x-opencode-session": sessionId,
-			},
-			body,
-		});
-	} catch {
-		writeGatewayJson(res, 503, {
-			error: {
-				message: "OpenCode Go upstream request failed",
-				type: "api_error",
-				code: "opencode_go_upstream_error",
-			},
-		});
-		return;
-	}
-
-	const contentType = upstream.headers.get("content-type") ?? "";
-	const isEventStream = contentType.toLowerCase().includes("text/event-stream");
-	const shouldStream = isEventStream || wantStream;
-
-	const headers: Record<string, string> = {
-		"cache-control": "no-store",
+	const fail = (status: number, code: string, message: string): never => {
+		throw new GatewayRequestError(status, code, message);
 	};
-	upstream.headers.forEach((value, name) => {
-		const lower = name.toLowerCase();
-		if (HOP_BY_HOP.has(lower)) return;
-		headers[lower] = value;
+	if (!deps.route)
+		fail(503, "opencode_go_route_missing", "Configure the prefixed OpenCode Go route in gateway settings");
+	const route = deps.route!;
+	const id = String(payload["model"]).slice("opencode-go/".length);
+	const model = route.models.find((entry) => entry.id === id);
+	if (!model) fail(400, "opencode_go_model_unknown", "Choose an OpenCode Go model listed by this gateway");
+	if (GO_PROTOCOL_PATHS[model!.protocol] !== path)
+		fail(400, "opencode_go_protocol_mismatch", "This OpenCode Go model requires " + GO_PROTOCOL_PATHS[model!.protocol]);
+	const sessions = [
+		headerValue(req, "x-opencode-session"),
+		headerValue(req, "x-deepseek-harness-session-id"),
+		headerValue(req, "x-session-id"),
+		typeof payload["session_id"] === "string" ? payload["session_id"].trim() : undefined,
+	].filter((s): s is string => Boolean(s));
+	if (!sessions.length) fail(400, "opencode_go_session_required", "OpenCode Go requires a stable session id header");
+	if (new Set(sessions).size !== 1)
+		fail(400, "opencode_go_session_conflict", "Conflicting session identifiers; send the current conversation id");
+	const key = (await deps.resolveCredential(route.credentialRef))?.trim();
+	if (!key)
+		fail(
+			503,
+			"opencode_go_key_missing",
+			"The selected upstream credential is unavailable; the local gateway key cannot replace it",
+		);
+	const headers = new Headers({
+		authorization: "Bearer " + key,
+		"content-type": "application/json",
+		accept: payload["stream"] === true ? "text/event-stream" : "application/json",
+		"x-opencode-session": sessions[0]!,
+		"user-agent":
+			"DeepSeek-Harness-Gateway" + (headerValue(req, "user-agent") ? " (" + headerValue(req, "user-agent") + ")" : ""),
 	});
-	if (!headers["content-type"] && isEventStream) {
-		headers["content-type"] = "text/event-stream; charset=utf-8";
+	if (model!.protocol === "anthropic-messages") {
+		headers.set("x-api-key", key!);
+		const version = headerValue(req, "anthropic-version");
+		if (version) headers.set("anthropic-version", version);
+		const beta = headerValue(req, "anthropic-beta");
+		if (beta) headers.set("anthropic-beta", beta);
 	}
-
-	if (!shouldStream || upstream.body === null) {
-		const buffer = Buffer.from(await upstream.arrayBuffer());
-		if (!headers["content-type"]) headers["content-type"] = "application/json; charset=utf-8";
-		headers["content-length"] = String(buffer.byteLength);
-		res.writeHead(upstream.status, headers);
-		res.end(buffer);
-		return;
+	const body: Record<string, unknown> = { ...payload, model: id };
+	delete body["session_id"];
+	const abort = new AbortController();
+	const onClose = () => {
+		if (!res.writableFinished) abort.abort();
+	};
+	res.once("close", onClose);
+	try {
+		const upstream = await deps.fetchImpl(OPENCODE_GO_ORIGIN + "/zen/go" + path, {
+			method: "POST",
+			headers,
+			body: JSON.stringify(body),
+			signal: abort.signal,
+			redirect: "error",
+		});
+		const outgoing: Record<string, string> = { "cache-control": "no-store" };
+		upstream.headers.forEach((value, name) => {
+			if (!HOP_BY_HOP.has(name) && !["content-encoding", "set-cookie"].includes(name)) outgoing[name] = value;
+		});
+		res.writeHead(upstream.status, outgoing);
+		if (upstream.body === null) {
+			res.end();
+			return;
+		}
+		// 原样转发 SSE，包括上游 error 事件；中途读取失败必须断开而非伪装成功结束。
+		await pipeline(Readable.fromWeb(upstream.body as import("node:stream/web").ReadableStream), res, {
+			signal: abort.signal,
+		});
+	} finally {
+		res.off("close", onClose);
 	}
-
-	res.writeHead(upstream.status, headers);
-	const nodeStream = Readable.fromWeb(upstream.body as import("node:stream/web").ReadableStream);
-	await pipeline(nodeStream, res);
 }
 
 function headerValue(req: IncomingMessage, name: string): string | undefined {

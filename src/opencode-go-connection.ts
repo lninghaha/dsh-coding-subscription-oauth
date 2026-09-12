@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { type CredentialProvider, credentialRef } from "@deepseek-ai/dsh-credentials";
 import { readJsonRequest } from "./http-json.ts";
 import type { OpenCodeGoStatus } from "./opencode-go-header.ts";
+import { type GoApi, goBaseURL, isGoApi, protocolMismatch } from "./opencode-go-protocol.ts";
 import { safeMessage } from "./redact.ts";
 import type { OwnerRequestPolicy } from "./web-origin.ts";
 import { type PluginWebRouteRegistry, registerWebRouteSetupAtomically } from "./web-routes.ts";
@@ -85,12 +86,16 @@ function config(settings: OpenCodeGoSettingsProvider) {
 		provider: record(record(record(descriptor?.value)?.["providers"])?.["opencode-go"]) ?? {},
 	};
 }
-function conflicts(provider: RecordValue) {
+function conflicts(provider: RecordValue, desired?: GoApi) {
 	const result: Array<"protocol" | "base-url" | "static-session-header"> = [];
 	const api = text(provider["api"]);
 	const baseURL = text(provider["baseURL"]);
-	if (api !== undefined && api !== OPENCODE_GO_API) result.push("protocol");
-	if (baseURL !== undefined && baseURL.replace(/\/+$/u, "") !== OPENCODE_GO_BASE_URL) result.push("base-url");
+	if (api !== undefined && (!isGoApi(api) || (desired !== undefined && api !== desired))) result.push("protocol");
+	if (
+		baseURL !== undefined &&
+		baseURL.replace(/\/+$/u, "") !== goBaseURL(desired ?? (isGoApi(api) ? api : OPENCODE_GO_API))
+	)
+		result.push("base-url");
 	if (Object.keys(record(provider["headers"]) ?? {}).some((name) => name.toLowerCase() === "x-opencode-session"))
 		result.push("static-session-header");
 	return result;
@@ -110,6 +115,7 @@ interface Options {
 	credentials: CredentialProvider;
 	settings: OpenCodeGoSettingsProvider;
 	callStatus: () => OpenCodeGoStatus;
+	onConfigurationChange?: () => void;
 	fetchImpl?: typeof fetch;
 }
 async function statusDocument(options: Options, preferredRef?: string) {
@@ -131,6 +137,15 @@ async function statusDocument(options: Options, preferredRef?: string) {
 	const api = text(current.provider["api"]) ?? null;
 	const baseURL = text(current.provider["baseURL"]) ?? null;
 	const issues = conflicts(current.provider);
+	if (
+		isGoApi(api) &&
+		protocolMismatch(
+			catalog.map((model) => model.id),
+			api,
+		) &&
+		!issues.includes("protocol")
+	)
+		issues.push("protocol");
 	return {
 		credential: {
 			selectedRef: selected.ref,
@@ -152,9 +167,10 @@ async function statusDocument(options: Options, preferredRef?: string) {
 			baseURL,
 			models: catalog,
 			ready:
+				selected.ref === configuredRef &&
 				selected.info.configured &&
-				api === OPENCODE_GO_API &&
-				baseURL?.replace(/\/+$/u, "") === OPENCODE_GO_BASE_URL &&
+				isGoApi(api) &&
+				baseURL?.replace(/\/+$/u, "") === goBaseURL(api) &&
 				catalog.length > 0 &&
 				issues.length === 0,
 			conflicts: issues,
@@ -197,10 +213,16 @@ export function createOpenCodeGoConnectionController(options: Options) {
 			if (apiKey === undefined) {
 				if (!(await options.credentials.describe(ref)).configured)
 					throw new ConnectionError("credential-missing", "The selected OpenCode Go credential is not configured", 409);
-			} else await options.credentials.set(ref, apiKey);
+			} else {
+				if (!(await options.credentials.describe(ref)).writable)
+					throw new ConnectionError("credential-readonly", "The selected credential source is read-only", 403);
+				await options.credentials.set(ref, apiKey);
+				options.onConfigurationChange?.();
+			}
 			return statusDocument(options, input.credentialRef);
 		},
 		async applyConfiguration(input: {
+			api?: GoApi;
 			credentialRef: string;
 			model: OpenCodeGoModel;
 			expectedRevision: number;
@@ -217,35 +239,44 @@ export function createOpenCodeGoConnectionController(options: Options) {
 					400,
 				);
 			const current = config(options.settings);
+			if (options.settings.writable === false)
+				throw new ConnectionError("settings-readonly", "DSH settings are read-only", 403);
 			if (current.revision === null)
 				throw new ConnectionError("settings-unavailable", "DSH model settings are unavailable", 503);
-			const issues = conflicts(current.provider);
+			const api = input.api ?? OPENCODE_GO_API;
+			if (!isGoApi(api)) throw new ConnectionError("invalid-protocol", "Choose a supported Go protocol", 400);
+			if (protocolMismatch([...models(current.provider["models"]).map((m) => m.id), selected.id], api))
+				throw new ConnectionError(
+					"model-protocol-mismatch",
+					"Go uses one protocol per service. Remove models requiring another protocol in DSH model settings before applying this selection.",
+					409,
+				);
+			const issues = conflicts(current.provider, api);
 			if (issues.length > 0 && !input.confirmConflicts)
 				throw new ConnectionError(
 					"configuration-conflict",
 					"Review existing OpenCode Go settings before applying",
 					409,
 				);
-			const existing = models(current.provider["models"]).filter((entry) => entry.id !== selected.id);
+			const raw = current.provider["models"];
+			const existing = Array.isArray(raw) ? structuredClone(raw) : [];
+			const merged = existing.some((entry) => record(entry)?.["id"] === selected.id)
+				? existing
+				: [...existing, selected];
 			const ops: SettingsOp[] = [
 				{ op: "set", path: ["providers", "opencode-go", "apiKeyEnv"], value: input.credentialRef },
-				{ op: "set", path: ["providers", "opencode-go", "api"], value: OPENCODE_GO_API },
-				{ op: "set", path: ["providers", "opencode-go", "baseURL"], value: OPENCODE_GO_BASE_URL },
-				{ op: "set", path: ["providers", "opencode-go", "models"], value: [...existing, selected] },
+				{ op: "set", path: ["providers", "opencode-go", "api"], value: api },
+				{ op: "set", path: ["providers", "opencode-go", "baseURL"], value: goBaseURL(api) },
+				{ op: "set", path: ["providers", "opencode-go", "models"], value: merged },
 			];
 			if (issues.includes("static-session-header")) {
-				const headers = Object.fromEntries(
-					Object.entries(record(current.provider["headers"]) ?? {}).filter(
-						([name]) => name.toLowerCase() !== "x-opencode-session",
-					),
-				);
-				ops.push(
-					Object.keys(headers).length === 0
-						? { op: "unset", path: ["providers", "opencode-go", "headers"] }
-						: { op: "set", path: ["providers", "opencode-go", "headers"], value: headers },
-				);
+				const headers = record(current.provider["headers"]) ?? {};
+				for (const key of Object.keys(headers))
+					if (key.toLowerCase() === "x-opencode-session")
+						ops.push({ op: "unset", path: ["providers", "opencode-go", "headers", key] });
 			}
 			await options.settings.mutate("llm-pi-ai", ops, input.expectedRevision);
+			options.onConfigurationChange?.();
 			return statusDocument(options, input.credentialRef);
 		},
 	};
@@ -304,6 +335,7 @@ export function registerOpenCodeGoConnectionRoute(
 								res,
 								200,
 								await controller.applyConfiguration({
+									...(body["api"] === undefined ? {} : { api: body["api"] as GoApi }),
 									credentialRef: String(body["credentialRef"] ?? ""),
 									model: model(body["model"]) ?? { id: "" },
 									expectedRevision: Number(body["expectedRevision"]),

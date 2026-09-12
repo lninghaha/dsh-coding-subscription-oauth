@@ -1,3 +1,5 @@
+import { credentialRef } from "@deepseek-ai/dsh-credentials";
+import { gatewayGoPreview } from "./gateway-go-routing.ts";
 /**
  * Optional xAI Grok Build bundle with OAuth, account model catalog,
  * and an account section inside dsh Settings.
@@ -571,7 +573,10 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		settingsCtx.effect(() => release, "dsh-coding-subscription-oauth: capability settings");
 	});
 
+	let gatewayGoServices: { credentials: CredentialProvider; settings: OpenCodeGoSettingsProvider } | undefined;
 	const gateway = createCodingOAuthGatewayController({
+		getGoPreview: () => gatewayGoPreview(gatewayGoServices?.settings),
+		resolveGoCredential: async (ref) => (await gatewayGoServices?.credentials.resolve(credentialRef(ref)))?.value,
 		...(config.gateway === undefined ? {} : { config: config.gateway }),
 		grok,
 		subscriptions,
@@ -589,12 +594,21 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		return () => gateway.stop();
 	}, "dsh-coding-subscription-oauth: local API gateway");
 	ctx.inject(["webServer", "credentials", "settings"], (goCtx) => {
+		const services = {
+			credentials: goCtx.get("credentials") as CredentialProvider,
+			settings: goCtx.get("settings") as OpenCodeGoSettingsProvider,
+		};
+		gatewayGoServices = services;
+		goCtx.effect(() => () => {
+			if (gatewayGoServices === services) gatewayGoServices = undefined;
+		});
 		registerOpenCodeGoConnectionRoute(
 			goCtx,
 			createOpenCodeGoConnectionController({
 				credentials: goCtx.get("credentials") as CredentialProvider,
 				settings: goCtx.get("settings") as OpenCodeGoSettingsProvider,
 				callStatus: () => opencodeGo.snapshot(),
+				onConfigurationChange: () => opencodeGo.invalidate(),
 			}),
 			ownerRequestPolicy,
 		);

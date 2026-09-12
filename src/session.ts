@@ -5,7 +5,6 @@
 
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { writeFileAtomic } from "@deepseek-ai/dsh-atomic-write";
 import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";
 import type { Api, Model, MutableModels, Provider } from "@earendil-works/pi-ai";
 import { createModels } from "@earendil-works/pi-ai";
@@ -18,14 +17,16 @@ import {
 	mergeLiveCatalog,
 } from "./catalog.ts";
 import { GROK_BUILD_MODELS_CACHE_FILENAME, GROK_BUILD_ROUTE, XAI_PI_PROVIDER } from "./ids.ts";
+import { ModelCacheQueue, writeModelCache } from "./model-cache.ts";
 import { grokBuildBaselineModels, grokBuildProvider } from "./provider.ts";
 import { safeMessage } from "./redact.ts";
 import { GrokBuildCredentialStore } from "./store.ts";
 
-const MODELS_CACHE_VERSION = 2;
+const MODELS_CACHE_VERSION = 3;
 
 interface ModelsCacheDocument {
 	version: typeof MODELS_CACHE_VERSION;
+	selectionMode: "default" | "selected";
 	ids: string[];
 	selected?: string[];
 	fetchedAt: number;
@@ -58,13 +59,14 @@ function parseCache(text: string): ParsedCache | undefined {
 	}
 	if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
 	const document = value as Record<string, unknown>;
-	if (document["version"] !== 1 && document["version"] !== MODELS_CACHE_VERSION) return undefined;
+	if (![1, 2, MODELS_CACHE_VERSION].includes(Number(document["version"]))) return undefined;
 	const ids = parseIdList(document["ids"]);
 	const selected = parseIdList(document["selected"]);
-	if (ids.length === 0 && selected.length === 0) return undefined;
+	const explicit = document["version"] === MODELS_CACHE_VERSION && document["selectionMode"] === "selected";
+	if (ids.length === 0 && selected.length === 0 && !explicit) return undefined;
 	return {
 		ids,
-		...(selected.length === 0 ? {} : { selected }),
+		...(selected.length === 0 && !explicit ? {} : { selected }),
 	};
 }
 
@@ -82,6 +84,7 @@ export class GrokBuildSession {
 	private liveIds: string[] | undefined;
 	private liveModels: readonly LiveModelDescriptor[] | undefined;
 	private selectedIds: string[] | undefined;
+	private readonly cacheQueue = new ModelCacheQueue();
 	private source: CatalogSource = "fallback";
 	private listingError: string | undefined;
 	private readonly cacheFile: string;
@@ -112,12 +115,12 @@ export class GrokBuildSession {
 	}
 
 	selectedModelIds(): string[] | undefined {
-		return this.selectedIds;
+		return this.selectedIds === undefined ? undefined : [...this.selectedIds];
 	}
 
 	visibleModels(): Model<Api>[] {
 		const available = this.availableModels();
-		if (this.selectedIds === undefined || this.selectedIds.length === 0) return available;
+		if (this.selectedIds === undefined) return available;
 		const byId = new Map(available.map((model) => [model.id, model]));
 		return this.selectedIds.map((id) => byId.get(id) ?? materializeLiveModel(id, this.baselineCatalog));
 	}
@@ -156,11 +159,14 @@ export class GrokBuildSession {
 				return;
 			}
 			const live = await fetchLiveModels(access, signal);
-			this.liveIds = live.map((model) => model.id);
-			this.liveModels = live;
-			this.source = "live";
-			this.listingError = undefined;
-			await this.writeCache();
+			await this.cacheQueue.run(async () => {
+				const ids = live.map((model) => model.id);
+				await this.writeCache(this.selectedIds, ids);
+				this.liveIds = ids;
+				this.liveModels = live;
+				this.source = "live";
+				this.listingError = undefined;
+			});
 		} catch (error) {
 			this.listingError = safeMessage(error);
 			if (this.liveIds === undefined) this.source = "fallback";
@@ -170,11 +176,13 @@ export class GrokBuildSession {
 		}
 	}
 
-	async setSelectedModels(ids: readonly string[]): Promise<void> {
-		const unique = [...new Set(ids.filter((id) => id.length > 0))];
-		this.selectedIds = unique.length === 0 ? undefined : unique;
-		await this.writeCache();
-		this.onCatalogChange?.();
+	async setSelectedModels(ids: readonly string[] | undefined): Promise<void> {
+		const selected = ids === undefined ? undefined : [...new Set(ids.filter((id) => id.length > 0))];
+		await this.cacheQueue.run(async () => {
+			await this.writeCache(selected, this.liveIds);
+			this.selectedIds = selected;
+			this.onCatalogChange?.();
+		});
 	}
 
 	/**
@@ -191,33 +199,32 @@ export class GrokBuildSession {
 	}
 
 	async logout(): Promise<void> {
-		try {
-			await this.store.delete(XAI_PI_PROVIDER);
-			this.liveIds = undefined;
-			this.liveModels = undefined;
-			this.selectedIds = undefined;
-			this.source = "fallback";
-			this.listingError = undefined;
-			await mkdir(dirname(this.cacheFile), { recursive: true, mode: 0o700 });
-			await rm(this.cacheFile, { force: true });
-		} finally {
-			// Credential deletion may succeed before cache cleanup fails. Always
-			// refresh discovery so an open selector cannot retain stale models.
-			this.onCatalogChange?.();
-		}
+		return this.cacheQueue.run(async () => {
+			try {
+				await this.store.delete(XAI_PI_PROVIDER);
+				this.liveIds = undefined;
+				this.liveModels = undefined;
+				this.selectedIds = undefined;
+				this.source = "fallback";
+				this.listingError = undefined;
+				await mkdir(dirname(this.cacheFile), { recursive: true, mode: 0o700 });
+				await rm(this.cacheFile, { force: true });
+			} finally {
+				// Credential deletion may succeed before cache cleanup fails. Always
+				// refresh discovery so an open selector cannot retain stale models.
+				this.onCatalogChange?.();
+			}
+		});
 	}
 
-	private async writeCache(): Promise<void> {
+	private async writeCache(selected: string[] | undefined, liveIds: string[] | undefined): Promise<void> {
 		const document: ModelsCacheDocument = {
 			version: MODELS_CACHE_VERSION,
-			ids: this.liveIds === undefined ? [] : [...this.liveIds],
+			ids: liveIds === undefined ? [] : [...liveIds],
+			selectionMode: selected === undefined ? "default" : "selected",
 			fetchedAt: Date.now(),
-			...(this.selectedIds === undefined ? {} : { selected: [...this.selectedIds] }),
+			...(selected === undefined ? {} : { selected: [...selected] }),
 		};
-		await mkdir(dirname(this.cacheFile), { recursive: true, mode: 0o700 });
-		await writeFileAtomic(this.cacheFile, `${JSON.stringify(document)}\n`, {
-			mode: 0o600,
-			dirMode: 0o700,
-		});
+		await writeModelCache(this.cacheFile, document);
 	}
 }

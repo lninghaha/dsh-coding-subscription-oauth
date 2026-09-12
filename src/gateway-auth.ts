@@ -1,3 +1,4 @@
+import { type GatewayGoRoute, parseGatewayGoRoute } from "./gateway-go-routing.ts";
 /**
  * Owner-only gateway API key file.
  * @module dsh-coding-subscription-oauth/gateway-auth
@@ -21,6 +22,7 @@ export interface GatewayKeyDocument {
 	enabled?: boolean;
 	port?: number;
 	opencodeGoEnabled?: boolean;
+	opencodeGoRoute?: GatewayGoRoute | null;
 }
 
 export function gatewayKeyPath(dshHome?: string): string {
@@ -44,8 +46,9 @@ export function maskGatewayApiKey(apiKey: string): string {
 
 function documentExtras(
 	existing: GatewayKeyDocument | undefined,
-): Pick<GatewayKeyDocument, "enabled" | "port" | "opencodeGoEnabled"> {
+): Pick<GatewayKeyDocument, "enabled" | "port" | "opencodeGoEnabled" | "opencodeGoRoute"> {
 	return {
+		...(existing?.opencodeGoRoute === undefined ? {} : { opencodeGoRoute: existing.opencodeGoRoute }),
 		...(existing?.enabled === undefined ? {} : { enabled: existing.enabled }),
 		...(existing?.port === undefined ? {} : { port: existing.port }),
 		...(existing?.opencodeGoEnabled === undefined ? {} : { opencodeGoEnabled: existing.opencodeGoEnabled }),
@@ -71,6 +74,9 @@ export async function loadGatewayKeyDocument(path: string): Promise<GatewayKeyDo
 		return {
 			version: KEY_FORMAT_VERSION,
 			apiKey: document["apiKey"],
+			...(document["opencodeGoRoute"] === undefined
+				? {}
+				: { opencodeGoRoute: parseGatewayGoRoute(document["opencodeGoRoute"]) }),
 			...(typeof document["enabled"] === "boolean" ? { enabled: document["enabled"] } : {}),
 			...(typeof port === "number" && Number.isSafeInteger(port) && port >= 1024 && port <= 65_535 ? { port } : {}),
 			...(typeof document["opencodeGoEnabled"] === "boolean"

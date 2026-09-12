@@ -37,7 +37,7 @@ describe("client accessibility regressions", () => {
 		const [providerCard, settings, opencodeGo] = await Promise.all([
 			readFile(join(root, "src/client/components/ProviderCard.tsx"), "utf8"),
 			readFile(join(root, "src/client/GrokBuildSettings.tsx"), "utf8"),
-			readFile(join(root, "src/client/components/OpenCodeGoCard.tsx"), "utf8"),
+			readFile(join(root, "src/client/components/OpenCodeGoConnectionView.tsx"), "utf8"),
 		]);
 
 		const slugExpression = "$" + "{definition.slug}";
@@ -48,8 +48,8 @@ describe("client accessibility regressions", () => {
 		);
 		expect(providerCard).toContain(`document.getElementById(\`coding-oauth-login-${slugExpression}\`)?.focus();`);
 		expect(settings).toContain('document.getElementById("coding-oauth-login-codex")?.focus()');
-		expect(opencodeGo).toContain("data-opencode-go-status={currentCall.lastCall}");
-		expect(opencodeGo).toContain('t("opencodeGoDescription")');
+		expect(opencodeGo).toContain('data-opencode-go-status={currentCall?.lastCall ?? "loading"}');
+		expect(opencodeGo).toContain('t("description")');
 	});
 
 	it("keeps local model drafts and account recovery actions inside the standalone card", async () => {
@@ -59,7 +59,6 @@ describe("client accessibility regressions", () => {
 			readFile(join(root, "src/client/locales.ts"), "utf8"),
 		]);
 
-		expect(providerCard).toContain("if (!modelDraftDirty) setModelDraft(selected);");
 		expect(providerCard).toContain("accountRemoveConfirmHint");
 		expect(providerCard).toContain("removeCancel.current?.focus()");
 		expect(providerCard).toContain("onRetryStatus");

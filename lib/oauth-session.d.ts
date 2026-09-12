@@ -4,7 +4,7 @@
  */
 import type { Api, AuthInteraction, Credential, Model, MutableModels, OAuthCredential, Provider } from "@earendil-works/pi-ai";
 import type { OAuthProviderDefinition } from "./oauth-providers.js";
-import { OAuthCredentialFileStore } from "./store.js";
+import { type LoginPersistOptions, OAuthCredentialFileStore } from "./store.js";
 export declare function oauthModelsCachePath(basename: string, dshHome?: string): string;
 export interface OAuthProviderStatus {
     authenticated: boolean;
@@ -17,6 +17,7 @@ export declare class OAuthProviderSession {
     private readonly catalog;
     private readonly cacheFile;
     private selectedIds;
+    private readonly cacheQueue;
     constructor(definition: OAuthProviderDefinition, onCatalogChange?: () => void, store?: OAuthCredentialFileStore, cacheFile?: string);
     private onCatalogChange;
     availableModels(): Model<Api>[];
@@ -24,9 +25,9 @@ export declare class OAuthProviderSession {
     visibleModels(): Model<Api>[];
     provider(): Provider;
     loadCachedModels(): Promise<void>;
-    setSelectedModels(ids: readonly string[]): Promise<void>;
+    setSelectedModels(ids: readonly string[] | undefined): Promise<void>;
     status(): Promise<OAuthProviderStatus>;
-    login(interaction: AuthInteraction): Promise<Credential>;
+    login(interaction: AuthInteraction, persist?: LoginPersistOptions): Promise<Credential>;
     resolveAccessToken(): Promise<string | undefined>;
     /**
      * Backdate the stored token's expiry so the next `getAuth()` refreshes.

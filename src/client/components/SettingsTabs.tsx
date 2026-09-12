@@ -18,10 +18,11 @@ export interface SettingsTabsProps {
 }
 
 export function SettingsTabs({ t, activeTab, onChange, hints }: SettingsTabsProps) {
+	const tabs = SETTINGS_TABS.filter((tab) => tab.id !== "capabilities" || activeTab === "capabilities");
 	const hintFor = (id: SettingsTabId): string | undefined => hints?.find((entry) => entry.id === id)?.suffix;
 
 	const focusTab = (index: number): void => {
-		const tab = SETTINGS_TABS[index];
+		const tab = tabs[index];
 		if (tab === undefined) return;
 		onChange(tab.id);
 		const button = document.getElementById(`coding-oauth-tab-${tab.id}`);
@@ -29,26 +30,26 @@ export function SettingsTabs({ t, activeTab, onChange, hints }: SettingsTabsProp
 	};
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-		const current = SETTINGS_TABS.findIndex((tab) => tab.id === activeTab);
+		const current = tabs.findIndex((tab) => tab.id === activeTab);
 		if (current < 0) return;
 		if (event.key === "ArrowRight" || event.key === "ArrowDown") {
 			event.preventDefault();
-			focusTab((current + 1) % SETTINGS_TABS.length);
+			focusTab((current + 1) % tabs.length);
 		} else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
 			event.preventDefault();
-			focusTab((current - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length);
+			focusTab((current - 1 + tabs.length) % tabs.length);
 		} else if (event.key === "Home") {
 			event.preventDefault();
 			focusTab(0);
 		} else if (event.key === "End") {
 			event.preventDefault();
-			focusTab(SETTINGS_TABS.length - 1);
+			focusTab(tabs.length - 1);
 		}
 	};
 
 	return (
 		<div role="tablist" aria-label={t("title")} style={segmentedNavStyle} onKeyDown={onKeyDown}>
-			{SETTINGS_TABS.map((tab) => {
+			{tabs.map((tab) => {
 				const selected = activeTab === tab.id;
 				const suffix = hintFor(tab.id);
 				const label = suffix === undefined ? t(tab.label) : `${t(tab.label)} (${suffix})`;

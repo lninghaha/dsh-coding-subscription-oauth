@@ -1,0 +1,1 @@
+{"version":3,"file":"model-cache.d.ts","sourceRoot":"","sources":["../../src/model-cache.ts"],"names":[],"mappings":"AAKA,kCAAkC;AAClC,qBAAa,eAAe;IAC3B,OAAO,CAAC,OAAO,CAAuC;IACtD,GAAG,CAAC,CAAC,EAAE,MAAM,EAAE,MAAM,OAAO,CAAC,CAAC,CAAC,GAAG,OAAO,CAAC,CAAC,CAAC;CAK5C;AAED,wBAAsB,eAAe,CAAC,IAAI,EAAE,MAAM,EAAE,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC,CAgBnF"}

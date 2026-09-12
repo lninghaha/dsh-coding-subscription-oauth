@@ -6,12 +6,15 @@ import type {} from "@deepseek-ai/dsh-client-ui-settings/client";
 import type {} from "@deepseek-ai/dsh-client-ui-slots";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { registerAccountEntry } from "./account-entry-owner.ts";
+import { jsonRequest } from "./api.ts";
+import { STATUS_PATH } from "./constants.ts";
 import { createDshClientAdapter } from "./dshClientAdapter.ts";
 import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import { GrokBuildSettings } from "./GrokBuildSettings.tsx";
 import type { GrokBuildSettingsKey } from "./locales.ts";
 import { en, zh } from "./locales.ts";
-import { hubClientLoaded } from "./owner.ts";
+import type { CodingOAuthStatus, SettingsTabId } from "./types.ts";
 
 declare module "@deepseek-ai/dsh-client-ui-slots" {
 	interface LocaleNamespaceMap {
@@ -22,11 +25,31 @@ declare module "@deepseek-ai/dsh-client-ui-slots" {
 export const name = "dsh-grok-build-client";
 export const inject = ["locale"];
 
-function IndependentSettingsEntry({ t }: { readonly t: GrokBuildSettingsInjected["t"] }) {
+function IndependentSettingsEntry({
+	t,
+	hideTrigger = false,
+}: {
+	readonly t: GrokBuildSettingsInjected["t"];
+	readonly hideTrigger?: boolean;
+}) {
+	const [targetTab, setTargetTab] = useState<SettingsTabId>("accounts");
+	const previousFocus = useRef<HTMLElement | null>(null);
 	const [open, setOpen] = useState(false);
 	const trigger = useRef<HTMLButtonElement>(null);
 	const closeButton = useRef<HTMLButtonElement>(null);
 	const dialog = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const openTarget = (event: Event) => {
+			const tab = (event as CustomEvent<{ tab?: string }>).detail?.tab;
+			if (!tab || !["accounts", "providers", "capabilities", "gateway"].includes(tab)) return;
+			if (document.querySelector("[data-dsh-coding-oauth=management]")) return;
+			previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			setTargetTab(tab === "providers" ? "accounts" : (tab as SettingsTabId));
+			setOpen(true);
+		};
+		window.addEventListener("usage-stats:open-settings", openTarget);
+		return () => window.removeEventListener("usage-stats:open-settings", openTarget);
+	}, []);
 	useEffect(() => {
 		if (!open) return;
 		closeButton.current?.focus();
@@ -49,8 +72,13 @@ function IndependentSettingsEntry({ t }: { readonly t: GrokBuildSettingsInjected
 				) ?? []),
 			].filter((element) => element.getClientRects().length > 0);
 		const closeOnEscape = (event: KeyboardEvent): void => {
-			if (event.key === "Escape") setOpen(false);
+			if (event.key === "Escape") {
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				setOpen(false);
+			}
 			if (event.key !== "Tab") return;
+			event.stopImmediatePropagation();
 			const targets = focusable();
 			if (targets.length === 0) {
 				event.preventDefault();
@@ -67,22 +95,31 @@ function IndependentSettingsEntry({ t }: { readonly t: GrokBuildSettingsInjected
 				first.focus();
 			}
 		};
-		document.addEventListener("keydown", closeOnEscape);
+		document.addEventListener("keydown", closeOnEscape, true);
 		return () => {
-			document.removeEventListener("keydown", closeOnEscape);
+			document.removeEventListener("keydown", closeOnEscape, true);
 			for (const { element, hadInert, value } of inertSiblings) {
 				if (hadInert) element.setAttribute("inert", value ?? "");
 				else element.removeAttribute("inert");
 			}
-			if (trigger.current?.isConnected) trigger.current.focus();
+			if (previousFocus.current?.isConnected) previousFocus.current.focus();
+			else if (trigger.current?.isConnected) trigger.current.focus();
 		};
 	}, [open]);
 	return (
 		<div data-dsh-coding-oauth>
 			<button
 				ref={trigger}
+				hidden={hideTrigger}
 				type="button"
-				style={{ position: "fixed", right: 16, bottom: 16, zIndex: 30, padding: "10px 14px" }}
+				style={{
+					position: "fixed",
+					right: 16,
+					bottom: 16,
+					zIndex: 30,
+					padding: "10px 14px",
+					display: hideTrigger ? "none" : undefined,
+				}}
 				onClick={() => setOpen(true)}
 			>
 				{t("nav")}
@@ -112,7 +149,7 @@ function IndependentSettingsEntry({ t }: { readonly t: GrokBuildSettingsInjected
 								×
 							</button>
 						</div>
-						<GrokBuildSettings t={t} />
+						<GrokBuildSettings t={t} initialTab={targetTab} close={() => setOpen(false)} />
 					</div>
 				</div>
 			) : null}
@@ -120,15 +157,18 @@ function IndependentSettingsEntry({ t }: { readonly t: GrokBuildSettingsInjected
 	);
 }
 
-function mountIndependentEntry(t: GrokBuildSettingsInjected["t"]): () => void {
-	if (typeof document === "undefined") return () => undefined;
+function mountIndependentEntry(t: GrokBuildSettingsInjected["t"]) {
 	const host = document.createElement("div");
 	document.body.append(host);
 	const root = createRoot(host);
-	root.render(<IndependentSettingsEntry t={t} />);
-	return () => {
-		root.unmount();
-		host.remove();
+	const setVisible = (visible: boolean) => root.render(<IndependentSettingsEntry t={t} hideTrigger={!visible} />);
+	setVisible(true);
+	return {
+		setVisible,
+		dispose: () => {
+			root.unmount();
+			host.remove();
+		},
 	};
 }
 
@@ -138,26 +178,51 @@ export function apply(ctx: ClientContext): void {
 	const namespace = "settings.grok-build";
 	dsh.effect(() => dsh.locale.register(namespace, { zh, en }), "dsh-coding-subscription-oauth: settings copy");
 	const t = dsh.locale.bind(namespace) as GrokBuildSettingsInjected["t"];
-	// Co-install: the Usage Center hub publishes the single "Accounts & Models" surface,
-	// and a second entry with the same label would only open a dead placeholder page.
-	// Register this plugin's entry only when hub's browser half is absent; its own page
-	// takes over whenever it is installed, and returns here when it is not.
-	if (!hubClientLoaded()) {
-		dsh.installSlots({
-			mountFallback: () => mountIndependentEntry(t),
-			register: (slots) =>
-				slots.inject("settings.section", () =>
-					slots.register(
-						{
-							name: "settings.section",
-							id: "grok-build",
-							order: 17,
-							label: () => t("nav"),
-							inject: (): GrokBuildSettingsInjected => ({ t }),
-						},
-						GrokBuildSettings,
-					),
-				),
-		});
-	}
+	const stop = registerAccountEntry(ctx, {
+		role: "standalone",
+		readOwner: async () => (await jsonRequest<CodingOAuthStatus>(STATUS_PATH)).uiOwner,
+		mount: (failed) => {
+			const bridge = mountIndependentEntry(t);
+			let disposed = false;
+			const child = ctx.inject(["slots"], (scope) => {
+				const adapter = createDshClientAdapter(scope);
+				adapter.installSlots({
+					mountFallback: () => {
+						bridge.setVisible(true);
+						return () => bridge.setVisible(false);
+					},
+					register: (slots) =>
+						slots.inject("settings.section", () => {
+							try {
+								const release = slots.register(
+									{
+										name: "settings.section",
+										id: "coding-accounts",
+										order: 17,
+										label: () => t("nav"),
+										inject: () => ({ t }),
+									},
+									GrokBuildSettings,
+								);
+								bridge.setVisible(false);
+								return () => {
+									release();
+									if (!disposed) bridge.setVisible(true);
+								};
+							} catch {
+								queueMicrotask(failed);
+								return undefined;
+							}
+						}),
+				});
+			});
+			void Promise.resolve(child).catch(failed);
+			return () => {
+				disposed = true;
+				child.dispose();
+				bridge.dispose();
+			};
+		},
+	});
+	dsh.effect(() => stop, "coding-oauth: accounts entry lifecycle");
 }

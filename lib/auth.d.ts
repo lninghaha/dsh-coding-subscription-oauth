@@ -1,3 +1,4 @@
+import type { LoginPersistOptions } from "./store.js";
 /**
  * Grok Build OAuth orchestration shared by the plugin and standalone CLI.
  * @module dsh-coding-subscription-oauth/auth
@@ -24,6 +25,6 @@ export declare function logoutGrokBuild(store?: GrokBuildCredentialStore): Promi
 /** Read non-secret login state without refreshing the token. */
 export declare function grokBuildAuthStatus(store?: GrokBuildCredentialStore): Promise<GrokBuildAuthStatus>;
 /** Login then refresh the account model list when a session is available. */
-export declare function loginGrokBuildSession(interaction: AuthInteraction, session: GrokBuildSession): Promise<void>;
+export declare function loginGrokBuildSession(interaction: AuthInteraction, session: GrokBuildSession, persist?: LoginPersistOptions): Promise<void>;
 export declare function importGrokBuildSession(session: GrokBuildSession, filename?: string): Promise<void>;
 //# sourceMappingURL=auth.d.ts.map

@@ -1,6 +1,7 @@
+import { AccountReauthorization } from "./AccountReauthorization.tsx";
 /** Single provider account card for the Accounts tab. */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { SOURCE_REASON_KEY } from "../constants.ts";
 import { methodLabel, orderedLoginMethods, shouldShowPerCardSourceReason } from "../display.ts";
 import { formatEpoch, looksSecret, modelFields, usageHasVisibleFields } from "../parsers.ts";
@@ -39,6 +40,8 @@ import { CopyButton } from "./CopyButton.tsx";
 import { ProgressBar } from "./ProgressBar.tsx";
 
 export interface ProviderCardProps {
+	capabilitiesPanel?: ReactNode;
+	onLoadCapabilities?: (() => void) | undefined;
 	t: GrokBuildSettingsInjected["t"];
 	definition: ProviderCardDefinition;
 	providerStatus: ProviderStatus;
@@ -53,14 +56,14 @@ export interface ProviderCardProps {
 	usage: UsageView | undefined;
 	usageError: string | undefined;
 	usageLoading: boolean;
-	onSignIn: (method: LoginMethod) => void;
+	onSignIn: (method: LoginMethod, targetAccountId?: string) => void | Promise<void>;
 	onSignOut: () => void;
 	onCancelLogin: () => void;
 	onSubmitCode: () => void;
 	onCodeChange: (value: string) => void;
 	onToggleExpanded: () => void;
 	onPreviewSource: () => void;
-	onSaveModels: (selected: string[]) => Promise<string | undefined>;
+	onSaveModels: (selected: string[], selectionMode?: "default" | "selected") => Promise<string | undefined>;
 	onSetDefaultAccount: (accountId: string) => void;
 	onRemoveAccount: (accountId: string) => Promise<boolean>;
 	onRetryStatus: () => void;
@@ -149,9 +152,11 @@ function SignInSteps({
 }
 
 export function ProviderCard({
+	capabilitiesPanel,
+	onLoadCapabilities,
 	t,
 	definition,
-	providerStatus,
+	providerStatus: observed,
 	busy,
 	sourcesBusy,
 	remote,
@@ -175,6 +180,11 @@ export function ProviderCard({
 	onRemoveAccount,
 	onRetryStatus,
 }: ProviderCardProps) {
+	const [advancedOpen, setAdvancedOpen] = useState(false);
+	const lastConnected = useRef<Extract<ProviderStatus, { status: "signed-in" }>>();
+	if (observed.status === "signed-in") lastConnected.current = observed;
+	if (observed.status === "signed-out") lastConnected.current = undefined;
+	const providerStatus = observed.status === "error" && lastConnected.current ? lastConnected.current : observed;
 	const [showAltMethods, setShowAltMethods] = useState(false);
 	const [modelFilter, setModelFilter] = useState("");
 	const [logoutConfirm, setLogoutConfirm] = useState(false);
@@ -192,21 +202,30 @@ export function ProviderCard({
 	const altMethods = ordered.filter((method) => method !== primaryMethod);
 
 	const statusLabel =
-		providerStatus.status === "signed-in"
+		observed.status === "signed-in"
 			? t("signedIn")
-			: providerStatus.status === "signing-in"
+			: observed.status === "signing-in"
 				? t("signingIn")
-				: providerStatus.status === "error"
+				: observed.status === "error"
 					? t("requestFailed")
 					: t("signedOut");
 	const activeMethod = providerStatus.status === "signing-in" ? providerStatus.method : primaryMethod;
 	const { available, selected } = useMemo(() => modelFields(providerStatus), [providerStatus]);
 	const [modelDraft, setModelDraft] = useState<string[]>(selected);
-	const modelDraftDirty =
-		modelDraft.length !== selected.length || modelDraft.some((model, index) => model !== selected[index]);
+	const savedMode =
+		"selectionMode" in providerStatus && providerStatus.selectionMode === "default" ? "default" : "selected";
+	const [mode, setMode] = useState<"default" | "selected">(savedMode);
+	const [baselineMode, setBaselineMode] = useState(savedMode);
+	const [modelBaseline, setModelBaseline] = useState<string[]>(selected);
+	const modelDraftDirty = mode !== baselineMode || JSON.stringify(modelDraft) !== JSON.stringify(modelBaseline);
 	useEffect(() => {
-		if (!modelDraftDirty) setModelDraft(selected);
-	}, [selected, modelDraftDirty]);
+		if (!modelDraftDirty && providerStatus.status === "signed-in") {
+			setModelDraft(selected);
+			setModelBaseline(selected);
+			setMode(savedMode);
+			setBaselineMode(savedMode);
+		}
+	}, [selected, modelDraftDirty, providerStatus.status, savedMode]);
 	useEffect(() => {
 		if (providerStatus.status !== "signed-in") setLogoutConfirm(false);
 	}, [providerStatus.status]);
@@ -250,7 +269,12 @@ export function ProviderCard({
 	const fetchedAt = formatEpoch(usage?.fetchedAt);
 
 	return (
-		<div style={cardStyle}>
+		<div style={cardStyle} data-unsaved={modelDraftDirty || codeInput !== "" ? "true" : undefined}>
+			{observed.operationError ? (
+				<p role="alert" style={bodyStyle}>
+					{looksSecret(observed.operationError) ? t("technicalDetailsUnavailable") : observed.operationError}
+				</p>
+			) : null}
 			<div style={rowStyle}>
 				<div>
 					<h3 style={{ ...titleStyle, fontSize: 16 }}>{t(definition.titleKey)}</h3>
@@ -268,7 +292,7 @@ export function ProviderCard({
 						</>
 					)}
 				</div>
-				<Badge label={statusLabel} providerStatus={providerStatus.status} />
+				<Badge label={statusLabel} providerStatus={observed.status} />
 			</div>
 			<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 				{providerStatus.status === "signed-in" ? (
@@ -369,7 +393,7 @@ export function ProviderCard({
 								))
 							: null}
 					</>
-				) : (
+				) : providerStatus.status === "signed-out" ? (
 					<>
 						<button
 							id={`coding-oauth-login-${definition.slug}`}
@@ -423,28 +447,24 @@ export function ProviderCard({
 							<span style={hintStyle}>{t(SOURCE_REASON_KEY[source.reason])}</span>
 						) : null}
 					</>
-				)}
+				) : null}
 			</div>
-			{providerStatus.status === "error" ? (
+			{observed.status === "error" ? (
 				<div style={{ ...bodyStyle, color: "var(--dsw-alias-state-error-primary)" }} role="alert">
 					<p>
-						{/invalid|expired|denied|unauthori[sz]ed|forbidden/u.test(providerStatus.message.toLowerCase())
+						{/invalid|expired|denied|unauthori[sz]ed|forbidden/u.test(observed.message.toLowerCase())
 							? t("recoveryReauthorize")
-							: /atomic|writer|lock|storage|network|timeout|fetch|econn/u.test(providerStatus.message.toLowerCase())
+							: /atomic|writer|lock|storage|network|timeout|fetch|econn/u.test(observed.message.toLowerCase())
 								? t("recoveryRetryRead")
 								: t("recoveryRetry")}
 					</p>
-					<button type="button" style={compactButtonStyle} onClick={() => onSignIn(primaryMethod)}>
-						{t("recoveryReauthorizeAction")}
-					</button>
+
 					<button type="button" style={compactButtonStyle} onClick={onRetryStatus}>
 						{t("recoveryRetryAction")}
 					</button>
 					<details>
 						<summary>{t("technicalDetails")}</summary>
-						<span>
-							{looksSecret(providerStatus.message) ? t("technicalDetailsUnavailable") : providerStatus.message}
-						</span>
+						<span>{looksSecret(observed.message) ? t("technicalDetailsUnavailable") : observed.message}</span>
 					</details>
 				</div>
 			) : null}
@@ -532,6 +552,17 @@ export function ProviderCard({
 														{t("accountSetDefault")}
 													</button>
 												)}
+												<AccountReauthorization
+													account={title}
+													methods={ordered.map((id) => ({ id, label: methodLabel(id, t) }))}
+													disabled={busy}
+													labels={{
+														action: t("accountReauthorize"),
+														hint: t("accountReauthorizeHint"),
+														cancel: t("cancel"),
+													}}
+													onConfirm={async (method) => onSignIn(method as LoginMethod, account.id)}
+												/>
 												<button
 													ref={removeTrigger}
 													type="button"
@@ -593,6 +624,7 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
+									setMode("selected");
 									setModelDraft([]);
 								}}
 							>
@@ -603,6 +635,7 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
+									setMode("selected");
 									setModelDraft([...available]);
 								}}
 							>
@@ -613,7 +646,8 @@ export function ProviderCard({
 								style={compactButtonStyle}
 								disabled={busy}
 								onClick={() => {
-									setModelDraft(available.length > 0 ? [available[0]!] : []);
+									setMode("default");
+									setModelDraft([...available]);
 								}}
 							>
 								{t("resetModelsDefault")}
@@ -657,6 +691,7 @@ export function ProviderCard({
 											checked={checked}
 											disabled={busy}
 											onChange={() => {
+												setMode("selected");
 												const current = new Set(modelDraft);
 												if (checked) current.delete(id);
 												else current.add(id);
@@ -674,7 +709,16 @@ export function ProviderCard({
 							type="button"
 							style={primaryButtonStyle}
 							disabled={busy || !modelDraftDirty}
-							onClick={() => void onSaveModels(modelDraft).then((error) => setModelSaveError(error))}
+							onClick={() => {
+								const sent = [...modelDraft];
+								void onSaveModels(sent, mode).then((error) => {
+									setModelSaveError(error);
+									if (error === undefined) {
+										setModelBaseline(sent);
+										setBaselineMode(mode);
+									}
+								});
+							}}
 						>
 							{busy ? t("working") : t("applyModelDraft")}
 						</button>
@@ -739,6 +783,17 @@ export function ProviderCard({
 					) : null}
 				</div>
 			) : null}
+			{capabilitiesPanel === undefined ? null : (
+				<details
+					onToggle={(event) => {
+						setAdvancedOpen(event.currentTarget.open);
+						if (event.currentTarget.open) onLoadCapabilities?.();
+					}}
+				>
+					<summary>{t("capabilitiesTitle")}</summary>
+					{advancedOpen ? capabilitiesPanel : null}
+				</details>
+			)}
 		</div>
 	);
 }

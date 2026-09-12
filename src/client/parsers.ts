@@ -346,6 +346,9 @@ export function parseGateway(value: unknown): GatewayView | undefined {
 		models,
 		warning: optionalString(value["warning"]) ?? "",
 		opencodeGoEnabled: value["opencodeGoEnabled"] === true,
+		opencodeGoRoute: parseGoRoute(value["opencodeGoRoute"]),
+		opencodeGoPreview: parseGoRoute(value["opencodeGoPreview"]),
+		opencodeGoMigration: value["opencodeGoMigration"] === "required" ? "required" : "none",
 	};
 }
 
@@ -395,5 +398,20 @@ export function modelFields(status: ProviderStatus): { available: string[]; sele
 	return {
 		available: "available" in status ? status.available : [],
 		selected: "selected" in status ? status.selected : [],
+	};
+}
+
+function parseGoRoute(value: unknown): import("./go-gateway-route.ts").GoGatewayRoute | null {
+	if (!isRecord(value) || typeof value["credentialRef"] !== "string" || !Array.isArray(value["models"])) return null;
+	const models = value["models"].filter(
+		(m: unknown) =>
+			isRecord(m) &&
+			typeof m["id"] === "string" &&
+			["openai-completions", "openai-responses", "anthropic-messages"].includes(String(m["protocol"])),
+	);
+	if (models.length !== value["models"].length) return null;
+	return {
+		credentialRef: value["credentialRef"],
+		models: models as import("./go-gateway-route.ts").GoGatewayRoute["models"],
 	};
 }

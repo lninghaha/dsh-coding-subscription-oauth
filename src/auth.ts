@@ -1,3 +1,4 @@
+import type { LoginPersistOptions } from "./store.ts";
 /**
  * Grok Build OAuth orchestration shared by the plugin and standalone CLI.
  * @module dsh-coding-subscription-oauth/auth
@@ -56,8 +57,12 @@ export async function grokBuildAuthStatus(
 }
 
 /** Login then refresh the account model list when a session is available. */
-export async function loginGrokBuildSession(interaction: AuthInteraction, session: GrokBuildSession): Promise<void> {
-	await loginGrokBuild(interaction, session.store);
+export async function loginGrokBuildSession(
+	interaction: AuthInteraction,
+	session: GrokBuildSession,
+	persist: LoginPersistOptions = { mode: "add" },
+): Promise<void> {
+	await session.store.runLoginPersist(persist, () => loginGrokBuild(interaction, session.store));
 	await session.refreshLiveCatalog();
 }
 

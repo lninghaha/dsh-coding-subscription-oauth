@@ -1,3 +1,5 @@
+import type { GoGatewayRoute } from "./components/GoGatewayRouteView.tsx";
+import { useUnsavedChanges } from "./unsaved.ts";
 /** Plugin-owned coding subscription account section inside the dsh Settings shell. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +32,6 @@ import {
 	SOURCES_PREVIEW_PATH,
 	STATUS_PATH,
 } from "./constants.ts";
-import { openHubAccountsSettings } from "./display.ts";
 import { ensureMicroStyles } from "./microStyles.ts";
 import {
 	emptyCapabilitySettings,
@@ -77,10 +78,13 @@ function readRemoteTipDismissed(): boolean {
 }
 
 /** Multi-provider coding subscription status and OAuth actions. */
-export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
+export function GrokBuildSettings({ t, close, initialTab }: GrokBuildSettingsProps) {
 	if (t === undefined) throw new Error("Coding OAuth settings requires its translation function");
+	const sectionRef = useRef<HTMLElement>(null);
+	const confirmLeave = useUnsavedChanges(sectionRef, t("unsavedConfirm"));
 
 	const [status, setStatus] = useState<CodingOAuthStatus | undefined>(undefined);
+	const [statusError, setStatusError] = useState<string | undefined>(undefined);
 	const [requestError, setRequestError] = useState<string | undefined>(undefined);
 	const [busyProvider, setBusyProvider] = useState<ProviderSlug | undefined>(undefined);
 	const [codeInputs, setCodeInputs] = useState<Partial<Record<ProviderSlug, string>>>({});
@@ -112,7 +116,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	const [gatewayRotateConfirm, setGatewayRotateConfirm] = useState(false);
 	const [gatewayRevealError, setGatewayRevealError] = useState<string | undefined>(undefined);
 	const [portDraft, setPortDraft] = useState("");
-	const [activeTab, setActiveTab] = useState<SettingsTabId>("accounts");
+	const [activeTab, setActiveTab] = useState<SettingsTabId>(initialTab ?? "accounts");
 	const [copiedField, setCopiedField] = useState<CopyField | undefined>(undefined);
 	const [copyFailedField, setCopyFailedField] = useState<CopyField | undefined>(undefined);
 	const [expandedProviders, setExpandedProviders] = useState<Partial<Record<ProviderSlug, boolean>>>({});
@@ -124,10 +128,10 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		try {
 			const next = await jsonRequest<CodingOAuthStatus>(STATUS_PATH);
 			setStatus(next);
-			setRequestError(undefined);
+			setStatusError(undefined);
 			return next;
 		} catch (error: unknown) {
-			setRequestError(error instanceof Error ? error.message : t("requestFailed"));
+			setStatusError(error instanceof Error ? error.message : t("requestFailed"));
 			return undefined;
 		}
 	}, [t]);
@@ -267,14 +271,19 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		if (gateway !== undefined) setPortDraft(String(gateway.port));
 	}, [gateway]);
 
-	const signIn = async (provider: ProviderSlug, method: LoginMethod): Promise<void> => {
+	const signIn = async (provider: ProviderSlug, method: LoginMethod, targetAccountId?: string): Promise<void> => {
 		const popup = window.open("about:blank", "_blank");
 		if (popup !== null) popup.opener = null;
 		setBusyProvider(provider);
 		setRequestError(undefined);
 		setPopupBlocked((current) => ({ ...current, [provider]: popup === null }));
 		try {
-			const challenge = await jsonRequest<LoginChallenge>(LOGIN_PATH, "POST", { provider, method });
+			const challenge = await jsonRequest<LoginChallenge>(LOGIN_PATH, "POST", {
+				provider,
+				method,
+				accountMode: targetAccountId === undefined ? "add" : "reauthorize",
+				...(targetAccountId === undefined ? {} : { targetAccountId, confirmOverwrite: true }),
+			});
 			if (popup !== null) popup.location.replace(challenge.url);
 			await refresh();
 		} catch (error: unknown) {
@@ -323,10 +332,14 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		}
 	};
 
-	const saveModels = async (provider: ProviderSlug, selected: string[]): Promise<string | undefined> => {
+	const saveModels = async (
+		provider: ProviderSlug,
+		selected: string[],
+		selectionMode: "default" | "selected" = "selected",
+	): Promise<string | undefined> => {
 		setBusyProvider(provider);
 		try {
-			setStatus(await jsonRequest<CodingOAuthStatus>(MODELS_PATH, "POST", { provider, selected }));
+			setStatus(await jsonRequest<CodingOAuthStatus>(MODELS_PATH, "POST", { provider, selected, selectionMode }));
 			return undefined;
 		} catch (error: unknown) {
 			return error instanceof Error ? error.message : t("requestFailed");
@@ -477,10 +490,6 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 	};
 
 	const showUsage = capabilities?.value.codexUsage === true && status?.providers.codex.status === "signed-in";
-	const signedInCount =
-		status === undefined
-			? 0
-			: Object.values(status.providers).filter((provider) => provider.status === "signed-in").length;
 
 	const tabHints = useMemo((): readonly SettingsTabHint[] => {
 		const hints: SettingsTabHint[] = [];
@@ -605,9 +614,9 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			});
 	};
 
-	const setOpencodeGoEnabled = (opencodeGoEnabled: boolean): void => {
+	const setGoRoute = (opencodeGoRoute: GoGatewayRoute | null): void => {
 		setGatewayBusy(true);
-		void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { opencodeGoEnabled })
+		void jsonRequest<unknown>(GATEWAY_PATH, "PATCH", { opencodeGoRoute })
 			.then((value) => {
 				setGateway(parseGateway(value) ?? gateway);
 				setGatewayError(undefined);
@@ -639,31 +648,42 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 		document.getElementById(id)?.focus();
 	};
 
-	if (status?.uiOwner === "hub") {
-		return (
-			<section data-dsh-coding-oauth="compact" style={pageStyle} aria-labelledby="coding-oauth-settings-title">
-				<h2 id="coding-oauth-settings-title" style={titleStyle}>
-					{t("coinstallTitle")}
-				</h2>
-				<p style={bodyStyle}>{t("coinstallSummary", { count: signedInCount })}</p>
-				<button type="button" style={buttonStyle} onClick={openHubAccountsSettings}>
-					{t("coinstallManageAccounts")}
-				</button>
-			</section>
-		);
-	}
+	const renderCapabilities = (scope?: "codex" | "grok") => (
+		<CapabilitiesTab
+			scope={scope}
+			t={t}
+			capabilities={capabilities}
+			capabilitiesError={capabilitiesError}
+			capabilitiesBusy={capabilitiesBusy}
+			imagine={imagine}
+			imagineError={imagineError}
+			codexSignedIn={status?.providers.codex.status === "signed-in"}
+			onRetry={() => {
+				void refreshCapabilities();
+				void refreshImagine();
+			}}
+			onOpenAccounts={openAccountsForCodex}
+			onFocusDependency={focusCapabilityDependency}
+			onPatchCapability={(key, value) => patchCapability(key, value)}
+		/>
+	);
 
 	return (
-		<section data-dsh-coding-oauth="" style={pageStyle} aria-labelledby="coding-oauth-settings-title">
+		<section
+			ref={sectionRef}
+			data-dsh-coding-oauth="management"
+			style={pageStyle}
+			aria-labelledby="coding-oauth-settings-title"
+		>
 			<div>
 				<h2 id="coding-oauth-settings-title" style={titleStyle}>
 					{t("title")}
 				</h2>
 				{activeTab === "accounts" ? <p style={{ ...bodyStyle, marginTop: 6 }}>{t("intro")}</p> : null}
 			</div>
-			{requestError === undefined ? null : (
+			{(requestError ?? statusError) === undefined ? null : (
 				<div role="alert" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-					<p style={errorStyle}>{requestError}</p>
+					<p style={errorStyle}>{requestError ?? statusError}</p>
 					{status === undefined ? (
 						<button type="button" style={buttonStyle} onClick={() => void refresh()}>
 							{t("retry")}
@@ -671,7 +691,14 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 					) : null}
 				</div>
 			)}
-			<SettingsTabs t={t} activeTab={activeTab} onChange={setActiveTab} hints={tabHints} />
+			<SettingsTabs
+				t={t}
+				activeTab={activeTab}
+				onChange={(tab) => {
+					if (confirmLeave()) setActiveTab(tab);
+				}}
+				hints={tabHints}
+			/>
 			<div
 				id={`coding-oauth-panel-${activeTab}`}
 				role="tabpanel"
@@ -680,6 +707,12 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 			>
 				{activeTab === "accounts" && !(status === undefined && requestError !== undefined) ? (
 					<AccountsTab
+						renderCapabilities={renderCapabilities}
+						onLoadCapabilities={() => {
+							void refreshCapabilities();
+							void refreshImagine();
+						}}
+						onStartConversation={close}
 						t={t}
 						status={status}
 						remote={remote}
@@ -699,9 +732,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						usage={usage}
 						usageError={usageError}
 						usageLoading={usageLoading}
-						onSignIn={(slug, method) => {
-							void signIn(slug, method);
-						}}
+						onSignIn={(slug, method, targetAccountId) => signIn(slug, method, targetAccountId)}
 						onSignOut={(slug) => {
 							void signOut(slug);
 						}}
@@ -746,24 +777,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 						}}
 					/>
 				) : null}
-				{activeTab === "capabilities" ? (
-					<CapabilitiesTab
-						t={t}
-						capabilities={capabilities}
-						capabilitiesError={capabilitiesError}
-						capabilitiesBusy={capabilitiesBusy}
-						imagine={imagine}
-						imagineError={imagineError}
-						codexSignedIn={status?.providers.codex.status === "signed-in"}
-						onRetry={() => {
-							void refreshCapabilities();
-							void refreshImagine();
-						}}
-						onOpenAccounts={openAccountsForCodex}
-						onFocusDependency={focusCapabilityDependency}
-						onPatchCapability={(key, value) => patchCapability(key, value)}
-					/>
-				) : null}
+				{activeTab === "capabilities" ? renderCapabilities() : null}
 				{activeTab === "gateway" ? (
 					<GatewayTab
 						t={t}
@@ -781,7 +795,7 @@ export function GrokBuildSettings({ t }: GrokBuildSettingsProps) {
 							void refreshGateway();
 						}}
 						onEnabledChange={setGatewayEnabled}
-						onOpencodeGoEnabledChange={setOpencodeGoEnabled}
+						onGoRouteChange={setGoRoute}
 						onPortDraftChange={setPortDraft}
 						onApplyPort={() => {
 							void applyGatewayPort();

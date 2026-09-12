@@ -1,3 +1,4 @@
+import type { GoGatewayRoute } from "./go-gateway-route.ts";
 /** Shared client types for the Coding OAuth settings UI. */
 
 import type { GrokBuildSettingsKey } from "./locales.ts";
@@ -71,7 +72,7 @@ export interface AccountSummary {
 	accountId?: string;
 }
 
-export type ProviderStatus = GrokStatus | SubscriptionStatus;
+export type ProviderStatus = (GrokStatus | SubscriptionStatus) & { operationError?: string };
 
 export interface CodingOAuthStatus {
 	accessMode: "loopback" | "ssh-tunnel" | "trusted-https-proxy" | "denied";
@@ -92,6 +93,9 @@ export interface CodingOAuthStatus {
 	opencodeGo: {
 		active: boolean;
 		lastCall: "no-call" | "success" | "failure" | "missing-session";
+		pending?: boolean;
+		streamStatus?: string;
+		configurationConflict?: boolean;
 		updatedAt: number | null;
 	};
 }
@@ -206,10 +210,16 @@ export interface GatewayView {
 	models: string[];
 	warning: string;
 	opencodeGoEnabled: boolean;
+	opencodeGoRoute?: GoGatewayRoute | null;
+	opencodeGoPreview?: GoGatewayRoute | null;
+	opencodeGoMigration?: "none" | "required";
 }
 
 export interface GrokBuildSettingsInjected {
 	t: (key: GrokBuildSettingsKey, params?: Record<string, unknown>) => string;
 }
 
-export type GrokBuildSettingsProps = Partial<GrokBuildSettingsInjected>;
+export type GrokBuildSettingsProps = Partial<GrokBuildSettingsInjected> & {
+	close?: (() => void) | undefined;
+	initialTab?: SettingsTabId;
+};

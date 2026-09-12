@@ -6,11 +6,19 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["node", "react"]
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "types": [
+      "node",
+      "react"
+    ]
   },
   "include": [
     "src/client/**/*.ts",
-    "src/client/**/*.tsx"
+    "src/client/**/*.tsx",
+    "tests/**/*.spec.tsx"
   ]
 }

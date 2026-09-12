@@ -27,6 +27,7 @@ import { Badge } from "./Badge.tsx";
 import { ToggleSwitch } from "./ToggleSwitch.tsx";
 
 export interface CapabilitiesTabProps {
+	scope?: "codex" | "grok" | undefined;
 	t: GrokBuildSettingsInjected["t"];
 	capabilities: CapabilitySnapshot | undefined;
 	capabilitiesError: string | undefined;
@@ -41,6 +42,7 @@ export interface CapabilitiesTabProps {
 }
 
 export function CapabilitiesTab({
+	scope,
 	t,
 	capabilities,
 	capabilitiesError,
@@ -53,18 +55,18 @@ export function CapabilitiesTab({
 	onFocusDependency,
 	onPatchCapability,
 }: CapabilitiesTabProps) {
-	const codexToggles = CAPABILITY_TOGGLES.filter((item) => !item.key.startsWith("grokImagine"));
-	const imagineToggles = CAPABILITY_TOGGLES.filter((item) => item.key.startsWith("grokImagine"));
+	const codexToggles = CAPABILITY_TOGGLES.filter((item) => scope !== "grok" && !item.key.startsWith("grokImagine"));
+	const imagineToggles = CAPABILITY_TOGGLES.filter((item) => scope !== "codex" && item.key.startsWith("grokImagine"));
 
 	return (
-		<section style={cardStyle} aria-labelledby="coding-oauth-capabilities-title">
+		<section style={cardStyle} aria-labelledby={`coding-oauth-capabilities-title-${scope ?? "all"}`}>
 			<div>
-				<h3 id="coding-oauth-capabilities-title" style={{ ...titleStyle, fontSize: 16 }}>
+				<h3 id={`coding-oauth-capabilities-title-${scope ?? "all"}`} style={{ ...titleStyle, fontSize: 16 }}>
 					{t("capabilitiesTitle")}
 				</h3>
 				<p style={{ ...bodyStyle, marginTop: 4 }}>{t("capabilitiesIntro")}</p>
 			</div>
-			{imagineError === undefined ? null : (
+			{scope === "codex" || imagineError === undefined ? null : (
 				<div style={nestedStyle} role="alert">
 					<p style={errorStyle}>{imagineError}</p>
 					<button type="button" style={buttonStyle} onClick={onRetry}>
@@ -72,7 +74,7 @@ export function CapabilitiesTab({
 					</button>
 				</div>
 			)}
-			{imagine === undefined && imagineError === undefined ? (
+			{scope === "codex" ? null : imagine === undefined && imagineError === undefined ? (
 				<div style={skeletonStyle} role="status" aria-busy="true">
 					<div style={statusStyle}>
 						<span aria-hidden="true" style={dotStyle("loading")} />
@@ -162,7 +164,7 @@ export function CapabilitiesTab({
 							);
 						})}
 					</ul>
-					<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("imagineTitle")}</h4>
+					{scope !== "codex" ? <h4 style={{ ...titleStyle, fontSize: 14 }}>{t("imagineTitle")}</h4> : null}
 					<ul style={listStyle}>
 						{imagineToggles.map((item) => {
 							const checked = capabilities.value[item.key];
@@ -204,7 +206,11 @@ export function CapabilitiesTab({
 						<h4 style={{ ...titleStyle, fontSize: 14 }}>{t("capabilityLimitsTitle")}</h4>
 						<p style={hintStyle}>{t("capabilityLimitsHint")}</p>
 						<ul style={listStyle}>
-							{CAPABILITY_LIMITS.map((item) => {
+							{CAPABILITY_LIMITS.filter(
+								(item) =>
+									scope === undefined ||
+									(scope === "grok" ? item.key === "videoArtifactTtlMs" : item.key !== "videoArtifactTtlMs"),
+							).map((item) => {
 								const displayValue = capabilities.value[item.key] / item.scale;
 								const inputId = `cap-limit-${item.key}`;
 								return (
