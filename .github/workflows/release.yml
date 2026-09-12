@@ -22,7 +22,9 @@ jobs:
           expected="${GITHUB_REF_NAME#v}"
           actual="$(node -p 'require("./package.json").version')"
           test "${actual}" = "${expected}"
-          grep -q "^## v${expected} " CHANGELOG.md
+          # CHANGELOG headings may carry the `v` prefix and an optional date;
+          # escaped dots keep the version match literal.
+          grep -Eq "^## v?${expected//./[.]}( |$)" CHANGELOG.md
 
   verify:
     needs: version-preflight
@@ -94,12 +96,19 @@ jobs:
           node-version: "22.19.0"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Verify the maintainer-published npm version and latest dist-tag
+      - name: Verify the maintainer-published npm version and channel dist-tag
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           expected="${tag#v}"
           actual="$(npm view "dsh-coding-subscription-oauth@${expected}" version --registry=https://registry.npmjs.org/)"
-          latest="$(npm view dsh-coding-subscription-oauth dist-tags.latest --registry=https://registry.npmjs.org/)"
           test "${actual}" = "${expected}"
-          test "${latest}" = "${expected}"
+          # Release candidates ship on the `next` channel and must not move
+          # `latest`; stable releases own `latest`.
+          case "${expected}" in
+            *-*) channel="next" ;;
+            *) channel="latest" ;;
+          esac
+          published="$(npm view dsh-coding-subscription-oauth "dist-tags.${channel}" --registry=https://registry.npmjs.org/)"
+          test "${published}" = "${expected}"
+          printf 'verified %s on dist-tag %s\n' "${expected}" "${channel}"
