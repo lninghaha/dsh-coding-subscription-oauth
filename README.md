@@ -1,13 +1,11 @@
 
 
-> Repair candidate / 修复候选：0.8.2-rc.1。See [usage, migration and rollback](docs/repair-candidate.md). It uses the npm `next` tag and does not replace the stable `latest` release.
-
 <!-- banner -->
 <div align="center">
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.8.2-rc.1** · repair candidate · formerly `dsh-grok-build`
+**v0.8.2** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -30,7 +28,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| npm (recommended) | Repair candidate `0.8.2-rc.1` on the `next` tag: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2-rc.1` | No legacy npm package was published |
+| npm (recommended) | Current release is `0.8.2`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2` | No legacy npm package was published |
 | GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
@@ -86,7 +84,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2-rc.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -127,7 +125,7 @@ Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unveri
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2-rc.1
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2
 
 # development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

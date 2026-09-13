@@ -230,4 +230,4 @@ export const CONSUMED_PREVIEW_CODES = new Set([
 	"unsafe_destination",
 ]);
 
-export const PLUGIN_VERSION = "0.8.2-rc.1";
+export const PLUGIN_VERSION = "0.8.2";
