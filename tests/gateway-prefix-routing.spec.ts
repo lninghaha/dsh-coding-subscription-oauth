@@ -69,9 +69,9 @@ it("routes only prefixed models and advertises the same protocol mapping", async
 	const list = await (await fetch(base + "/models", { headers: { authorization: "Bearer local-secret" } })).json();
 	expect(list.data.map((m: { id: string }) => m.id)).toEqual([
 		"codex/local",
-		"opencode-go/test-chat",
-		"opencode-go/test-response",
-		"opencode-go/test-message",
+		"coding-opencode-go/test-chat",
+		"coding-opencode-go/test-response",
+		"coding-opencode-go/test-message",
 	]);
 	await (await post("/chat/completions", "codex/local")).text();
 	expect(backend.stream).toHaveBeenCalledOnce();
@@ -81,7 +81,7 @@ it("routes only prefixed models and advertises the same protocol mapping", async
 		["/responses", "test-response"],
 		["/messages", "test-message"],
 	]) {
-		const res = await post(path!, `opencode-go/${id}`);
+		const res = await post(path!, `coding-opencode-go/${id}`);
 		expect(res.status).toBe(200);
 		expect(await res.text()).toContain("controlled-stream-error");
 		const [url, init] = outbound.mock.calls.at(-1) as unknown as [string, RequestInit];
@@ -93,15 +93,24 @@ it("routes only prefixed models and advertises the same protocol mapping", async
 		expect(JSON.parse(String(init.body)).model).toBe(id);
 	}
 });
+it("still accepts legacy opencode-go/ gateway prefixes during migration", async () => {
+	const { post, outbound } = await setup();
+	const res = await post("/chat/completions", "opencode-go/test-chat");
+	expect(res.status).toBe(200);
+	expect(outbound).toHaveBeenCalledOnce();
+	expect(JSON.parse(String((outbound.mock.calls[0] as unknown as [string, RequestInit])[1].body)).model).toBe(
+		"test-chat",
+	);
+});
 it("rejects protocol mismatch and missing session without an upstream request", async () => {
 	const { post, outbound } = await setup();
-	expect((await post("/messages", "opencode-go/test-chat")).status).toBe(400);
-	expect((await post("/chat/completions", "opencode-go/test-chat", "")).status).toBe(400);
+	expect((await post("/messages", "coding-opencode-go/test-chat")).status).toBe(400);
+	expect((await post("/chat/completions", "coding-opencode-go/test-chat", "")).status).toBe(400);
 	expect(outbound).not.toHaveBeenCalled();
 });
 it("never substitutes the inbound local key when the upstream reference is unavailable", async () => {
 	const { post, outbound } = await setup("");
-	const res = await post("/chat/completions", "opencode-go/test-chat");
+	const res = await post("/chat/completions", "coding-opencode-go/test-chat");
 	expect(res.status).toBe(503);
 	expect(outbound).not.toHaveBeenCalled();
 });

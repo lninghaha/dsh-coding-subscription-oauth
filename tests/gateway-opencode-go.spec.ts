@@ -159,7 +159,7 @@ describe("opencodeGo chat proxy HTTP", () => {
 		const sessionMap = createOpencodeGoSessionMap();
 		const port = await listen({ opencodeGoEnabled: true, fetchImpl, sessionMap });
 		const body = JSON.stringify({
-			model: "opencode-go/test-go",
+			model: "coding-opencode-go/test-go",
 			messages: [{ role: "user", content: "hi" }],
 			stream: false,
 		});

@@ -13,6 +13,13 @@ import type { GatewayGoRoute } from "./gateway-go-routing.ts";
 import { handleOpenAiChatCompletions } from "./gateway-openai-chat.ts";
 import { handleOpenAiResponses } from "./gateway-openai-responses.ts";
 import { handleOpencodeGoInference } from "./gateway-opencode-go.ts";
+import {
+	isOpenCodeGoGatewayModel,
+	OPENCODE_GO_GATEWAY_PREFIX,
+	OPENCODE_GO_LEGACY_GATEWAY_PREFIX,
+	OPENCODE_GO_PROVIDER_ID,
+	openCodeGoGatewayModelId,
+} from "./opencode-go-ids.ts";
 
 export interface GatewayHttpOptions {
 	config: GatewayConfig;
@@ -75,9 +82,14 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 		const local = await options.backend.listModels();
 		const route = options.getOpencodeGoRoute?.();
 		const models = [
-			...local.filter((m) => !m.id.startsWith("opencode-go/")),
-			...(route?.models.map((m) => ({ id: "opencode-go/" + m.id, owned_by: "opencode-go", protocol: m.protocol })) ??
-				[]),
+			...local.filter(
+				(m) => !m.id.startsWith(OPENCODE_GO_GATEWAY_PREFIX) && !m.id.startsWith(OPENCODE_GO_LEGACY_GATEWAY_PREFIX),
+			),
+			...(route?.models.map((m) => ({
+				id: openCodeGoGatewayModelId(m.id),
+				owned_by: OPENCODE_GO_PROVIDER_ID,
+				protocol: m.protocol,
+			})) ?? []),
 		];
 		writeJson(res, 200, {
 			object: "list",
@@ -88,7 +100,7 @@ async function route(req: IncomingMessage, res: ServerResponse, options: Gateway
 
 	if (req.method === "POST" && ["/v1/chat/completions", "/v1/responses", "/v1/messages"].includes(url.pathname)) {
 		const payload = await readGatewayJsonBody(req);
-		if (typeof payload["model"] === "string" && payload["model"].startsWith("opencode-go/")) {
+		if (typeof payload["model"] === "string" && isOpenCodeGoGatewayModel(payload["model"])) {
 			await handleOpencodeGoInference(req, res, payload, url.pathname, {
 				route: options.getOpencodeGoRoute?.() ?? null,
 				resolveCredential: options.resolveGoCredential ?? (async () => undefined),

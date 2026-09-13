@@ -13,7 +13,7 @@ describe("Go 网关配置预览", () => {
 					ns: "llm-pi-ai",
 					value: {
 						providers: {
-							"opencode-go": { api, baseURL, apiKeyEnv: "GO_KEY", models: [{ id }] },
+							"coding-opencode-go": { api, baseURL, apiKeyEnv: "GO_KEY", models: [{ id }] },
 						},
 					},
 				},
@@ -25,11 +25,40 @@ describe("Go 网关配置预览", () => {
 				ns: "llm-pi-ai",
 				value: {
 					providers: {
-						"opencode-go": { api, baseURL: "https://example.com/zen/go/v1", apiKeyEnv: "GO_KEY", models: [{ id }] },
+						"coding-opencode-go": {
+							api,
+							baseURL: "https://example.com/zen/go/v1",
+							apiKeyEnv: "GO_KEY",
+							models: [{ id }],
+						},
 					},
 				},
 			},
 		];
 		expect(gatewayGoPreview(settings)).toBeNull();
+	});
+
+	it("falls back to legacy opencode-go for migration preview", () => {
+		const settings = {
+			describe: () => [
+				{
+					ns: "llm-pi-ai",
+					value: {
+						providers: {
+							"opencode-go": {
+								api: "openai-completions",
+								baseURL: "https://opencode.ai/zen/go/v1",
+								apiKeyEnv: "GO_KEY",
+								models: [{ id: "deepseek-v4.1-flash" }],
+							},
+						},
+					},
+				},
+			],
+		};
+		expect(gatewayGoPreview(settings)).toEqual({
+			credentialRef: "GO_KEY",
+			models: [{ id: "deepseek-v4.1-flash", protocol: "openai-completions" }],
+		});
 	});
 });

@@ -47,7 +47,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 - 🗂️ **Tabbed Settings** — Accounts, Gateway, Capabilities, and About; remote hosts prefer device-code sign-in with quieter CLI-missing tips; signed-in cards stay collapsed until expanded.
 - 🎛️ **Optional capabilities, default off** — Codex search, usage/quota, image generate/edit, Fast, and Grok Imagine apply live when you turn them on. An additional default-off switch lets non-Codex model routes call Codex image tools while preserving Codex sign-in, session, and attachment-ownership checks.
 - 🔌 **Opt-in local API gateway** — default-off loopback OpenAI/Anthropic-compatible server for your own tools, with copyable base URLs and Bearer key; never a public relay.
-- **OpenCode Go** — Connect OpenCode Go in **Accounts & Models** and use the existing DSH model route without enabling Gateway. External tools use explicitly configured `opencode-go/<model-id>` routes and the matching protocol, with a stable conversation header. The local gateway key and upstream credential are separate; missing session IDs are rejected. Review the migration preview before replacing the old global mode.
+- **OpenCode Go** — Connect OpenCode Go in **Accounts & Models** under the isolated provider `coding-opencode-go` (separate from DSH-native `opencode-go`) and use it in DSH without enabling Gateway. External tools use explicitly configured `coding-opencode-go/<model-id>` routes (legacy `opencode-go/<model-id>` still accepted) and the matching protocol, with a stable conversation header. The local gateway key and upstream credential are separate; missing session IDs are rejected. If an older plugin config still lives under `opencode-go`, migrate it from the Accounts card. Review the migration preview before replacing the old global gateway mode.
 
 ## Problems this plugin solves
 
@@ -210,7 +210,7 @@ gateway:
 
 Endpoints: `GET /healthz`, `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/messages`. A Bearer key is stored at `$DSH_HOME/.coding-oauth-gateway.json` (`0600`).
 
-Connect OpenCode Go in **Accounts & Models** and use the existing DSH model route without enabling Gateway. External tools use explicitly configured `opencode-go/<model-id>` routes and the matching protocol, with a stable conversation header. The local gateway key and upstream credential are separate; missing session IDs are rejected. Review the migration preview before replacing the old global mode. [Migration / 迁移](docs/repair-candidate.md).
+Connect OpenCode Go in **Accounts & Models** under the isolated provider `coding-opencode-go` (separate from DSH-native `opencode-go`). External tools use `coding-opencode-go/<model-id>` (legacy `opencode-go/<model-id>` still accepted) with a stable conversation header. Migrate older plugin configs from the Accounts card when prompted. [Migration / 迁移](docs/repair-candidate.md).
 
 On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1:18080/v1`), the Anthropic base URL, or the current Bearer key without rotating it. Key reveal is loopback-only and is never persisted to browser storage. Key rotation requires confirmation. Edit the listen port with **Apply** or fill it with **Random** (`18100`–`18999`); the selected port is persisted in the owner-only gateway document, and a running listener rebinds to it. Bind remains YAML-only; a non-loopback bind requires a key. This is not a remote relay.
 

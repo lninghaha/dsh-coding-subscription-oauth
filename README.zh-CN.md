@@ -47,7 +47,7 @@
 - 🗂️ **分栏设置页** —— Accounts、Gateway、Capabilities、About；远程主机优先设备码登录并弱化 CLI 缺失提示；已登录供应商卡片默认收起，展开后再编辑。
 - 🎛️ **可选能力默认关闭** —— Codex 搜索、用量/配额、图像生成/编辑、Fast、Grok Imagine 打开后立即生效。另有默认关闭的开关，允许非 Codex 模型路由调用 Codex 图像工具，同时保留 Codex 登录、会话和附件归属检查。
 - 🔌 **可选本地 API 网关** —— 默认关闭的 loopback OpenAI/Anthropic 兼容服务，支持复制 base URL 和 Bearer key，只给你自己的工具用，不是公网中继。
-- **OpenCode Go** — 在**账户与模型**连接 OpenCode Go，即可通过 DSH 原有模型路径对话，无需开启网关。外部工具需使用明确配置的 `opencode-go/<model-id>` 与对应协议，并发送稳定的会话标识。本地网关密钥与上游凭据分开；缺少会话标识会明确失败。旧全局模式需先查看迁移预览再应用。
+- **OpenCode Go** — 在**账户与模型**连接独立供应商 `coding-opencode-go`（与 DSH 原生 `opencode-go` 隔离），即可在 DSH 对话而无需开启网关。外部工具使用 `coding-opencode-go/<model-id>`（过渡期仍接受旧前缀 `opencode-go/<model-id>`）与对应协议，并发送稳定会话标识。若仍有旧版插件配置写在 `opencode-go`，请在账户卡片中迁移。
 
 ## 本插件解决的接入问题
 
@@ -213,7 +213,7 @@ gateway:
 
 端点：`GET /healthz`、`GET /v1/models`、`POST /v1/chat/completions`、`POST /v1/responses`、`POST /v1/messages`。Bearer key 保存在 `$DSH_HOME/.coding-oauth-gateway.json`（`0600`）。
 
-在**账户与模型**连接 OpenCode Go，即可通过 DSH 原有模型路径对话，无需开启网关。外部工具需使用明确配置的 `opencode-go/<model-id>` 与对应协议，并发送稳定的会话标识。本地网关密钥与上游凭据分开；缺少会话标识会明确失败。旧全局模式需先查看迁移预览再应用。 [Migration / 迁移](docs/repair-candidate.md).
+在**账户与模型**连接独立供应商 `coding-opencode-go`（与 DSH 原生 `opencode-go` 隔离）。外部工具使用 `coding-opencode-go/<model-id>`（过渡期仍接受 `opencode-go/<model-id>`）。旧版插件配置可在账户卡片一键迁移。 [Migration / 迁移](docs/repair-candidate.md).
 
 在 **Gateway** 标签中，可以复制 OpenAI base URL（例如 `http://127.0.0.1:18080/v1`）、Anthropic base URL，或直接复制当前 Bearer key，不必轮换；密钥显示仅限 loopback，且不会写入浏览器存储；轮换 key 前必须确认。监听端口可直接 **Apply/确定**，也可用 **Random/随机** 填充（`18100`–`18999`）；选定端口会持久化到属主专用的网关文档，运行中的监听器会重新绑定。bind 仍只能写在 YAML 中；非 loopback bind 必须配置 key。这不是远程中继。
 

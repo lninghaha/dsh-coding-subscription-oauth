@@ -12,7 +12,7 @@ export interface GatewayGoRoute {
     }>;
 }
 export declare function parseGatewayGoRoute(value: unknown): GatewayGoRoute | null;
-/** 只向用户预览宿主明确配置的协议；目录没有披露协议时不猜测。 */
+/** Prefer the isolated plugin provider; fall back to legacy takeover for migration preview. */
 export declare function gatewayGoPreview(settings: {
     describe(options?: {
         redactSecrets?: boolean;

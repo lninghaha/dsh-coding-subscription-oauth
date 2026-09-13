@@ -8,6 +8,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { GatewayRequestError } from "./gateway-backend.ts";
 import { type GatewayGoRoute, GO_PROTOCOL_PATHS } from "./gateway-go-routing.ts";
+import { stripOpenCodeGoGatewayPrefix } from "./opencode-go-ids.ts";
 
 export const OPENCODE_GO_ORIGIN = "https://opencode.ai";
 export const OPENCODE_GO_CHAT_COMPLETIONS_URL = `${OPENCODE_GO_ORIGIN}/zen/go/v1/chat/completions`;
@@ -96,7 +97,8 @@ export async function handleOpencodeGoInference(
 	if (!deps.route)
 		fail(503, "opencode_go_route_missing", "Configure the prefixed OpenCode Go route in gateway settings");
 	const route = deps.route!;
-	const id = String(payload["model"]).slice("opencode-go/".length);
+	const id = stripOpenCodeGoGatewayPrefix(String(payload["model"]));
+	if (id === undefined) fail(400, "opencode_go_model_unknown", "Choose an OpenCode Go model listed by this gateway");
 	const model = route.models.find((entry) => entry.id === id);
 	if (!model) fail(400, "opencode_go_model_unknown", "Choose an OpenCode Go model listed by this gateway");
 	if (GO_PROTOCOL_PATHS[model!.protocol] !== path)

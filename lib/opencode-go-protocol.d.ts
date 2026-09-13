@@ -1,6 +1,3 @@
-/** 官方 Go 文档在 2026-09-12 披露的协议；新 ID 由用户明确选择协议。
- * https://opencode.ai/docs/zh-cn/go#api-端点
- */
 export declare const GO_APIS: readonly ["openai-completions", "openai-responses", "anthropic-messages"];
 export type GoApi = (typeof GO_APIS)[number];
 export declare function isGoApi(value: unknown): value is GoApi;

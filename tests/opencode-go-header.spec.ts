@@ -25,7 +25,7 @@ function setup() {
 	return { listener: () => listener!, release, state };
 }
 
-function options(sessionId?: string, provider = "opencode-go"): GenerateOptions {
+function options(sessionId?: string, provider = "coding-opencode-go"): GenerateOptions {
 	return {
 		provider,
 		model: "deepseek-v4.1-flash",
@@ -41,6 +41,24 @@ async function exhaust(iterable: AsyncIterable<StreamChunk>): Promise<void> {
 }
 
 describe("OpenCode Go session header compatibility", () => {
+	it("leaves DSH-native opencode-go streams untouched", async () => {
+		const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			calls.push({ url: String(input), init });
+			return new Response("ok", { status: 200 });
+		});
+		const { listener, release, state } = setup();
+		async function* stream() {
+			await fetch("https://opencode.ai/zen/go/v1/chat/completions", { method: "POST" });
+			yield { type: "finish", reason: { kind: "stop" } } as StreamChunk;
+		}
+		await exhaust(listener()(options("session-native", "opencode-go"), stream));
+		expect(calls).toHaveLength(1);
+		expect(new Headers(calls[0]?.init?.headers).has("x-opencode-session")).toBe(false);
+		expect(state.snapshot().lastCall).toBe("no-call");
+		release();
+	});
+
 	it("does not turn an HTTP 200 stream error into success", async () => {
 		globalThis.fetch = vi.fn(async () => new Response("ok"));
 		const { listener, release, state } = setup();
