@@ -191,3 +191,70 @@ it("does not break existing models when switching protocol", async () => {
 	).rejects.toMatchObject({ code: "model-protocol-mismatch" });
 	expect(f.mutate).not.toHaveBeenCalled();
 });
+
+it("applies a multi-model selection with reasoning efforts and replaces the enabled set", async () => {
+	const f = fixture({
+		apiKeyEnv: "OPENCODE_GO_API_KEY",
+		api: "openai-completions",
+		baseURL: OPENCODE_GO_BASE_URL,
+		models: [{ id: "keep-me-out", name: "stale" }],
+	});
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.applyConfiguration({
+		credentialRef: "OPENCODE_GO_API_KEY",
+		models: [{ id: "deepseek-v4-flash" }, { id: "deepseek-v4.1-flash" }],
+		api: "openai-completions",
+		expectedRevision: 4,
+		confirmConflicts: false,
+	});
+	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	expect(modelsOp?.value).toEqual([
+		expect.objectContaining({
+			id: "deepseek-v4-flash",
+			reasoningEfforts: expect.objectContaining({ high: "high", max: "max" }),
+		}),
+		expect.objectContaining({ id: "deepseek-v4.1-flash" }),
+	]);
+	expect(JSON.stringify(modelsOp?.value)).not.toContain("keep-me-out");
+});
+
+it("reinjects apiKeyEnv when native model settings claim opencode-go without a credential", async () => {
+	const f = fixture({ models: [{ id: "deepseek-v4.1-flash" }] });
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.reinjectCredential();
+	expect(f.mutate).toHaveBeenCalledWith(
+		"llm-pi-ai",
+		[{ op: "set", path: ["providers", "opencode-go", "apiKeyEnv"], value: "OPENCODE_GO_API_KEY" }],
+		4,
+	);
+});
+
+it("does not clobber a different explicit apiKeyEnv during reinject", async () => {
+	const f = fixture({ apiKeyEnv: "CUSTOM_GO_KEY", models: [{ id: "deepseek-v4.1-flash" }] });
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.reinjectCredential({ credentialRef: "OPENCODE_GO_API_KEY" });
+	expect(f.mutate).not.toHaveBeenCalled();
+});
+
+it("enriches the live directory with known thinking metadata", async () => {
+	const f = fixture();
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const fetchImpl = vi.fn(async () =>
+		Response.json({ data: [{ id: "deepseek-v4-flash" }, { id: "grok-4.6" }, { id: "minimax-m3" }] }),
+	);
+	const c = createOpenCodeGoConnectionController({
+		credentials: f.credentials,
+		settings: f.settings,
+		callStatus,
+		fetchImpl,
+	});
+	const catalog = await c.models("OPENCODE_GO_API_KEY");
+	expect(catalog).toHaveLength(3);
+	expect(catalog.find((m) => m.id === "deepseek-v4-flash")?.reasoningEfforts).toMatchObject({ high: "high" });
+	expect(catalog.find((m) => m.id === "grok-4.6")?.reasoningEfforts).toMatchObject({ xhigh: "xhigh" });
+	expect(catalog.find((m) => m.id === "minimax-m3")?.protocol).toBe("anthropic-messages");
+});

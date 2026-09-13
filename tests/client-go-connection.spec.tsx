@@ -9,7 +9,7 @@ function snapshot(revision=2): GoSnapshot {
 }
 function props(): GoViewProps {
 	const status=snapshot();
-	return {status,t:key=>key,onReload:vi.fn(async()=>status),onSaveCredential:vi.fn(async()=>status),onLoadModels:vi.fn(async()=>({models:[{id:"deepseek-v4.1-flash"}]})),onApply:vi.fn(async()=>status),onStartConversation:vi.fn()};
+	return {status,t:key=>key,onReload:vi.fn(async()=>status),onSaveCredential:vi.fn(async()=>status),onLoadModels:vi.fn(async()=>({models:[{id:"deepseek-v4.1-flash"},{id:"deepseek-v4-flash",reasoningEfforts:{high:"high"}},{id:"gpt-5.6-luna"}]})),onApply:vi.fn(async()=>status),onStartConversation:vi.fn()};
 }
 it("shows a compact connected summary and initializes the configured credential, respecting source permissions", async()=>{
 	const input=props();render(createElement(OpenCodeGoConnectionView,input));
@@ -21,14 +21,17 @@ it("shows a compact connected summary and initializes the configured credential,
 	expect((screen.getByLabelText("apiKey") as HTMLInputElement).disabled).toBe(false);
 	expect((screen.getByRole("button",{name:"fetchModels"}) as HTMLButtonElement).disabled).toBe(true);
 });
-it("uses a fresh query revision for new edits, retaining the edit baseline until explicit conflict review", async()=>{
+it("uses a fresh query revision for new edits and applies the enabled model set", async()=>{
 	const input=props();const view=render(createElement(OpenCodeGoConnectionView,input));
 	view.rerender(createElement(OpenCodeGoConnectionView,{...input,status:snapshot(9)}));
 	fireEvent.click(screen.getByRole("button",{name:"edit"}));
-	fireEvent.change(screen.getByLabelText("model"),{target:{value:"another-model"}});
+	fireEvent.click(screen.getByRole("button",{name:"fetchModels"}));
+	await waitFor(()=>expect(input.onLoadModels).toHaveBeenCalled());
+	const flash=await screen.findByRole("checkbox",{name:/deepseek-v4-flash/i});
+	fireEvent.click(flash);
 	view.rerender(createElement(OpenCodeGoConnectionView,{...input,status:snapshot(10)}));
 	fireEvent.click(screen.getByRole("button",{name:"apply"}));
-	await waitFor(()=>expect(input.onApply).toHaveBeenCalledWith(expect.objectContaining({expectedRevision:9,credentialRef:"EXISTING_GO_KEY",model:{id:"another-model"}})));
+	await waitFor(()=>expect(input.onApply).toHaveBeenCalledWith(expect.objectContaining({expectedRevision:9,credentialRef:"EXISTING_GO_KEY",models:expect.arrayContaining([{id:"deepseek-v4.1-flash"},expect.objectContaining({id:"deepseek-v4-flash"})])})));
 });
 it("requires explicit credential choice when multiple unbound sources exist",()=>{
 	const input=props(), base=snapshot();
@@ -46,4 +49,11 @@ it("retains failed credential input and renders a later cancelled call instead o
 	expect((screen.getByLabelText("apiKey") as HTMLInputElement).value).toBe("fixture-only");
 	view.rerender(createElement(OpenCodeGoConnectionView,{...input,call:{active:true,lastCall:"failure",streamStatus:"cancelled",updatedAt:10}}));
 	expect(screen.getByText("status.cancelled")).toBeTruthy();
+});
+it("keeps the model list inside the card instead of a floating datalist", async()=>{
+	const input=props();
+	render(createElement(OpenCodeGoConnectionView,{...input,status:{...snapshot(),configuration:{...snapshot().configuration,ready:false}}}));
+	fireEvent.click(screen.getByRole("button",{name:"fetchModels"}));
+	await screen.findByRole("group",{name:"model"});
+	expect(document.querySelector("datalist")).toBeNull();
 });
