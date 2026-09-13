@@ -68,6 +68,9 @@ export function OpenCodeGoCard({
 			onApply={async (input) =>
 				accept(await jsonRequest<GoSnapshot>(OPENCODE_GO_CONNECTION_PATH, "POST", { action: "apply", ...input }))
 			}
+			onMigrateLegacy={async (input) =>
+				accept(await jsonRequest<GoSnapshot>(OPENCODE_GO_CONNECTION_PATH, "POST", { action: "migrate", ...input }))
+			}
 			onStartConversation={onStartConversation}
 		/>
 	);

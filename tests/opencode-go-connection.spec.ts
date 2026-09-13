@@ -23,7 +23,7 @@ function fixture(provider: Record<string, unknown> = {}, revision = 4) {
 	const mutate = vi.fn(async () => undefined);
 	const settings: OpenCodeGoSettingsProvider = {
 		writable: true,
-		describe: () => [{ ns: "llm-pi-ai", revision, value: { providers: { "opencode-go": provider } } }],
+		describe: () => [{ ns: "llm-pi-ai", revision, value: { providers: { "coding-opencode-go": provider } } }],
 		mutate,
 	};
 	return { values, credentials, settings, mutate };
@@ -62,7 +62,7 @@ describe("OpenCode Go connection controller", () => {
 			confirmConflicts: false,
 		});
 		const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
-		const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+		const modelsOp = call[1].find((op) => op.path.join(".") === "providers.coding-opencode-go.models");
 		expect(modelsOp?.value).toEqual([
 			expect.objectContaining({
 				id: "deepseek-v4.1-flash",
@@ -123,9 +123,9 @@ describe("OpenCode Go connection controller", () => {
 		expect(f.mutate).toHaveBeenCalledWith(
 			"llm-pi-ai",
 			expect.arrayContaining([
-				{ op: "set", path: ["providers", "opencode-go", "api"], value: OPENCODE_GO_API },
-				{ op: "set", path: ["providers", "opencode-go", "baseURL"], value: OPENCODE_GO_BASE_URL },
-				{ op: "unset", path: ["providers", "opencode-go", "headers", "x-opencode-session"] },
+				{ op: "set", path: ["providers", "coding-opencode-go", "api"], value: OPENCODE_GO_API },
+				{ op: "set", path: ["providers", "coding-opencode-go", "baseURL"], value: OPENCODE_GO_BASE_URL },
+				{ op: "unset", path: ["providers", "coding-opencode-go", "headers", "x-opencode-session"] },
 			]),
 			4,
 		);
@@ -179,7 +179,9 @@ it("requires the selected model protocol and preserves the rest of the route", a
 	});
 	expect(f.mutate).toHaveBeenCalledWith(
 		"llm-pi-ai",
-		expect.arrayContaining([{ op: "set", path: ["providers", "opencode-go", "api"], value: "openai-responses" }]),
+		expect.arrayContaining([
+			{ op: "set", path: ["providers", "coding-opencode-go", "api"], value: "openai-responses" },
+		]),
 		4,
 	);
 });
@@ -216,7 +218,7 @@ it("applies a multi-model selection with reasoning efforts and replaces the enab
 		confirmConflicts: false,
 	});
 	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
-	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.coding-opencode-go.models");
 	expect(modelsOp?.value).toEqual([
 		expect.objectContaining({
 			id: "deepseek-v4-flash",
@@ -256,7 +258,7 @@ it("applies glm-5.3 with DSH-valid reasoningEfforts (no illegal null levels)", a
 		confirmConflicts: false,
 	});
 	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
-	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.coding-opencode-go.models");
 	expect(modelsOp?.value).toEqual([
 		expect.objectContaining({
 			id: "glm-5.3",
@@ -287,7 +289,7 @@ it("re-apply backfills thinking onto a prior thin glm-5.3 { id } entry", async (
 		confirmConflicts: false,
 	});
 	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
-	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.coding-opencode-go.models");
 	expect(modelsOp?.value).toEqual([
 		expect.objectContaining({
 			id: "glm-5.3",
@@ -330,14 +332,14 @@ it("rejects apply without a model when not replacing the selection (negative)", 
 	expect(f.mutate).not.toHaveBeenCalled();
 });
 
-it("reinjects apiKeyEnv when native model settings claim opencode-go without a credential", async () => {
+it("reinjects apiKeyEnv when isolated provider settings lack a credential", async () => {
 	const f = fixture({ models: [{ id: "deepseek-v4.1-flash" }] });
 	f.values.set("OPENCODE_GO_API_KEY", "fixture");
 	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
 	await c.reinjectCredential();
 	expect(f.mutate).toHaveBeenCalledWith(
 		"llm-pi-ai",
-		[{ op: "set", path: ["providers", "opencode-go", "apiKeyEnv"], value: "OPENCODE_GO_API_KEY" }],
+		[{ op: "set", path: ["providers", "coding-opencode-go", "apiKeyEnv"], value: "OPENCODE_GO_API_KEY" }],
 		4,
 	);
 });
@@ -348,6 +350,79 @@ it("does not clobber a different explicit apiKeyEnv during reinject", async () =
 	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
 	await c.reinjectCredential({ credentialRef: "OPENCODE_GO_API_KEY" });
 	expect(f.mutate).not.toHaveBeenCalled();
+});
+
+it("migrates plugin-shaped legacy opencode-go into coding-opencode-go without deleting the builtin", async () => {
+	const values = new Map<string, string>([["OPENCODE_GO_API_KEY", "fixture"]]);
+	const credentials = {
+		describe: vi.fn(async (ref: string) => ({
+			configured: values.has(String(ref)),
+			writable: true,
+			source: "store",
+		})),
+		resolve: vi.fn(async (ref: string) => (values.has(String(ref)) ? { value: values.get(String(ref))! } : undefined)),
+		set: vi.fn(async () => undefined),
+	} as unknown as CredentialProvider;
+	const mutate = vi.fn(async () => undefined);
+	const settings: OpenCodeGoSettingsProvider = {
+		writable: true,
+		describe: () => [
+			{
+				ns: "llm-pi-ai",
+				revision: 7,
+				value: {
+					providers: {
+						"opencode-go": {
+							apiKeyEnv: "OPENCODE_GO_API_KEY",
+							api: OPENCODE_GO_API,
+							baseURL: OPENCODE_GO_BASE_URL,
+							models: [{ id: "deepseek-v4.1-flash" }],
+						},
+					},
+				},
+			},
+		],
+		mutate,
+	};
+	const c = createOpenCodeGoConnectionController({ credentials, settings, callStatus });
+	const status = await c.status();
+	expect(status.providerId).toBe("coding-opencode-go");
+	expect(status.legacy).toEqual({
+		providerId: "opencode-go",
+		present: true,
+		migratable: true,
+		targetProviderId: "coding-opencode-go",
+	});
+	expect(status.configuration.ready).toBe(false);
+	await c.migrateLegacyConfiguration({ expectedRevision: 7 });
+	expect(mutate).toHaveBeenCalledWith(
+		"llm-pi-ai",
+		expect.arrayContaining([
+			{ op: "set", path: ["providers", "coding-opencode-go", "apiKeyEnv"], value: "OPENCODE_GO_API_KEY" },
+			{ op: "set", path: ["providers", "coding-opencode-go", "api"], value: OPENCODE_GO_API },
+			{ op: "set", path: ["providers", "coding-opencode-go", "baseURL"], value: OPENCODE_GO_BASE_URL },
+		]),
+		7,
+	);
+	const migrateCall = mutate.mock.calls[0] as unknown as [string, Array<{ op: string; path: string[] }>, number];
+	const ops = migrateCall[1];
+	expect(ops.every((op) => op.path[1] === "coding-opencode-go")).toBe(true);
+	expect(ops.some((op) => op.path[1] === "opencode-go")).toBe(false);
+});
+
+it("apply writes only the isolated provider id", async () => {
+	const f = fixture();
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.applyConfiguration({
+		credentialRef: "OPENCODE_GO_API_KEY",
+		models: [{ id: "deepseek-v4.1-flash" }],
+		expectedRevision: 4,
+		confirmConflicts: false,
+	});
+	const applyCall = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[] }>, number];
+	const ops = applyCall[1];
+	expect(ops.every((op) => op.path[0] === "providers" && op.path[1] === "coding-opencode-go")).toBe(true);
 });
 
 it("enriches the live directory with known thinking metadata", async () => {

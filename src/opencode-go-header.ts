@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Context } from "@deepseek-ai/cordis";
 import { type GenerateOptions, LlmError, type StreamChunk } from "@deepseek-ai/dsh-llm";
+import { OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 
 const GO_PATHS = new Set(["/zen/go/v1/chat/completions", "/zen/go/v1/responses", "/zen/go/v1/messages"]);
 export type OpenCodeGoCallResult = "no-call" | "success" | "failure" | "missing-session";
@@ -193,7 +194,7 @@ export function installOpenCodeGoHeaderCompatibility(ctx: Context, state: OpenCo
 		releaseListener = ctx.on(
 			"llm/stream",
 			(options: GenerateOptions, next: () => AsyncIterable<StreamChunk>) => {
-				if (disposed || options.provider !== "opencode-go") return next();
+				if (disposed || options.provider !== OPENCODE_GO_PROVIDER_ID) return next();
 				const call = state.begin();
 				if (typeof options.sessionId !== "string" || options.sessionId.length === 0) {
 					state.recordStream("missing-session", call);

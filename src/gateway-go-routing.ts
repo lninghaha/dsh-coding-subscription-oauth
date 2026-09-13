@@ -1,4 +1,5 @@
 import { GatewayRequestError } from "./gateway-backend.ts";
+import { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 import { goBaseURL, isGoApi } from "./opencode-go-protocol.ts";
 
 export const GO_PROTOCOL_PATHS = {
@@ -37,7 +38,24 @@ export function parseGatewayGoRoute(value: unknown): GatewayGoRoute | null {
 	return { credentialRef: row["credentialRef"], models };
 }
 
-/** 只向用户预览宿主明确配置的协议；目录没有披露协议时不猜测。 */
+function previewFromProvider(
+	provider:
+		| { apiKeyEnv?: string; baseURL?: string; api?: string; models?: Array<{ id: string; api?: string }> }
+		| undefined,
+): GatewayGoRoute | null {
+	if (!provider || !isGoApi(provider.api) || provider.baseURL?.replace(/\/+$/u, "") !== goBaseURL(provider.api))
+		return null;
+	try {
+		return parseGatewayGoRoute({
+			credentialRef: provider.apiKeyEnv,
+			models: provider.models?.map((model) => ({ id: model.id, protocol: provider.api })),
+		});
+	} catch {
+		return null;
+	}
+}
+
+/** Prefer the isolated plugin provider; fall back to legacy takeover for migration preview. */
 export function gatewayGoPreview(
 	settings: { describe(options?: { redactSecrets?: boolean }): readonly { ns: string; value?: unknown }[] } | undefined,
 ): GatewayGoRoute | null {
@@ -49,15 +67,8 @@ export function gatewayGoPreview(
 				>;
 		  }
 		| undefined;
-	const provider = value?.providers?.["opencode-go"];
-	if (!provider || !isGoApi(provider.api) || provider.baseURL?.replace(/\/+$/u, "") !== goBaseURL(provider.api))
-		return null;
-	try {
-		return parseGatewayGoRoute({
-			credentialRef: provider.apiKeyEnv,
-			models: provider.models?.map((model) => ({ id: model.id, protocol: provider.api })),
-		});
-	} catch {
-		return null;
-	}
+	return (
+		previewFromProvider(value?.providers?.[OPENCODE_GO_PROVIDER_ID]) ??
+		previewFromProvider(value?.providers?.[OPENCODE_GO_LEGACY_PROVIDER_ID])
+	);
 }

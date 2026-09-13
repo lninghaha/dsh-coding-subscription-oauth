@@ -87,15 +87,15 @@ describe("provider-auth-catalog", () => {
 	it("plans credential reinjection only when missing", () => {
 		expect(
 			planCredentialReinject({
-				providerId: "opencode-go",
+				providerId: "coding-opencode-go",
 				provider: { models: [{ id: "a" }] },
 				credentialRef: "OPENCODE_GO_API_KEY",
 				credentialConfigured: true,
 			}),
-		).toEqual({ path: ["providers", "opencode-go", "apiKeyEnv"], credentialRef: "OPENCODE_GO_API_KEY" });
+		).toEqual({ path: ["providers", "coding-opencode-go", "apiKeyEnv"], credentialRef: "OPENCODE_GO_API_KEY" });
 		expect(
 			planCredentialReinject({
-				providerId: "opencode-go",
+				providerId: "coding-opencode-go",
 				provider: { apiKeyEnv: "OTHER", models: [{ id: "a" }] },
 				credentialRef: "OPENCODE_GO_API_KEY",
 				credentialConfigured: true,
@@ -103,7 +103,7 @@ describe("provider-auth-catalog", () => {
 		).toBeUndefined();
 		expect(
 			planCredentialReinject({
-				providerId: "opencode-go",
+				providerId: "coding-opencode-go",
 				provider: {},
 				credentialRef: "OPENCODE_GO_API_KEY",
 				credentialConfigured: true,

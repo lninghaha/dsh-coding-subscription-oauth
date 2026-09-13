@@ -17,6 +17,11 @@ import { assertGatewayPort, type GatewayConfig, resolveGatewayConfig } from "./g
 import { type GatewayGoRoute, parseGatewayGoRoute } from "./gateway-go-routing.ts";
 import { closeGateway, createGatewayHttpServer, listenGateway } from "./gateway-http.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
+import {
+	OPENCODE_GO_GATEWAY_PREFIX,
+	OPENCODE_GO_LEGACY_GATEWAY_PREFIX,
+	openCodeGoGatewayModelId,
+} from "./opencode-go-ids.ts";
 import type { GrokBuildSession } from "./session.ts";
 
 export const GATEWAY_TOS_WARNING =
@@ -126,8 +131,10 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 			// Status stays usable when no provider credential can currently list models.
 		}
 		models = [
-			...models.filter((id) => !id.startsWith("opencode-go/")),
-			...(goRoute?.models.map((model) => "opencode-go/" + model.id) ?? []),
+			...models.filter(
+				(id) => !id.startsWith(OPENCODE_GO_GATEWAY_PREFIX) && !id.startsWith(OPENCODE_GO_LEGACY_GATEWAY_PREFIX),
+			),
+			...(goRoute?.models.map((model) => openCodeGoGatewayModelId(model.id)) ?? []),
 		];
 		return {
 			enabled: enabled ?? (await desiredEnabled()),
@@ -228,7 +235,7 @@ export function createCodingOAuthGatewayController(options: StartGatewayOptions)
 				throw new GatewayRequestError(
 					409,
 					"go_migration_required",
-					"Review and apply the explicit opencode-go/<model> route",
+					"Review and apply the explicit coding-opencode-go/<model> route",
 				);
 			let wantedPort: number | undefined;
 			try {

@@ -21,7 +21,7 @@
 
 旧 `opencodeGo.enabled` 或 `opencodeGoEnabled: true` 只标记待迁移，不再全局转发聊天。查看网关中的模型、协议和上游凭据预览，确认后应用 `opencodeGoRoute`。现有本地密钥不会自动轮换。
 
-客户端使用 `opencode-go/<model-id>` 和对应的 Chat Completions、Responses 或 Messages 端点，每段对话提供稳定的 `x-opencode-session`。缺失或冲突的标识明确报错，不生成替代 ID。模型目录与推理入口使用同一映射。
+客户端使用 `coding-opencode-go/<model-id>`（过渡期仍接受 `opencode-go/<model-id>`） 和对应的 Chat Completions、Responses 或 Messages 端点，每段对话提供稳定的 `x-opencode-session`。缺失或冲突的标识明确报错，不生成替代 ID。模型目录与推理入口使用同一映射。
 
 本地密钥只用于入站认证。上游密钥从所选宿主凭据引用解析，缺失时失败，不回退为本地密钥。非 Go 模型继续走原后端。设置整批校验后落盘，端口绑定失败会恢复原配置和监听状态。
 

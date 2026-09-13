@@ -7,7 +7,7 @@ import { type PluginWebRouteRegistry } from "./web-routes.js";
 export declare const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/opencode-go";
 export declare const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 export declare const OPENCODE_GO_API = "openai-completions";
-export declare const OPENCODE_GO_PROVIDER_ID = "opencode-go";
+export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.js";
 type SettingsOp = {
     op: "set";
     path: readonly string[];
@@ -39,6 +39,7 @@ interface Options {
     fetchImpl?: typeof fetch;
 }
 declare function statusDocument(options: Options, preferredRef?: string): Promise<{
+    providerId: "coding-opencode-go";
     credential: {
         selectedRef: string;
         configured: boolean;
@@ -61,10 +62,17 @@ declare function statusDocument(options: Options, preferredRef?: string): Promis
         ready: boolean;
         conflicts: ("protocol" | "base-url" | "static-session-header")[];
     };
+    legacy: {
+        providerId: "opencode-go";
+        present: boolean;
+        migratable: boolean;
+        targetProviderId: "coding-opencode-go";
+    };
     call: OpenCodeGoStatus;
 }>;
 export declare function createOpenCodeGoConnectionController(options: Options): {
     status: (preferredRef?: string) => Promise<{
+        providerId: "coding-opencode-go";
         credential: {
             selectedRef: string;
             configured: boolean;
@@ -86,6 +94,12 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
             models: OpenCodeGoModel[];
             ready: boolean;
             conflicts: ("protocol" | "base-url" | "static-session-header")[];
+        };
+        legacy: {
+            providerId: "opencode-go";
+            present: boolean;
+            migratable: boolean;
+            targetProviderId: "coding-opencode-go";
         };
         call: OpenCodeGoStatus;
     }>;
@@ -94,6 +108,7 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
         credentialRef: string;
         apiKey?: string;
     }): Promise<{
+        providerId: "coding-opencode-go";
         credential: {
             selectedRef: string;
             configured: boolean;
@@ -116,16 +131,23 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
             ready: boolean;
             conflicts: ("protocol" | "base-url" | "static-session-header")[];
         };
+        legacy: {
+            providerId: "opencode-go";
+            present: boolean;
+            migratable: boolean;
+            targetProviderId: "coding-opencode-go";
+        };
         call: OpenCodeGoStatus;
     }>;
     /**
-     * If DSH native model settings created/updated `opencode-go` without
-     * `apiKeyEnv`, reinject the selected configured credential reference.
+     * If DSH model settings created/updated the isolated plugin provider
+     * without `apiKeyEnv`, reinject the selected configured credential reference.
      */
     reinjectCredential(input?: {
         credentialRef?: string;
         expectedRevision?: number;
     }): Promise<{
+        providerId: "coding-opencode-go";
         credential: {
             selectedRef: string;
             configured: boolean;
@@ -147,6 +169,51 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
             models: OpenCodeGoModel[];
             ready: boolean;
             conflicts: ("protocol" | "base-url" | "static-session-header")[];
+        };
+        legacy: {
+            providerId: "opencode-go";
+            present: boolean;
+            migratable: boolean;
+            targetProviderId: "coding-opencode-go";
+        };
+        call: OpenCodeGoStatus;
+    }>;
+    /**
+     * Copy a prior plugin-shaped `opencode-go` takeover into the isolated
+     * `coding-opencode-go` provider. Leaves the builtin slot untouched.
+     */
+    migrateLegacyConfiguration(input?: {
+        expectedRevision?: number;
+        confirmConflicts?: boolean;
+    }): Promise<{
+        providerId: "coding-opencode-go";
+        credential: {
+            selectedRef: string;
+            configured: boolean;
+            writable: boolean;
+            source: string | null;
+            requiresChoice: boolean;
+            candidates: {
+                ref: string;
+                configured: boolean;
+                writable: boolean;
+                source: string | null;
+            }[];
+        };
+        configuration: {
+            revision: number | null;
+            writable: boolean;
+            api: string | null;
+            baseURL: string | null;
+            models: OpenCodeGoModel[];
+            ready: boolean;
+            conflicts: ("protocol" | "base-url" | "static-session-header")[];
+        };
+        legacy: {
+            providerId: "opencode-go";
+            present: boolean;
+            migratable: boolean;
+            targetProviderId: "coding-opencode-go";
         };
         call: OpenCodeGoStatus;
     }>;
@@ -158,6 +225,7 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
         expectedRevision: number;
         confirmConflicts: boolean;
     }): Promise<{
+        providerId: "coding-opencode-go";
         credential: {
             selectedRef: string;
             configured: boolean;
@@ -180,12 +248,19 @@ export declare function createOpenCodeGoConnectionController(options: Options): 
             ready: boolean;
             conflicts: ("protocol" | "base-url" | "static-session-header")[];
         };
+        legacy: {
+            providerId: "opencode-go";
+            present: boolean;
+            migratable: boolean;
+            targetProviderId: "coding-opencode-go";
+        };
         call: OpenCodeGoStatus;
     }>;
 };
 /**
- * Watch DSH model settings and reinject the Go credential when the native
- * Models page adds/updates `opencode-go` without `apiKeyEnv`.
+ * Watch DSH model settings and reinject the Go credential when the isolated
+ * plugin provider is updated without `apiKeyEnv`. Does not touch builtin
+ * `opencode-go`.
  */
 export declare function installOpenCodeGoCredentialReinject(ctx: {
     on(event: string, listener: (...args: never[]) => unknown): () => unknown;
@@ -194,5 +269,4 @@ export declare function registerOpenCodeGoConnectionRoute(ctx: {
     webServer: PluginWebRouteRegistry;
     effect(callback: () => () => void, label?: string): unknown;
 }, controller: ReturnType<typeof createOpenCodeGoConnectionController>, policy: OwnerRequestPolicy): () => void;
-export {};
 //# sourceMappingURL=opencode-go-connection.d.ts.map

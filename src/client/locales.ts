@@ -5,7 +5,7 @@ export const en = {
 		"This protocol applies to all models in the Go service. Use the protocol published for your model; remove incompatible models in DSH model settings before switching.",
 	"gatewayGo.title": "OpenCode Go for external tools",
 	"gatewayGo.hint":
-		"Use the exact model name and protocol below. Each conversation must send a stable x-opencode-session header. Your existing local key only authenticates the client; the upstream key is resolved from the selected credential reference.",
+		"Use the exact model name and protocol below (coding-opencode-go/<model-id>; legacy opencode-go/<model-id> is still accepted). Each conversation must send a stable x-opencode-session header. Your existing local key only authenticates the client; the upstream key is resolved from the selected credential reference.",
 	"gatewayGo.migration":
 		"The old global forwarding mode needs migration. Review these client changes before applying. The local key will stay unchanged.",
 	"gatewayGo.empty": "No Go route selected. Connect Go in Accounts & Models, then review its configured models here.",
@@ -93,7 +93,12 @@ export const en = {
 		"The unauthenticated dsh-agy web export dashboard is disabled. Manage Google OAuth with the profile-local CLI when needed.",
 	antigravityCliCommand: "dsh plugin --profile web exec dsh-agy login --headless",
 	opencodeGoTitle: "OpenCode Go",
-	opencodeGoDescription: "Connect OpenCode Go and select its model in DSH. No external gateway is required.",
+	opencodeGoDescription:
+		"Connect OpenCode Go under the isolated provider coding-opencode-go, then select its model in DSH. No external gateway is required.",
+	opencodeGoProviderIdHint: "Plugin provider id: {providerId} (separate from DSH-native opencode-go)",
+	opencodeGoLegacyMigration:
+		"A previous plugin configuration was found under {legacyId}. Migrate it to {providerId} so chat no longer shares the DSH-native provider slot.",
+	opencodeGoMigrate: "Migrate to isolated provider",
 	opencodeGoActive: "Active",
 	opencodeGoInactive: "Waiting for the LLM runtime",
 	opencodeGoReady: "Ready",
@@ -452,7 +457,12 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 		"为避免暴露无认证的凭据导出页面，默认禁用 dsh-agy Web 管理页；需要时使用 profile 内 CLI 管理 Google OAuth。",
 	antigravityCliCommand: "dsh plugin --profile web exec dsh-agy login --headless",
 	opencodeGoTitle: "OpenCode Go",
-	opencodeGoDescription: "连接 OpenCode Go，在 DSH 选择模型并对话，无需开启外部网关。",
+	opencodeGoDescription:
+		"在独立供应商 coding-opencode-go 下连接 OpenCode Go，再在 DSH 选择模型对话；无需开启外部网关，也不占用原生 opencode-go。",
+	opencodeGoProviderIdHint: "插件供应商 id：{providerId}（与 DSH 原生 opencode-go 隔离）",
+	opencodeGoLegacyMigration:
+		"检测到旧版插件配置仍写在 {legacyId}。迁移到 {providerId} 后，对话不再与 DSH 原生供应商共用同一槽位。",
+	opencodeGoMigrate: "迁移到独立供应商",
 	opencodeGoActive: "已启用",
 	opencodeGoInactive: "等待 LLM 运行时",
 	opencodeGoReady: "可以使用",

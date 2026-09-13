@@ -2,9 +2,15 @@ import { type GoGatewayRoute, GoGatewayRouteView } from "./GoGatewayRouteView.ts
 /** Local API gateway settings tab. */
 
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { OPENCODE_GO_GATEWAY_PREFIX, OPENCODE_GO_LEGACY_GATEWAY_PREFIX } from "../../opencode-go-ids.ts";
 import { GATEWAY_PORT_MAX, GATEWAY_PORT_MIN } from "../constants.ts";
 import { buildGatewaySnippets, type GatewaySnippetId } from "../gatewaySnippets.ts";
 import { formatGatewayBaseUrl, parseGatewayPort, randomGatewayPort } from "../parsers.ts";
+
+function isNonGoGatewayModel(id: string): boolean {
+	return !id.startsWith(OPENCODE_GO_GATEWAY_PREFIX) && !id.startsWith(OPENCODE_GO_LEGACY_GATEWAY_PREFIX);
+}
+
 import {
 	bodyStyle,
 	buttonStyle,
@@ -125,7 +131,7 @@ export function GatewayTab({
 			gateway === undefined ||
 			!gatewayKeyVisible ||
 			gatewayOnceKey === undefined ||
-			!gateway.models.some((id) => !id.startsWith("opencode-go/"))
+			!gateway.models.some((id) => isNonGoGatewayModel(id))
 		) {
 			return undefined;
 		}
@@ -136,7 +142,7 @@ export function GatewayTab({
 			openAi,
 			anthropic,
 			gatewayOnceKey,
-			gateway.models.find((id) => !id.startsWith("opencode-go/")),
+			gateway.models.find((id) => isNonGoGatewayModel(id)),
 		);
 	}, [gateway, gatewayKeyVisible, gatewayOnceKey]);
 
