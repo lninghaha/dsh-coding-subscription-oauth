@@ -2,62 +2,51 @@
  * OpenCode Go known-model metadata used when the live `/models` listing only
  * returns ids. Reasoning efforts follow DSH `PiAiModelProfile.reasoningEfforts`
  * (wire spellings), not the pi-ai runtime `thinkingLevelMap` field name.
+ *
+ * DSH rule: only `off` may be null ("supported, send nothing"). Every other
+ * declared level must carry a non-empty wire string. Unsupported levels must be
+ * omitted — DSH pins omitted keys to unsupported when materializing
+ * `thinkingLevelMap`. Declaring `minimal: null` etc. makes llm-pi-ai refuse the
+ * whole route (glm-5.3 add fails; thinking never materializes).
  */
 import type { GoApi } from "./opencode-go-protocol.ts";
 import type { ProviderKnownModel, ProviderReasoningEfforts } from "./provider-auth-catalog.ts";
 
+/** DeepSeek Go dialect: high/max on the wire; Off sends nothing. */
 const deepseekThinking: ProviderReasoningEfforts = {
-	minimal: null,
-	low: null,
-	medium: null,
+	off: null,
 	high: "high",
 	max: "max",
 };
+/** GLM Go dialect: high/max; Off sends nothing. */
 const glmThinking: ProviderReasoningEfforts = {
 	off: null,
-	minimal: null,
-	low: null,
-	medium: null,
 	high: "high",
-	xhigh: null,
 	max: "max",
 };
+/** Hy Go dialect: off travels as `none`. */
 const hyThinking: ProviderReasoningEfforts = {
 	off: "none",
-	minimal: null,
 	low: "low",
-	medium: null,
 	high: "high",
-	xhigh: null,
-	max: null,
 };
+/** Kimi K3: max effort only; Off sends nothing. */
 const kimiK3Thinking: ProviderReasoningEfforts = {
 	off: null,
-	minimal: null,
-	low: null,
-	medium: null,
-	high: null,
-	xhigh: null,
 	max: "max",
 };
-const kimiK26Thinking: ProviderReasoningEfforts = { minimal: null, low: null, medium: null };
 const grokThinking: ProviderReasoningEfforts = {
 	off: null,
-	minimal: null,
 	low: "low",
 	medium: "medium",
 	high: "high",
-	xhigh: null,
-	max: null,
 };
 const grok46Thinking: ProviderReasoningEfforts = {
 	off: null,
-	minimal: null,
 	low: "low",
 	medium: "medium",
 	high: "high",
 	xhigh: "xhigh",
-	max: null,
 };
 const openaiResponsesThinking: ProviderReasoningEfforts = {
 	off: null,
@@ -66,7 +55,6 @@ const openaiResponsesThinking: ProviderReasoningEfforts = {
 	medium: "medium",
 	high: "high",
 	xhigh: "xhigh",
-	max: null,
 };
 
 const deepseekCompat = {
@@ -232,7 +220,8 @@ export const OPENCODE_GO_KNOWN_MODELS: ReadonlyMap<string, ProviderKnownModel> =
 					supportsReasoningEffort: false,
 					supportsLongCacheRetention: false,
 				},
-				reasoningEfforts: kimiK26Thinking,
+				// Endpoint rejects reasoning_effort; omit efforts (do not declare null levels).
+				reasoningEfforts: false,
 			}),
 			entry("kimi-k2.5", "openai-completions", {
 				name: "Kimi K2.5",

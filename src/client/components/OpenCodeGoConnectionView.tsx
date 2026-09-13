@@ -373,9 +373,14 @@ export function OpenCodeGoConnectionView({
 								visibleChoices.map((model) => {
 									const label = model.name ?? model.id;
 									const efforts = model.reasoningEfforts;
+									// Show selectable levels: off may be null; other levels need a wire string.
 									const thinking =
 										efforts && typeof efforts === "object"
-											? Object.keys(efforts).filter((level) => efforts[level] !== null)
+											? Object.entries(efforts)
+													.filter(
+														([level, wire]) => level === "off" || (typeof wire === "string" && wire.trim() !== ""),
+													)
+													.map(([level]) => level)
 											: [];
 									return (
 										<label key={model.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", minWidth: 0 }}>

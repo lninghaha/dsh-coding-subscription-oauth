@@ -24,15 +24,25 @@ export interface CredentialReinjectPlan {
     readonly credentialRef: string;
 }
 /**
+ * Shape `reasoningEfforts` for DSH `llm-pi-ai`:
+ * - `false` stays (non-reasoning model)
+ * - only `off` may be null ("supported, send nothing")
+ * - every other level needs a non-empty wire string; drop illegal null/empty
+ * - refuse an empty dict / efforts that only declare invalid keys
+ */
+export declare function normalizeReasoningEfforts(efforts: unknown): false | ProviderReasoningEfforts | undefined;
+/**
  * Merge a live directory row with optional known metadata. Known fields fill
  * gaps only; caller-supplied directory values win so a fresher listing can
- * override a stale embedded catalog.
+ * override a stale embedded catalog. Efforts are normalized so illegal null
+ * levels never reach DSH settings.
  */
 export declare function enrichDirectoryModel(directory: ProviderDirectoryModel, known?: ProviderKnownModel): ProviderDirectoryModel;
 /**
  * Build the settings `models` array for apply: keep existing entries (and their
- * user overrides) when re-enabled, drop disabled ids, append newly enabled
- * enriched rows.
+ * user overrides) when re-enabled, but backfill missing `reasoningEfforts` /
+ * `compat` from the enriched catalog so a prior thin `{ id }` still gets a
+ * runnable thinking map. Drop disabled ids; append newly enabled enriched rows.
  */
 export declare function mergeEnabledModels(input: {
     readonly existing: unknown;

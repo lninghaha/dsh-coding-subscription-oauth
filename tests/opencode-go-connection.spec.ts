@@ -44,7 +44,7 @@ describe("OpenCode Go connection controller", () => {
 			name: "Custom label",
 			contextWindow: 90000,
 			input: ["text"],
-			reasoningEfforts: ["high"],
+			reasoningEfforts: { off: null, high: "high", max: "max" },
 			compat: { supportsStore: false },
 		};
 		const other = { id: "other-model", input: ["text", "image"], compat: { supportsDeveloperRole: false } };
@@ -61,11 +61,18 @@ describe("OpenCode Go connection controller", () => {
 			expectedRevision: 4,
 			confirmConflicts: false,
 		});
-		expect(f.mutate).toHaveBeenCalledWith(
-			"llm-pi-ai",
-			expect.arrayContaining([{ op: "set", path: ["providers", "opencode-go", "models"], value: [existing, other] }]),
-			4,
-		);
+		const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
+		const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+		expect(modelsOp?.value).toEqual([
+			expect.objectContaining({
+				id: "deepseek-v4.1-flash",
+				name: "Custom label",
+				contextWindow: 90000,
+				reasoningEfforts: { off: null, high: "high", max: "max" },
+				compat: { supportsStore: false },
+			}),
+			other,
+		]);
 	});
 	it("saves a credential without returning its value and reads only the official model directory", async () => {
 		const f = fixture();
@@ -213,11 +220,114 @@ it("applies a multi-model selection with reasoning efforts and replaces the enab
 	expect(modelsOp?.value).toEqual([
 		expect.objectContaining({
 			id: "deepseek-v4-flash",
-			reasoningEfforts: expect.objectContaining({ high: "high", max: "max" }),
+			reasoningEfforts: { off: null, high: "high", max: "max" },
 		}),
 		expect.objectContaining({ id: "deepseek-v4.1-flash" }),
 	]);
 	expect(JSON.stringify(modelsOp?.value)).not.toContain("keep-me-out");
+	// DSH refuses non-off null wire values — applied efforts must not declare them.
+	const applied = Array.isArray(modelsOp?.value) ? modelsOp.value : [];
+	for (const entry of applied) {
+		const row = entry as { reasoningEfforts?: Record<string, unknown> };
+		const efforts = row.reasoningEfforts;
+		if (efforts === undefined || efforts === null) continue;
+		for (const [level, wire] of Object.entries(efforts)) {
+			if (level === "off") continue;
+			expect(typeof wire).toBe("string");
+			expect(String(wire).length).toBeGreaterThan(0);
+		}
+	}
+});
+
+it("applies glm-5.3 with DSH-valid reasoningEfforts (no illegal null levels)", async () => {
+	const f = fixture({
+		apiKeyEnv: "OPENCODE_GO_API_KEY",
+		api: "openai-completions",
+		baseURL: OPENCODE_GO_BASE_URL,
+		models: [],
+	});
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.applyConfiguration({
+		credentialRef: "OPENCODE_GO_API_KEY",
+		models: [{ id: "glm-5.3" }],
+		api: "openai-completions",
+		expectedRevision: 4,
+		confirmConflicts: false,
+	});
+	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	expect(modelsOp?.value).toEqual([
+		expect.objectContaining({
+			id: "glm-5.3",
+			name: "GLM-5.3",
+			reasoningEfforts: { off: null, high: "high", max: "max" },
+		}),
+	]);
+	const appliedGlm = Array.isArray(modelsOp?.value) ? modelsOp.value : [];
+	const efforts = (appliedGlm[0] as { reasoningEfforts?: Record<string, unknown> } | undefined)?.reasoningEfforts;
+	expect(Object.keys(efforts ?? {})).toEqual(["off", "high", "max"]);
+	expect(JSON.stringify(efforts)).not.toMatch(/"(minimal|low|medium|xhigh)":null/);
+});
+
+it("re-apply backfills thinking onto a prior thin glm-5.3 { id } entry", async () => {
+	const f = fixture({
+		apiKeyEnv: "OPENCODE_GO_API_KEY",
+		api: "openai-completions",
+		baseURL: OPENCODE_GO_BASE_URL,
+		models: [{ id: "glm-5.3" }],
+	});
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await c.applyConfiguration({
+		credentialRef: "OPENCODE_GO_API_KEY",
+		models: [{ id: "glm-5.3" }],
+		api: "openai-completions",
+		expectedRevision: 4,
+		confirmConflicts: false,
+	});
+	const call = f.mutate.mock.calls[0] as unknown as [string, Array<{ path: string[]; value: unknown }>, number];
+	const modelsOp = call[1].find((op) => op.path.join(".") === "providers.opencode-go.models");
+	expect(modelsOp?.value).toEqual([
+		expect.objectContaining({
+			id: "glm-5.3",
+			reasoningEfforts: { off: null, high: "high", max: "max" },
+		}),
+	]);
+});
+
+it("rejects glm-5.3 under a mismatched protocol (negative)", async () => {
+	const f = fixture({
+		apiKeyEnv: "OPENCODE_GO_API_KEY",
+		api: "openai-responses",
+		baseURL: "https://opencode.ai/zen/go/v1",
+	});
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await expect(
+		c.applyConfiguration({
+			credentialRef: "OPENCODE_GO_API_KEY",
+			models: [{ id: "glm-5.3" }],
+			api: "openai-responses",
+			expectedRevision: 4,
+			confirmConflicts: true,
+		}),
+	).rejects.toMatchObject({ code: "model-protocol-mismatch" });
+	expect(f.mutate).not.toHaveBeenCalled();
+});
+
+it("rejects apply without a model when not replacing the selection (negative)", async () => {
+	const f = fixture({ apiKeyEnv: "OPENCODE_GO_API_KEY", api: "openai-completions", baseURL: OPENCODE_GO_BASE_URL });
+	f.values.set("OPENCODE_GO_API_KEY", "fixture");
+	const c = createOpenCodeGoConnectionController({ credentials: f.credentials, settings: f.settings, callStatus });
+	await expect(
+		c.applyConfiguration({
+			credentialRef: "OPENCODE_GO_API_KEY",
+			expectedRevision: 4,
+			confirmConflicts: false,
+		}),
+	).rejects.toMatchObject({ code: "invalid-configuration" });
+	expect(f.mutate).not.toHaveBeenCalled();
 });
 
 it("reinjects apiKeyEnv when native model settings claim opencode-go without a credential", async () => {

@@ -30,6 +30,8 @@ export interface CredentialReinjectPlan {
 	readonly credentialRef: string;
 }
 
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
 const record = (value: unknown): Record<string, unknown> | undefined =>
 	typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
@@ -37,15 +39,59 @@ const text = (value: unknown): string | undefined =>
 	typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 
 /**
+ * Shape `reasoningEfforts` for DSH `llm-pi-ai`:
+ * - `false` stays (non-reasoning model)
+ * - only `off` may be null ("supported, send nothing")
+ * - every other level needs a non-empty wire string; drop illegal null/empty
+ * - refuse an empty dict / efforts that only declare invalid keys
+ */
+export function normalizeReasoningEfforts(efforts: unknown): false | ProviderReasoningEfforts | undefined {
+	if (efforts === false) return false;
+	if (efforts === undefined || efforts === null) return undefined;
+	const raw = record(efforts);
+	if (raw === undefined) return undefined;
+	const out: ProviderReasoningEfforts = {};
+	for (const level of THINKING_LEVELS) {
+		if (!(level in raw)) continue;
+		const wire = raw[level];
+		if (wire === null) {
+			if (level === "off") out.off = null;
+			continue;
+		}
+		if (typeof wire !== "string") continue;
+		const trimmed = wire.trim();
+		if (trimmed.length === 0) {
+			if (level === "off") out.off = null;
+			continue;
+		}
+		out[level] = trimmed;
+	}
+	const keys = Object.keys(out);
+	if (keys.length === 0) return undefined;
+	if (!keys.some((level) => level !== "off")) return undefined;
+	return out;
+}
+
+/**
  * Merge a live directory row with optional known metadata. Known fields fill
  * gaps only; caller-supplied directory values win so a fresher listing can
- * override a stale embedded catalog.
+ * override a stale embedded catalog. Efforts are normalized so illegal null
+ * levels never reach DSH settings.
  */
 export function enrichDirectoryModel(
 	directory: ProviderDirectoryModel,
 	known?: ProviderKnownModel,
 ): ProviderDirectoryModel {
-	if (known === undefined) return { ...directory };
+	const mergedEfforts = normalizeReasoningEfforts(
+		directory.reasoningEfforts !== undefined ? directory.reasoningEfforts : known?.reasoningEfforts,
+	);
+	if (known === undefined) {
+		const { reasoningEfforts: _drop, ...rest } = directory;
+		return {
+			...rest,
+			...(mergedEfforts === undefined ? {} : { reasoningEfforts: mergedEfforts }),
+		};
+	}
 	return {
 		id: directory.id,
 		...(known.name === undefined && directory.name === undefined ? {} : { name: directory.name ?? known.name }),
@@ -56,9 +102,7 @@ export function enrichDirectoryModel(
 			? {}
 			: { maxTokens: directory.maxTokens ?? known.maxTokens }),
 		...(known.input === undefined && directory.input === undefined ? {} : { input: directory.input ?? known.input }),
-		...(known.reasoningEfforts === undefined && directory.reasoningEfforts === undefined
-			? {}
-			: { reasoningEfforts: directory.reasoningEfforts ?? known.reasoningEfforts }),
+		...(mergedEfforts === undefined ? {} : { reasoningEfforts: mergedEfforts }),
 		...(known.compat === undefined && directory.compat === undefined
 			? {}
 			: { compat: directory.compat ?? known.compat }),
@@ -68,10 +112,53 @@ export function enrichDirectoryModel(
 	};
 }
 
+function priorNeedsCapabilityBackfill(prior: unknown, catalog: ProviderDirectoryModel | undefined): boolean {
+	if (catalog === undefined) return false;
+	const entry = record(prior);
+	if (entry === undefined) return true;
+	if (catalog.reasoningEfforts !== undefined && entry["reasoningEfforts"] === undefined) return true;
+	if (catalog.compat !== undefined && entry["compat"] === undefined) return true;
+	if (catalog.name !== undefined && entry["name"] === undefined) return true;
+	if (catalog.contextWindow !== undefined && entry["contextWindow"] === undefined) return true;
+	if (catalog.maxTokens !== undefined && entry["maxTokens"] === undefined) return true;
+	if (catalog.input !== undefined && entry["input"] === undefined) return true;
+	// Illegal array / non-object efforts from older writes must be replaced.
+	if (catalog.reasoningEfforts !== undefined && entry["reasoningEfforts"] !== false) {
+		const efforts = entry["reasoningEfforts"];
+		if (Array.isArray(efforts) || (efforts !== undefined && record(efforts) === undefined)) return true;
+		if (record(efforts) !== undefined && normalizeReasoningEfforts(efforts) === undefined) return true;
+	}
+	return false;
+}
+
+function mergePriorWithCatalog(prior: unknown, catalog: ProviderDirectoryModel): Record<string, unknown> {
+	const entry = record(structuredClone(prior)) ?? { id: catalog.id };
+	const fromCatalog = settingsModelEntry(catalog);
+	const next: Record<string, unknown> = { ...fromCatalog, ...entry, id: catalog.id };
+	if (entry["reasoningEfforts"] === undefined || priorNeedsCapabilityBackfill(entry, catalog)) {
+		if (fromCatalog["reasoningEfforts"] !== undefined) next["reasoningEfforts"] = fromCatalog["reasoningEfforts"];
+		else delete next["reasoningEfforts"];
+	} else if (entry["reasoningEfforts"] !== false) {
+		const normalized = normalizeReasoningEfforts(entry["reasoningEfforts"]);
+		if (normalized !== undefined) next["reasoningEfforts"] = normalized;
+		else if (fromCatalog["reasoningEfforts"] !== undefined) next["reasoningEfforts"] = fromCatalog["reasoningEfforts"];
+		else delete next["reasoningEfforts"];
+	}
+	if (entry["compat"] === undefined && fromCatalog["compat"] !== undefined) next["compat"] = fromCatalog["compat"];
+	if (entry["name"] === undefined && fromCatalog["name"] !== undefined) next["name"] = fromCatalog["name"];
+	if (entry["contextWindow"] === undefined && fromCatalog["contextWindow"] !== undefined)
+		next["contextWindow"] = fromCatalog["contextWindow"];
+	if (entry["maxTokens"] === undefined && fromCatalog["maxTokens"] !== undefined)
+		next["maxTokens"] = fromCatalog["maxTokens"];
+	if (entry["input"] === undefined && fromCatalog["input"] !== undefined) next["input"] = fromCatalog["input"];
+	return next;
+}
+
 /**
  * Build the settings `models` array for apply: keep existing entries (and their
- * user overrides) when re-enabled, drop disabled ids, append newly enabled
- * enriched rows.
+ * user overrides) when re-enabled, but backfill missing `reasoningEfforts` /
+ * `compat` from the enriched catalog so a prior thin `{ id }` still gets a
+ * runnable thinking map. Drop disabled ids; append newly enabled enriched rows.
  */
 export function mergeEnabledModels(input: {
 	readonly existing: unknown;
@@ -91,11 +178,11 @@ export function mergeEnabledModels(input: {
 		if (seen.has(id) || id.trim() === "") continue;
 		seen.add(id);
 		const prior = existingById.get(id);
+		const fromCatalog = catalogById.get(id);
 		if (prior !== undefined) {
-			merged.push(prior);
+			merged.push(fromCatalog === undefined ? prior : mergePriorWithCatalog(prior, fromCatalog));
 			continue;
 		}
-		const fromCatalog = catalogById.get(id);
 		merged.push(fromCatalog === undefined ? { id } : settingsModelEntry(fromCatalog));
 	}
 	return merged;
@@ -103,13 +190,14 @@ export function mergeEnabledModels(input: {
 
 /** Shape one directory/known model as a DSH `PiAiModelProfile` write. */
 export function settingsModelEntry(model: ProviderDirectoryModel): Record<string, unknown> {
+	const efforts = normalizeReasoningEfforts(model.reasoningEfforts);
 	return {
 		id: model.id,
 		...(model.name === undefined ? {} : { name: model.name }),
 		...(model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow }),
 		...(model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens }),
 		...(model.input === undefined ? {} : { input: [...model.input] }),
-		...(model.reasoningEfforts === undefined ? {} : { reasoningEfforts: model.reasoningEfforts }),
+		...(efforts === undefined ? {} : { reasoningEfforts: efforts }),
 		...(model.compat === undefined ? {} : { compat: model.compat }),
 	};
 }
