@@ -88,17 +88,16 @@ function assertPublishTarget() {
 	console.log(`Publish target: ${packageName}@${packageVersion} (tag ${publishTag})`);
 	console.log(`Repository root: ${root}`);
 
-	const view = spawnSync(
-		"npm",
-		["view", `${packageName}@${packageVersion}`, "version", "--registry", registry],
-		{ cwd: root, env: process.env, encoding: "utf8", shell: false },
-	);
+	const view = spawnSync("npm", ["view", `${packageName}@${packageVersion}`, "version", "--registry", registry], {
+		cwd: root,
+		env: process.env,
+		encoding: "utf8",
+		shell: false,
+	});
 	if (view.error) throw view.error;
 	const remoteVersion = String(view.stdout ?? "").trim();
 	if (view.status === 0 && remoteVersion === packageVersion) {
-		console.error(
-			`refusing to publish ${packageName}@${packageVersion}: this version already exists on ${registry}`,
-		);
+		console.error(`refusing to publish ${packageName}@${packageVersion}: this version already exists on ${registry}`);
 		console.error(
 			"If you meant a newer release, check out main / the release tag so package.json matches that version, then retry.",
 		);

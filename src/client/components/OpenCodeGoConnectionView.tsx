@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GO_APIS, type GoApi, isGoApi, knownGoApi } from "../../opencode-go-protocol.ts";
 
 export interface GoModel {
@@ -6,6 +6,8 @@ export interface GoModel {
 	readonly name?: string | undefined;
 	readonly contextWindow?: number | undefined;
 	readonly maxTokens?: number | undefined;
+	readonly protocol?: string | undefined;
+	readonly reasoningEfforts?: false | Record<string, string | null> | undefined;
 }
 export interface GoSnapshot {
 	readonly credential: {
@@ -45,6 +47,10 @@ export type GoViewKey =
 	| "saveKey"
 	| "fetchModels"
 	| "model"
+	| "modelsHint"
+	| "modelsEmpty"
+	| "selectMatching"
+	| "clearModels"
 	| "chooseCredential"
 	| "apply"
 	| "startConversation"
@@ -76,7 +82,7 @@ export interface GoViewProps {
 	readonly onApply: (input: {
 		api?: GoApi;
 		credentialRef: string;
-		model: GoModel;
+		models: readonly GoModel[];
 		expectedRevision: number;
 		confirmConflicts: boolean;
 	}) => Promise<GoSnapshot>;
@@ -92,6 +98,17 @@ const control = {
 	border: "1px solid var(--dsw-alias-border-subtle, #777)",
 	color: "inherit",
 	background: "var(--dsw-alias-bg-layer-1, transparent)",
+} as const;
+const modelListStyle = {
+	display: "flex",
+	flexDirection: "column",
+	gap: 4,
+	maxHeight: 220,
+	overflow: "auto",
+	padding: 8,
+	border: "1px solid var(--dsw-alias-border-subtle, #777)",
+	borderRadius: 6,
+	minWidth: 0,
 } as const;
 
 /** 两个独立插件使用同一操作契约；已保存快照与当前表单草稿分开。 */
@@ -110,7 +127,7 @@ export function OpenCodeGoConnectionView({
 	const [dirty, setDirty] = useState(false);
 	const [credentialRef, setCredentialRef] = useState("");
 	const [apiKey, setApiKey] = useState("");
-	const [modelId, setModelId] = useState("");
+	const [enabledIds, setEnabledIds] = useState<string[]>([]);
 	const [api, setApi] = useState<GoApi>("openai-completions");
 	const [revision, setRevision] = useState<number | null>(null);
 	const [catalog, setCatalog] = useState<readonly GoModel[]>([]);
@@ -122,10 +139,13 @@ export function OpenCodeGoConnectionView({
 	const [notice, setNotice] = useState<GoViewKey>();
 	const [pending, setPending] = useState(false);
 	const running = useRef(false);
-	const modelList = useId();
 	const showingForm = editing ?? (status !== undefined && !status.configuration.ready);
 	const candidate = status?.credential.candidates.find((item) => item.ref === credentialRef);
 	const choices = catalog.length ? catalog : (status?.configuration.models ?? []);
+	const visibleChoices = choices.filter((model) => {
+		const suggested = knownGoApi(model.id) ?? (isGoApi(model.protocol) ? model.protocol : undefined);
+		return suggested === undefined || suggested === api;
+	});
 	const conflicts = [...(status?.configuration.conflicts ?? [])];
 	if (status?.configuration.api && api !== status.configuration.api && !conflicts.includes("protocol"))
 		conflicts.push("protocol");
@@ -141,7 +161,7 @@ export function OpenCodeGoConnectionView({
 		if (!status || dirty || pending) return;
 		setCredentialRef(status.credential.requiresChoice ? "" : status.credential.selectedRef);
 		setRevision(status.configuration.revision);
-		setModelId(status.configuration.models[0]?.id ?? "");
+		setEnabledIds(status.configuration.models.map((model) => model.id));
 		setApi(isGoApi(status.configuration.api) ? status.configuration.api : "openai-completions");
 	}, [status, dirty, pending]);
 	const change = (): void => {
@@ -159,6 +179,14 @@ export function OpenCodeGoConnectionView({
 				running.current = false;
 				setPending(false);
 			});
+	};
+	const toggleModel = (id: string, checked: boolean): void => {
+		change();
+		setEnabledIds((current) => {
+			if (checked) return current.includes(id) ? current : [...current, id];
+			return current.filter((entry) => entry !== id);
+		});
+		setConfirmed(false);
 	};
 	return (
 		<article
@@ -263,12 +291,14 @@ export function OpenCodeGoConnectionView({
 									const result = await onLoadModels(credentialRef);
 									setCatalog(result.models);
 									setDirty(true);
-									if (!modelId)
-										setModelId(
-											result.models.find((model) => model.id === "deepseek-v4.1-flash")?.id ??
-												result.models[0]?.id ??
-												"",
-										);
+									const matching = result.models.filter((model) => {
+										const suggested = knownGoApi(model.id);
+										return suggested === undefined || suggested === api;
+									});
+									if (enabledIds.length === 0) {
+										const preferred = matching.find((model) => model.id === "deepseek-v4.1-flash") ?? matching[0];
+										setEnabledIds(preferred ? [preferred.id] : []);
+									}
 									setNotice("directoryLoaded");
 								})
 							}
@@ -276,22 +306,6 @@ export function OpenCodeGoConnectionView({
 							{t("fetchModels")}
 						</button>
 					</div>
-					<label style={field}>
-						{t("model")}
-						<input
-							style={control}
-							list={modelList}
-							value={modelId}
-							disabled={pending || status?.configuration.writable !== true}
-							onChange={(event) => {
-								change();
-								setModelId(event.target.value);
-								const suggested = knownGoApi(event.target.value.trim());
-								if (suggested) setApi(suggested);
-								setConfirmed(false);
-							}}
-						/>
-					</label>
 					<label style={field}>
 						{t("protocol")}
 						<select
@@ -301,7 +315,14 @@ export function OpenCodeGoConnectionView({
 							disabled={pending || !status?.configuration.writable}
 							onChange={(event) => {
 								change();
-								setApi(event.target.value as GoApi);
+								const next = event.target.value as GoApi;
+								setApi(next);
+								setEnabledIds((current) =>
+									current.filter((id) => {
+										const suggested = knownGoApi(id);
+										return suggested === undefined || suggested === next;
+									}),
+								);
 								setConfirmed(false);
 							}}
 						>
@@ -313,13 +334,72 @@ export function OpenCodeGoConnectionView({
 						</select>
 					</label>
 					<p>{t("protocolHint")}</p>
-					<datalist id={modelList}>
-						{choices.map((model) => (
-							<option key={model.id} value={model.id}>
-								{model.name ?? model.id}
-							</option>
-						))}
-					</datalist>
+					<div style={field}>
+						<span>{t("model")}</span>
+						<p style={{ margin: 0 }}>{t("modelsHint")}</p>
+						<div style={actions}>
+							<button
+								type="button"
+								style={control}
+								disabled={pending || status?.configuration.writable !== true || visibleChoices.length === 0}
+								onClick={() => {
+									change();
+									setEnabledIds(visibleChoices.map((model) => model.id));
+									setConfirmed(false);
+								}}
+							>
+								{t("selectMatching")}
+							</button>
+							<button
+								type="button"
+								style={control}
+								disabled={pending || status?.configuration.writable !== true || enabledIds.length === 0}
+								onClick={() => {
+									change();
+									setEnabledIds([]);
+									setConfirmed(false);
+								}}
+							>
+								{t("clearModels")}
+							</button>
+						</div>
+						<fieldset
+							aria-label={t("model")}
+							style={{ ...modelListStyle, border: "none", margin: 0, padding: 0, minWidth: 0 }}
+						>
+							{visibleChoices.length === 0 ? (
+								<p style={{ margin: 0 }}>{t("modelsEmpty")}</p>
+							) : (
+								visibleChoices.map((model) => {
+									const label = model.name ?? model.id;
+									const efforts = model.reasoningEfforts;
+									// Show selectable levels: off may be null; other levels need a wire string.
+									const thinking =
+										efforts && typeof efforts === "object"
+											? Object.entries(efforts)
+													.filter(
+														([level, wire]) => level === "off" || (typeof wire === "string" && wire.trim() !== ""),
+													)
+													.map(([level]) => level)
+											: [];
+									return (
+										<label key={model.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", minWidth: 0 }}>
+											<input
+												type="checkbox"
+												checked={enabledIds.includes(model.id)}
+												disabled={pending || status?.configuration.writable !== true}
+												onChange={(event) => toggleModel(model.id, event.target.checked)}
+											/>
+											<span style={{ overflowWrap: "anywhere" }}>
+												{label}
+												{thinking.length > 0 ? ` · thinking: ${thinking.join("/")}` : ""}
+											</span>
+										</label>
+									);
+								})
+							)}
+						</fieldset>
+					</div>
 					{status && revision !== status.configuration.revision ? (
 						<p role="status">{t("configurationChanged")}</p>
 					) : null}
@@ -346,7 +426,6 @@ export function OpenCodeGoConnectionView({
 								!candidate?.configured ||
 								!status?.configuration.writable ||
 								revision === null ||
-								!modelId.trim() ||
 								(!!conflicts.length && !confirmed)
 							}
 							onClick={() =>
@@ -355,14 +434,14 @@ export function OpenCodeGoConnectionView({
 										!candidate?.configured ||
 										!status?.configuration.writable ||
 										revision === null ||
-										!modelId.trim() ||
 										(conflicts.length && !confirmed)
 									)
 										return;
+									const byId = new Map(choices.map((item) => [item.id, item]));
 									const saved = await onApply({
 										api,
 										credentialRef,
-										model: choices.find((item) => item.id === modelId) ?? { id: modelId.trim() },
+										models: enabledIds.map((id) => byId.get(id) ?? { id }),
 										expectedRevision: revision,
 										confirmConflicts: confirmed,
 									});
