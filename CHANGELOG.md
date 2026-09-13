@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.3 - 2026-09-13
+
+### Fixed
+
+- Isolate `coding-opencode-go` from DSH-native OpenCode Go so Subscription owns a dedicated provider catalog, connection flow, and gateway route (`#45`).
+
 ## v0.8.2 - 2026-09-13
 
 Promotes the `0.8.2-rc.1` repair candidate (npm `next`) to the stable `latest` channel, and folds the post-RC build/CI fixes on `main`.

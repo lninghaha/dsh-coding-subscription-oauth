@@ -1,6 +1,6 @@
 # 账户、模型与 Go 修复候选
 
-本文档描述已合入稳定版 **Subscription `0.8.2`** 的账户/模型/Go 修复边界（曾以 `0.8.2-rc.1` / npm `next` 交接）。正式安装请使用 `dsh-coding-subscription-oauth@0.8.2`（`latest`）。共装稳定通道请搭配 Hub `1.13.1`；候选期曾配对 Hub `1.13.2-rc.1`。构建依赖仍采用原 BOM，DSH `0.1.5-rc.2` 的隔离运行证据单独记录。
+本文档描述已合入稳定版 **Subscription `0.8.3`** 的账户/模型/Go 修复边界（曾以 `0.8.2-rc.1` / npm `next` 交接，并在 `0.8.3` 纳入 OpenCode Go 与 DSH 原生供应商隔离）。正式安装请使用 `dsh-coding-subscription-oauth@0.8.3`（`latest`）。共装稳定通道请搭配 Hub `1.13.3`；候选期曾配对 Hub `1.13.2-rc.1`。构建依赖仍采用原 BOM，DSH `0.1.5-rc.2` 的隔离运行证据单独记录。
 
 ## 连接与日常使用
 

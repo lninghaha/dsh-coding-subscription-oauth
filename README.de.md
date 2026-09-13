@@ -28,7 +28,7 @@ Zuerst **`dsh-grok-build`** (nur Grok Build). Jetzt SuperGrok / Codex / Kimi / C
 | | Das verwenden | Funktioniert weiter |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build` (derselbe `main`) |
-| npm | `dsh-coding-subscription-oauth@0.8.2` (aktuelle Version) | Es gab kein altes npm-Paket |
+| npm | `dsh-coding-subscription-oauth@0.8.3` (aktuelle Version) | Es gab kein altes npm-Paket |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis-Plugin-id | `llm-grok-build-oauth` | unverändert |
 | Settings-HTTP-API | `/plugins/dsh-grok-build/*` | unverändert |
@@ -80,7 +80,7 @@ Diese Suchbegriffe und DSH-Fehler führen meist hierher.
 
 ```bash
 # 1. Plugin in das Web-Profil installieren (aktuelle npm-Version)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.3
 
 # 2. optional — Google Antigravity (gepinnte, geprüfte Version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -121,7 +121,7 @@ Erfordert DeepSeek Harness `0.1.1-rc.2` und Node.js 22.19+. Vollständige Detail
 
 ```bash
 # aktuelle npm-Version (empfohlen)
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.2
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.3
 
 # Entwicklung/Alternativ: von GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

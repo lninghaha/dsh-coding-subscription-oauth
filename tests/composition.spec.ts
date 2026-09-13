@@ -57,7 +57,7 @@ describe("bundle composition", () => {
 			files: string[];
 		};
 		expect(manifest.name).toBe("dsh-coding-subscription-oauth");
-		expect((manifest as { version?: string }).version).toBe("0.8.2");
+		expect((manifest as { version?: string }).version).toBe("0.8.3");
 		expect((manifest as { dependencies?: Record<string, string> }).dependencies?.["dsh-coding-oauth-core"]).toBe(
 			"0.1.2",
 		);
