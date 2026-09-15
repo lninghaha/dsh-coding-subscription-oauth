@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Context } from "@deepseek-ai/cordis";
 import { type GenerateOptions, LlmError, type StreamChunk } from "@deepseek-ai/dsh-llm";
+import { parseOpenCodeGoRegionError } from "./opencode-go-errors.ts";
 import { OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 
 const GO_PATHS = new Set(["/zen/go/v1/chat/completions", "/zen/go/v1/responses", "/zen/go/v1/messages"]);
@@ -172,8 +173,19 @@ export function installOpenCodeGoHeaderCompatibility(ctx: Context, state: OpenCo
 		try {
 			const response = await previousFetch(input, { ...init, headers });
 			state.recordHttp(response.ok ? "accepted" : "rejected", context.call);
+			if (!response.ok) {
+				const bodyText = await response
+					.clone()
+					.text()
+					.catch(() => "");
+				const regionMessage = parseOpenCodeGoRegionError(bodyText);
+				if (regionMessage !== undefined) {
+					throw new LlmError(regionMessage, "REGION_OPT_IN_REQUIRED");
+				}
+			}
 			return response;
 		} catch (error) {
+			if (error instanceof LlmError) throw error;
 			state.recordHttp("network-error", context.call);
 			throw error;
 		}

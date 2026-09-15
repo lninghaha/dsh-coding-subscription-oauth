@@ -277,3 +277,60 @@ describe("OpenCode Go session header compatibility", () => {
 		}
 	});
 });
+
+describe("OpenCode Go RegionError on chat fetch", () => {
+	const regionBody = JSON.stringify({
+		type: "error",
+		error: {
+			type: "RegionError",
+			message:
+				"The latest version of this model is only available hosted in China and requires explicit opt in: https://opencode.ai/workspace/example",
+		},
+	});
+
+	it("throws REGION_OPT_IN_REQUIRED for 403 RegionError and records http rejected", async () => {
+		globalThis.fetch = vi.fn(
+			async () => new Response(regionBody, { status: 403, headers: { "content-type": "application/json" } }),
+		);
+		const { listener, release, state } = setup();
+		try {
+			await expect(
+				exhaust(
+					listener()(options("region-session"), async function* () {
+						await fetch("https://opencode.ai/zen/go/v1/chat/completions", { method: "POST" });
+						yield { type: "finish", reason: { kind: "stop" } } as StreamChunk;
+					}),
+				),
+			).rejects.toMatchObject({
+				code: "REGION_OPT_IN_REQUIRED",
+				message: expect.stringMatching(/requires explicit opt in/i),
+			});
+			expect(state.snapshot()).toMatchObject({ httpStatus: "rejected", lastCall: "failure" });
+		} finally {
+			release();
+		}
+	});
+
+	it("returns non-RegionError 403 responses unchanged", async () => {
+		const plain = JSON.stringify({ error: { type: "Other", message: "nope" } });
+		globalThis.fetch = vi.fn(async () => new Response(plain, { status: 403 }));
+		const { listener, release, state } = setup();
+		try {
+			let status = 0;
+			let body = "";
+			await exhaust(
+				listener()(options("plain-403"), async function* () {
+					const response = await fetch("https://opencode.ai/zen/go/v1/chat/completions", { method: "POST" });
+					status = response.status;
+					body = await response.text();
+					yield { type: "finish", reason: { kind: "error", failure: { message: "upstream" } } } as StreamChunk;
+				}),
+			);
+			expect(status).toBe(403);
+			expect(body).toBe(plain);
+			expect(state.snapshot()).toMatchObject({ httpStatus: "rejected" });
+		} finally {
+			release();
+		}
+	});
+});

@@ -7,6 +7,7 @@ import { type PluginWebRouteRegistry } from "./web-routes.js";
 export declare const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/opencode-go";
 export declare const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 export declare const OPENCODE_GO_API = "openai-completions";
+export { classifyOpenCodeGoDirectoryFailure, classifyOpenCodeGoUpstreamError, parseOpenCodeGoRegionError, } from "./opencode-go-errors.js";
 export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.js";
 type SettingsOp = {
     op: "set";

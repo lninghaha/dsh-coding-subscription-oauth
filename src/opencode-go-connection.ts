@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { type CredentialProvider, credentialRef } from "@deepseek-ai/dsh-credentials";
 import { readJsonRequest } from "./http-json.ts";
 import { knownOpenCodeGoModel } from "./opencode-go-catalog.ts";
+import { classifyOpenCodeGoDirectoryFailure } from "./opencode-go-errors.ts";
 import type { OpenCodeGoStatus } from "./opencode-go-header.ts";
 import { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 import { type GoApi, goBaseURL, isGoApi, knownGoApi, protocolMismatch } from "./opencode-go-protocol.ts";
@@ -18,6 +19,11 @@ import { type PluginWebRouteRegistry, registerWebRouteSetupAtomically } from "./
 export const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/opencode-go";
 export const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 export const OPENCODE_GO_API = "openai-completions";
+export {
+	classifyOpenCodeGoDirectoryFailure,
+	classifyOpenCodeGoUpstreamError,
+	parseOpenCodeGoRegionError,
+} from "./opencode-go-errors.ts";
 export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 
 const KNOWN_REFS = ["OPENCODE_GO_API_KEY", "OPENCODE_API_KEY"] as const;
@@ -296,12 +302,11 @@ export function createOpenCodeGoConnectionController(options: Options) {
 				headers: { authorization: `Bearer ${resolved.value}`, accept: "application/json" },
 				redirect: "error",
 			});
-			if (!response.ok)
-				throw new ConnectionError(
-					response.status === 401 || response.status === 403 ? "credential-rejected" : "model-directory-failed",
-					`OpenCode Go model directory returned HTTP ${response.status}`,
-					response.status,
-				);
+			if (!response.ok) {
+				const bodyText = await response.text().catch(() => "");
+				const failure = classifyOpenCodeGoDirectoryFailure(response.status, bodyText);
+				throw new ConnectionError(failure.code, failure.message, response.status);
+			}
 			const catalog = models(await response.json()).map((entry) =>
 				enrichDirectoryModel(entry, knownOpenCodeGoModel(entry.id)),
 			);
