@@ -4,6 +4,13 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.5 - 2026-09-15
+
+### Fixed
+
+- Map OpenCode Go `RegionError` to `region-opt-in-required` so region opt-in failures surface a clear action (`#47`).
+- Lock DeepSeek model ids on the Go path so they stay isolated from the official DeepSeek provider catalog (`#46`).
+
 ## v0.8.4 - 2026-09-15
 
 ### Fixed
