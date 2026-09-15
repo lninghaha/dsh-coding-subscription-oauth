@@ -895,7 +895,9 @@ function parseStoredOAuthCredentialDocument(text: string): OAuthSourceCredential
 		if (activeAccountId === undefined || !Array.isArray(accounts) || accounts.length === 0) return undefined;
 		for (const entry of accounts) {
 			if (!isRecord(entry)) continue;
-			if (Object.keys(entry).some((key) => key !== "id" && key !== "label" && key !== "credential" && key !== "createdAt")) {
+			if (
+				Object.keys(entry).some((key) => key !== "id" && key !== "label" && key !== "credential" && key !== "createdAt")
+			) {
 				continue;
 			}
 			if (entry["id"] !== activeAccountId) continue;
