@@ -14,6 +14,7 @@ import {
 	OAUTH_IMPORT_PREVIEW_PATH,
 	OAUTH_IMPORT_SOURCES_PATH,
 } from "./ids.ts";
+import { refreshGrokBuildToken } from "./oauth.ts";
 import {
 	createOAuthImportSession,
 	isOAuthSourceError,
@@ -228,7 +229,9 @@ async function commitSource(
 			destination: { path: destination.store.filename },
 		});
 		result = outcome.result;
-		return outcome.takePersist() ?? current;
+		const pending = outcome.takePersist() ?? current;
+		if (pending === undefined) return current;
+		return refreshImportedCredentialIfNeeded(input.kind, pending, result);
 	});
 	if (result === undefined) {
 		throw new Error("oauth import: destination store did not complete commit");
@@ -241,6 +244,34 @@ async function commitSource(
 		}
 	}
 	return result;
+}
+
+/**
+ * Grok CLI access tokens expire in hours. Pulling an expired access token still
+ * leaves a usable refresh token — exchange it before persist so Settings does
+ * not land on a signed-in-but-expired Grok card.
+ */
+async function refreshImportedCredentialIfNeeded(
+	kind: OAuthSourceKind,
+	credential: OAuthSourceCredential,
+	result: OAuthImportCommitResult | undefined,
+): Promise<OAuthSourceCredential> {
+	if (kind !== "grok") return credential;
+	if (result?.action !== "imported" && result?.action !== "overwritten") return credential;
+	if (credential.expires > Date.now()) return credential;
+	try {
+		const refreshed = await refreshGrokBuildToken(credential.refresh);
+		return {
+			type: "oauth",
+			access: refreshed.access,
+			refresh: refreshed.refresh,
+			expires: refreshed.expires,
+			...(credential.accountId === undefined ? {} : { accountId: credential.accountId }),
+		};
+	} catch {
+		// Keep the imported material; preview already warned about expiry.
+		return credential;
+	}
 }
 
 function json(res: ServerResponse, status: number, value: unknown): void {
