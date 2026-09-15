@@ -191,4 +191,34 @@ describe("opencodeGo chat proxy HTTP", () => {
 		expect(seen[0]?.session).toBe("harness-sticky");
 		expect(seen[1]?.session).toBe(seen[0]?.session);
 	});
+
+	it("forwards upstream 403 RegionError status and body unchanged", async () => {
+		const regionBody = JSON.stringify({
+			type: "error",
+			error: {
+				type: "RegionError",
+				message:
+					"The latest version of this model is only available hosted in China and requires explicit opt in: https://opencode.ai/workspace/example",
+			},
+		});
+		const fetchImpl: typeof fetch = async () =>
+			new Response(regionBody, { status: 403, headers: { "content-type": "application/json" } });
+		const port = await listen({ opencodeGoEnabled: true, fetchImpl });
+		const response = await fetch(`http://127.0.0.1:${String(port)}/v1/chat/completions`, {
+			method: "POST",
+			headers: {
+				authorization: "Bearer test-key",
+				"content-type": "application/json",
+				"x-deepseek-harness-session-id": "region-session",
+				connection: "close",
+			},
+			body: JSON.stringify({
+				model: "coding-opencode-go/test-go",
+				messages: [{ role: "user", content: "hi" }],
+				stream: false,
+			}),
+		});
+		expect(response.status).toBe(403);
+		expect(await response.text()).toContain("RegionError");
+	});
 });

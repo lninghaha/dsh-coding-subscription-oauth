@@ -443,3 +443,69 @@ it("enriches the live directory with known thinking metadata", async () => {
 	expect(catalog.find((m) => m.id === "grok-4.6")?.reasoningEfforts).toMatchObject({ xhigh: "xhigh" });
 	expect(catalog.find((m) => m.id === "minimax-m3")?.protocol).toBe("anthropic-messages");
 });
+
+const REGION_ERROR_BODY = {
+	type: "error",
+	error: {
+		type: "RegionError",
+		message:
+			"The latest version of this model is only available hosted in China and requires explicit opt in: https://opencode.ai/workspace/example",
+	},
+};
+
+describe("OpenCode Go RegionError classification", () => {
+	it("maps directory 403 RegionError to region-opt-in-required, not credential-rejected", async () => {
+		const f = fixture();
+		f.values.set("OPENCODE_GO_API_KEY", "fixture");
+		const fetchImpl = vi.fn(
+			async () =>
+				new Response(JSON.stringify(REGION_ERROR_BODY), {
+					status: 403,
+					headers: { "content-type": "application/json" },
+				}),
+		);
+		const c = createOpenCodeGoConnectionController({
+			credentials: f.credentials,
+			settings: f.settings,
+			callStatus,
+			fetchImpl,
+		});
+		await expect(c.models("OPENCODE_GO_API_KEY")).rejects.toMatchObject({
+			code: "region-opt-in-required",
+			status: 403,
+			message: expect.stringMatching(/requires explicit opt in/i),
+		});
+	});
+
+	it("keeps plain 403 as credential-rejected", async () => {
+		const f = fixture();
+		f.values.set("OPENCODE_GO_API_KEY", "fixture");
+		const fetchImpl = vi.fn(async () => new Response("forbidden", { status: 403 }));
+		const c = createOpenCodeGoConnectionController({
+			credentials: f.credentials,
+			settings: f.settings,
+			callStatus,
+			fetchImpl,
+		});
+		await expect(c.models("OPENCODE_GO_API_KEY")).rejects.toMatchObject({
+			code: "credential-rejected",
+			status: 403,
+		});
+	});
+
+	it("keeps 401 as credential-rejected", async () => {
+		const f = fixture();
+		f.values.set("OPENCODE_GO_API_KEY", "fixture");
+		const fetchImpl = vi.fn(async () => new Response("unauthorized", { status: 401 }));
+		const c = createOpenCodeGoConnectionController({
+			credentials: f.credentials,
+			settings: f.settings,
+			callStatus,
+			fetchImpl,
+		});
+		await expect(c.models("OPENCODE_GO_API_KEY")).rejects.toMatchObject({
+			code: "credential-rejected",
+			status: 401,
+		});
+	});
+});
