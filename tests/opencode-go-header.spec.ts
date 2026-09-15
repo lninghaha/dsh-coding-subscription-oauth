@@ -59,6 +59,24 @@ describe("OpenCode Go session header compatibility", () => {
 		release();
 	});
 
+	it("leaves deepseek-official streams untouched even when the model id matches Go", async () => {
+		const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+		globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			calls.push({ url: String(input), init });
+			return new Response("ok", { status: 200 });
+		});
+		const { listener, release, state } = setup();
+		async function* stream() {
+			await fetch("https://api.deepseek.com/chat/completions", { method: "POST" });
+			yield { type: "finish", reason: { kind: "stop" } } as StreamChunk;
+		}
+		await exhaust(listener()(options("session-official", "deepseek-official"), stream));
+		expect(calls).toHaveLength(1);
+		expect(new Headers(calls[0]?.init?.headers).has("x-opencode-session")).toBe(false);
+		expect(state.snapshot().lastCall).toBe("no-call");
+		release();
+	});
+
 	it("does not turn an HTTP 200 stream error into success", async () => {
 		globalThis.fetch = vi.fn(async () => new Response("ok"));
 		const { listener, release, state } = setup();
