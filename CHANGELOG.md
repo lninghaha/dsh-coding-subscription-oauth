@@ -4,6 +4,13 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.4 - 2026-09-15
+
+### Fixed
+
+- CLI OAuth import reads v2 multi-account destination stores instead of treating them as unreadable (`#48`).
+- Grok CLI credential pull refreshes an expired access token before commit so import no longer lands a stale session (`#48`).
+
 ## v0.8.3 - 2026-09-13
 
 ### Fixed
