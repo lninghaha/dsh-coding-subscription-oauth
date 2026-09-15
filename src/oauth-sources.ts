@@ -854,16 +854,7 @@ function latestGrokCredential(mapped: readonly OAuthSourceCredential[]): OAuthSo
 	return chosen;
 }
 
-function parseStoredOAuthCredentialDocument(text: string): OAuthSourceCredential | undefined {
-	let value: unknown;
-	try {
-		value = JSON.parse(text);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(value) || value["version"] !== 1) return undefined;
-	if (Object.keys(value).some((key) => key !== "version" && key !== "credential")) return undefined;
-	const raw = value["credential"];
+function parseStoredCredentialRecord(raw: unknown): OAuthSourceCredential | undefined {
 	if (!isRecord(raw)) return undefined;
 	const allowed = new Set(["type", "access", "refresh", "expires", "accountId"]);
 	if (Object.keys(raw).some((key) => !allowed.has(key))) return undefined;
@@ -876,6 +867,43 @@ function parseStoredOAuthCredentialDocument(text: string): OAuthSourceCredential
 	const accountId = raw["accountId"];
 	if (accountId !== undefined && (typeof accountId !== "string" || accountId.length === 0)) return undefined;
 	return credentialOf(access, refresh, expires, typeof accountId === "string" ? accountId : undefined);
+}
+
+/**
+ * Destination stores may be v1 (`{version:1,credential}`) or the multi-account
+ * v2 file written by {@link OAuthCredentialFileStore}. Preview/commit only need
+ * the active account's credential for conflict classification.
+ */
+function parseStoredOAuthCredentialDocument(text: string): OAuthSourceCredential | undefined {
+	let value: unknown;
+	try {
+		value = JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+	if (!isRecord(value)) return undefined;
+	if (value["version"] === 1) {
+		if (Object.keys(value).some((key) => key !== "version" && key !== "credential")) return undefined;
+		return parseStoredCredentialRecord(value["credential"]);
+	}
+	if (value["version"] === 2) {
+		if (Object.keys(value).some((key) => key !== "version" && key !== "activeAccountId" && key !== "accounts")) {
+			return undefined;
+		}
+		const activeAccountId = nonEmptyString(value["activeAccountId"]);
+		const accounts = value["accounts"];
+		if (activeAccountId === undefined || !Array.isArray(accounts) || accounts.length === 0) return undefined;
+		for (const entry of accounts) {
+			if (!isRecord(entry)) continue;
+			if (Object.keys(entry).some((key) => key !== "id" && key !== "label" && key !== "credential" && key !== "createdAt")) {
+				continue;
+			}
+			if (entry["id"] !== activeAccountId) continue;
+			return parseStoredCredentialRecord(entry["credential"]);
+		}
+		return undefined;
+	}
+	return undefined;
 }
 
 function credentialOf(

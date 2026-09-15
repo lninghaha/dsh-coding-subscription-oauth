@@ -122,6 +122,24 @@ function stored(credential: OAuthSourceCredential): string {
 	return `${JSON.stringify({ version: 1, credential }, null, 2)}\n`;
 }
 
+function storedV2(credential: OAuthSourceCredential, accountId = "acct-1"): string {
+	return `${JSON.stringify(
+		{
+			version: 2,
+			activeAccountId: accountId,
+			accounts: [
+				{
+					id: accountId,
+					credential,
+					createdAt: 1_700_000_000_000,
+				},
+			],
+		},
+		null,
+		2,
+	)}\n`;
+}
+
 function assertNoSecrets(value: unknown, extra: string[] = []): void {
 	const text = typeof value === "string" ? value : JSON.stringify(value);
 	for (const secret of [...ALL_SECRETS, ...extra]) {
@@ -739,6 +757,34 @@ describe("destination inspection and conflict classes", () => {
 		expect(unreadable.payloadMac).toMatch(/^[0-9a-f]{64}$/iu);
 		expect(unreadable.payloadMac).not.toContain("{not-json");
 		expect(JSON.stringify(unreadable)).not.toContain("{not-json");
+	});
+
+	it("reads the active account from a v2 multi-account destination store", async () => {
+		const home = await tempHome();
+		const dest = join(home, "dest-v2.json");
+		await writeOwnerOnly(
+			dest,
+			storedV2(
+				{ type: "oauth", access: "old-grok-access", refresh: "old-grok-refresh", expires: 20, accountId: "user-1" },
+				"user-1",
+			),
+		);
+		const readable = await inspectOAuthDestinationFile(dest);
+		expect(readable.status).toBe("readable");
+		expect(readable.credential).toMatchObject({
+			access: "old-grok-access",
+			refresh: "old-grok-refresh",
+			expires: 20,
+			accountId: "user-1",
+		});
+
+		const session = createOAuthImportSession();
+		await writeKind(home, "grok", grokDocument({ user_id: "user-1" }));
+		const preview = await session.preview({ kind: "grok", ...sandbox(home), destination: { path: dest } });
+		expect(preview.conflict).toBe("same_account");
+		expect(preview.action).toBe("overwrite");
+		expect(preview.warnings.join("\n")).not.toMatch(/could not be read/iu);
+		assertNoSecrets(preview);
 	});
 });
 
