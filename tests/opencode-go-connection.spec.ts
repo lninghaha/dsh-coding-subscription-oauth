@@ -2,6 +2,7 @@ import type { CredentialProvider } from "@deepseek-ai/dsh-credentials";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createOpenCodeGoConnectionController,
+	classifyOpenCodeGoUpstreamError,
 	OPENCODE_GO_API,
 	OPENCODE_GO_BASE_URL,
 	type OpenCodeGoSettingsProvider,
@@ -454,6 +455,25 @@ const REGION_ERROR_BODY = {
 };
 
 describe("OpenCode Go RegionError classification", () => {
+	it("classifies RegionError JSON and opt-in message text at the boundary", () => {
+		expect(classifyOpenCodeGoUpstreamError(403, JSON.stringify(REGION_ERROR_BODY))).toEqual({
+			code: "region-opt-in-required",
+			message: REGION_ERROR_BODY.error.message,
+		});
+		expect(classifyOpenCodeGoUpstreamError(403, "forbidden")).toEqual({
+			code: "credential-rejected",
+			message: "OpenCode Go returned HTTP 403",
+		});
+		expect(classifyOpenCodeGoUpstreamError(401, "unauthorized")).toEqual({
+			code: "credential-rejected",
+			message: "OpenCode Go returned HTTP 401",
+		});
+		expect(classifyOpenCodeGoUpstreamError(500, "boom")).toEqual({
+			code: "upstream-failed",
+			message: "OpenCode Go returned HTTP 500",
+		});
+	});
+
 	it("maps directory 403 RegionError to region-opt-in-required, not credential-rejected", async () => {
 		const f = fixture();
 		f.values.set("OPENCODE_GO_API_KEY", "fixture");

@@ -123,6 +123,7 @@ export const en = {
 	"opencodeGoStatus.success": "The latest Go request completed successfully.",
 	"opencodeGoStatus.failure": "The latest OpenCode Go conversation request failed. Check DSH model settings and retry.",
 	"opencodeGoStatus.missing-session": "DSH did not provide a session identity. Return to the conversation and retry.",
+	opencodeGoRegionOptIn: "This model is China-hosted and needs an explicit OpenCode workspace opt-in.",
 	opencodeGoCompatibilityNote:
 		"This is header compatibility, not OAuth. It does not represent quota or a successful model call.",
 	sourcesTitle: "Pull a copy from official CLI files",
@@ -486,6 +487,7 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	"opencodeGoStatus.success": "最近一次 Go 调用已正常完成。",
 	"opencodeGoStatus.failure": "最近一次 OpenCode Go 对话请求失败；检查 DSH 模型配置后重试。",
 	"opencodeGoStatus.missing-session": "DSH 未提供会话标识。返回对话后重试。",
+	opencodeGoRegionOptIn: "该模型仅在中国托管，需在 OpenCode 工作区显式开启（China workspace opt-in）。",
 	opencodeGoCompatibilityNote: "以上状态仅表示请求头兼容，不代表 OAuth 登录，也不代表配额或模型调用成功。",
 	sourcesTitle: "从官方 CLI 文件拉取副本",
 	sourcesIntro:

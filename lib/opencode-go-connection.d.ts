@@ -8,6 +8,7 @@ export declare const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/open
 export declare const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 export declare const OPENCODE_GO_API = "openai-completions";
 export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.js";
+export { classifyOpenCodeGoDirectoryFailure, classifyOpenCodeGoUpstreamError, parseOpenCodeGoRegionError, } from "./opencode-go-errors.js";
 type SettingsOp = {
     op: "set";
     path: readonly string[];

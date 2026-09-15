@@ -80,7 +80,8 @@ export type GoViewKey =
 	| "status.missing-session"
 	| "status.pending"
 	| "status.cancelled"
-	| "status.conflict";
+	| "status.conflict"
+	| "regionOptIn";
 export interface GoViewProps {
 	readonly status: GoSnapshot | undefined;
 	readonly call?: GoSnapshot["call"];
@@ -186,7 +187,18 @@ export function OpenCodeGoConnectionView({
 		setPending(true);
 		setError(undefined);
 		void action()
-			.catch((failure: unknown) => setError(failure instanceof Error ? failure.message : t("status.failure")))
+			.catch((failure: unknown) => {
+				const code =
+					failure !== null && typeof failure === "object" && "code" in failure && typeof failure.code === "string"
+						? failure.code
+						: undefined;
+				if (code === "region-opt-in-required") {
+					const detail = failure instanceof Error ? failure.message : "";
+					setError(detail ? `${t("regionOptIn")} ${detail}` : t("regionOptIn"));
+					return;
+				}
+				setError(failure instanceof Error ? failure.message : t("status.failure"));
+			})
 			.finally(() => {
 				running.current = false;
 				setPending(false);
