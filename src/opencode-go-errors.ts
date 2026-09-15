@@ -33,9 +33,7 @@ export function parseOpenCodeGoRegionError(bodyText: string): string | undefined
 	const errorType = asText(error?.["type"]) ?? asText(root?.["type"]);
 	const message = asText(error?.["message"]) ?? asText(root?.["message"]);
 	if (errorType === "RegionError" || (message !== undefined && REGION_OPT_IN_RE.test(message))) {
-		return truncate(
-			message ?? "This OpenCode Go model is China-hosted and requires explicit workspace opt-in",
-		);
+		return truncate(message ?? "This OpenCode Go model is China-hosted and requires explicit workspace opt-in");
 	}
 	return undefined;
 }

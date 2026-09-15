@@ -1,8 +1,8 @@
 import type { CredentialProvider } from "@deepseek-ai/dsh-credentials";
 import { describe, expect, it, vi } from "vitest";
 import {
-	createOpenCodeGoConnectionController,
 	classifyOpenCodeGoUpstreamError,
+	createOpenCodeGoConnectionController,
 	OPENCODE_GO_API,
 	OPENCODE_GO_BASE_URL,
 	type OpenCodeGoSettingsProvider,

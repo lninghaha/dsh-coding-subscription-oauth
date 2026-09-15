@@ -290,8 +290,7 @@ describe("OpenCode Go RegionError on chat fetch", () => {
 
 	it("throws REGION_OPT_IN_REQUIRED for 403 RegionError and records http rejected", async () => {
 		globalThis.fetch = vi.fn(
-			async () =>
-				new Response(regionBody, { status: 403, headers: { "content-type": "application/json" } }),
+			async () => new Response(regionBody, { status: 403, headers: { "content-type": "application/json" } }),
 		);
 		const { listener, release, state } = setup();
 		try {

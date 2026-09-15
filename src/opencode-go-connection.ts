@@ -19,12 +19,12 @@ import { type PluginWebRouteRegistry, registerWebRouteSetupAtomically } from "./
 export const OPENCODE_GO_CONNECTION_PATH = "/plugins/dsh-grok-build/opencode-go";
 export const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
 export const OPENCODE_GO_API = "openai-completions";
-export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 export {
 	classifyOpenCodeGoDirectoryFailure,
 	classifyOpenCodeGoUpstreamError,
 	parseOpenCodeGoRegionError,
 } from "./opencode-go-errors.ts";
+export { OPENCODE_GO_LEGACY_PROVIDER_ID, OPENCODE_GO_PROVIDER_ID } from "./opencode-go-ids.ts";
 
 const KNOWN_REFS = ["OPENCODE_GO_API_KEY", "OPENCODE_API_KEY"] as const;
 type RecordValue = Record<string, unknown>;
