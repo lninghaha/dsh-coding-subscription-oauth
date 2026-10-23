@@ -28,7 +28,7 @@
 | | これを使う | 互換 |
 |---|---|---|
 | GitHub / `dsh plugin add` | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | `github:lninghaha/dsh-grok-build`（同じ `main`） |
-| npm | `dsh-coding-subscription-oauth@0.8.6`（現在のリリース） | 旧 npm パッケージは公開されていない |
+| npm | `dsh-coding-subscription-oauth@0.8.7`（現在のリリース） | 旧 npm パッケージは公開されていない |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis プラグイン id | `llm-grok-build-oauth` | 変更なし |
 | 設定ページ HTTP API | `/plugins/dsh-grok-build/*` | 変更なし |
@@ -80,7 +80,7 @@ DSH にコーディングサブスクを載せるとき、よく次の検索語�
 
 ```bash
 # 1. web プロファイルにプラグインをインストール（現在の npm リリース）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 
 # 2. 任意 — Google Antigravity（レビュー済みの固定バージョン）
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -117,11 +117,11 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## インストール
 
-DeepSeek Harness `0.1.1-rc.2` と Node.js 22.19+ が前提です。詳細は[インストールノート](INSTALL.md)をご覧ください。
+インストールは `engines.dsh` `>=0.1.1-rc.2 <0.3.0` で DeepSeek Harness を受け付けます（`0.2.1-rc.2` を含む）。検証済み build/smoke BOM は `0.1.1-rc.2` のままです。Node.js 22.19+ が前提です。詳細は[インストールノート](INSTALL.md)をご覧ください。
 
 ```bash
 # 現在の npm リリース（推奨）
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 
 # 開発／代替：GitHub から
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

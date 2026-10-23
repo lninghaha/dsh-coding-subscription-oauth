@@ -4,15 +4,18 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import semver from "semver";
 import { readDshClientPlatformContract } from "./dsh-client-platform.mjs";
 
 const root = resolve(".");
 const execute = promisify(execFile);
 const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+const matrix = JSON.parse(await readFile(resolve(root, "compatibility", "dsh-bom.json"), "utf8"));
+const semverOptions = { includePrerelease: true };
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
 assert.match(manifest.version, /^\d+\.\d+\.\d+/, "release manifest must use semver");
-assert.equal(manifest.version, "0.8.6");
+assert.equal(manifest.version, "0.8.7");
 assert.equal(manifest.dependencies?.["dsh-coding-oauth-core"], "0.1.2");
 assert.equal(manifest.dependencies?.undici, "7.29.0");
 assert.equal(manifest.devDependencies?.undici, "7.29.0");
@@ -23,6 +26,13 @@ assert.deepEqual(manifest.bin, {
 	"dsh-grok-build": "lib/bin.js",
 	"dsh-claude-bridge": "lib/callback-bridge-bin.js",
 });
+const enginesDsh = manifest.engines?.dsh;
+assert.equal(typeof enginesDsh, "string", "engines.dsh must be present");
+assert.notEqual(enginesDsh.trim(), "", "engines.dsh must be non-empty");
+assert.ok(
+	semver.satisfies(matrix.verified.dshVersion, enginesDsh, semverOptions),
+	`engines.dsh ${enginesDsh} must satisfy verified dshVersion ${matrix.verified.dshVersion}`,
+);
 
 for (const path of [
 	"lib/index.js",
@@ -86,17 +96,21 @@ const requiredRuntimePeers = [
 	"@deepseek-ai/schemastery",
 	"@earendil-works/pi-ai",
 ];
+const verifiedPackages = matrix.verified?.packages ?? {};
 for (const name of requiredRuntimePeers) {
-	assert.equal(typeof manifest.peerDependencies?.[name], "string", `missing runtime peer: ${name}`);
+	const peerRange = manifest.peerDependencies?.[name];
+	assert.equal(typeof peerRange, "string", `missing runtime peer: ${name}`);
 	assert.notEqual(
 		manifest.peerDependenciesMeta?.[name]?.optional,
 		true,
 		`runtime peer must be required (pnpm auto-installs it in the profile): ${name}`,
 	);
-	assert.equal(
-		manifest.peerDependencies?.[name] === "*" || /^[~^]/.test(manifest.peerDependencies?.[name] ?? ""),
-		false,
-		`runtime peer must pin an exact resolvable version (not "*" or a range): ${name}`,
+	assert.notEqual(peerRange, "*", `runtime peer must not be "*": ${name}`);
+	const exact = verifiedPackages[name];
+	assert.equal(typeof exact, "string", `verified BOM missing exact for runtime peer: ${name}`);
+	assert.ok(
+		semver.satisfies(exact, peerRange, semverOptions),
+		`peerDependencies.${name} range ${peerRange} must satisfy verified BOM ${exact}`,
 	);
 }
 for (const marker of [

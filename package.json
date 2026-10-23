@@ -1,7 +1,7 @@
 {
   "name": "dsh-coding-subscription-oauth",
   "description": "DeepSeek Harness coding-subscription OAuth: SuperGrok/Grok Build, ChatGPT Plus Codex, Kimi Code, Claude Code. Fixes AUTH API key is invalid, INVALID_REPLAY_STATE, grok-4.6 xhigh, Kimi Bearer vs x-api-key.",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -31,7 +31,8 @@
   "type": "module",
   "packageManager": "pnpm@11.21.0",
   "engines": {
-    "node": "^22.19.0 || >=24.0.0"
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.1.1-rc.2 <0.3.0"
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -154,21 +155,22 @@
   },
   "dependencies": {
     "dsh-coding-oauth-core": "0.1.2",
+    "semver": "7.8.5",
     "undici": "7.29.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-atomic-write": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-attachment": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-credentials": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-tools": "0.1.1-rc.2",
-    "@deepseek-ai/schemastery": "3.18.1",
-    "@earendil-works/pi-ai": "0.84.2",
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-atomic-write": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-attachment": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-credentials": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-home-paths": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-invariants": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-llm-pi-ai": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/dsh-tools": ">=0.1.1-rc.2 <0.3.0",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@earendil-works/pi-ai": ">=0.84.2 <2.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -220,6 +222,7 @@
     "@types/node": "^22.20.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "18.3.7",
+    "@types/semver": "7.7.1",
     "@vitest/coverage-v8": "4.1.10",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",

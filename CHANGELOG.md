@@ -4,6 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.7 - 2026-10-23
+
+### Fixed
+
+- Accept DeepSeek Harness `0.1.x`–`0.2.x` installs via `engines.dsh` `>=0.1.1-rc.2 <0.3.0` and matching peer ranges so DSH `0.2.1-rc.2` is no longer rejected at the install gate (`#51`). Verified build/smoke BOM remains exact `0.1.1-rc.2`; `0.2.1-rc.2` is recorded as an unverified candidate.
+
 ## v0.8.6 - 2026-10-17
 
 ### Fixed

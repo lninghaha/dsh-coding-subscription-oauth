@@ -5,7 +5,7 @@
 
 # 🔐 dsh-coding-subscription-oauth
 
-**v0.8.6** · formerly `dsh-grok-build`
+**v0.8.7** · formerly `dsh-grok-build`
 
 **Coding-subscription OAuth for [DeepSeek Harness](https://github.com/deepseek-ai/dsh).** Use SuperGrok / X Premium (Grok Build), ChatGPT Plus/Pro (Codex), Kimi Code, Claude Pro/Max and Google Antigravity inside DSH — without a second API-key bill and **without pasting any token into chat.**
 
@@ -28,7 +28,7 @@ Published first as **`dsh-grok-build`** when it only covered Grok Build. The cur
 
 | | Use this | Still works |
 |---|---|---|
-| npm (recommended) | Current release is `0.8.6`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6` | No legacy npm package was published |
+| npm (recommended) | Current release is `0.8.7`: `dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7` | No legacy npm package was published |
 | GitHub / development | [`dsh-coding-subscription-oauth`](https://github.com/lninghaha/dsh-coding-subscription-oauth) | Previous GitHub repo `dsh-grok-build` was removed |
 | CLI | `dsh-coding-oauth` | `dsh-grok-build` |
 | Cordis plugin id | `llm-grok-build-oauth` | unchanged |
@@ -84,7 +84,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 
 ```bash
 # 1. install the current npm release into the web profile
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 
 # 2. optional — Google Antigravity (pinned, reviewed version)
 dsh plugin --profile web add dsh-agy@0.1.2
@@ -121,11 +121,11 @@ Then open **Settings → Coding OAuth** and sign in to any provider. Done — pi
 
 ## Install
 
-Requires DeepSeek Harness `0.1.1-rc.2` (verified BOM) and Node.js 22.19+. Unverified candidates such as `0.1.5-rc.1` are recorded in `compatibility/dsh-bom.json` only — see [INSTALL.md](INSTALL.md). OAuth profiles initialize an empty `modelErrors` map so candidate hosts do not crash on model resolution (`#38`).
+Install accepts DeepSeek Harness via `engines.dsh` `>=0.1.1-rc.2 <0.3.0` (covers `0.2.1-rc.2`). The verified build/smoke BOM remains exact `0.1.1-rc.2`. Unverified candidates such as `0.1.5-rc.1` and `0.2.1-rc.2` are recorded in `compatibility/dsh-bom.json` only — see [INSTALL.md](INSTALL.md). Requires Node.js 22.19+. OAuth profiles initialize an empty `modelErrors` map so candidate hosts do not crash on model resolution (`#38`).
 
 ```bash
 # current npm release
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 
 # development / alternative: from GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth

@@ -3,7 +3,7 @@
 本仓库原名 **`dsh-grok-build`**。普通用户请使用已发布的 npm 版本：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 ```
 
 CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。为兼容已有 profile，Cordis id 仍是 `llm-grok-build-oauth`，设置页 HTTP 路径仍是 `/plugins/dsh-grok-build/*`，凭据文件名不变。
@@ -11,24 +11,24 @@ CLI 新命令是 `dsh-coding-oauth`（旧命令 `dsh-grok-build` 仍可用）。
 第一次公开发布是 **`0.4.1`**。`0.6.1` 从未正式发布或打包，其未发布改动已合入当前推荐的 **`0.6.3`**：
 
 ```bash
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 dsh plugin --profile web update dsh-coding-subscription-oauth
 ```
 
 ## 前置条件
 
-- DeepSeek Harness `0.1.1-rc.2`（精确已验证 BOM，见 `compatibility/dsh-bom.json`）
+- DeepSeek Harness：安装门禁接受 `engines.dsh` `>=0.1.1-rc.2 <0.3.0`（覆盖 `0.2.1-rc.2`）。构建/冒烟仍锁定已验证 BOM `0.1.1-rc.2`（见 `compatibility/dsh-bom.json`）
 - Node.js 22.19+
 - 需要使用的个人编码订阅；没有 Claude/Google 账号也可以先安装路由
 - 部分网络需要 HTTP/HTTPS 代理
 
-`0.1.2-alpha.*` 与 `0.1.5-rc.1` 可作为 BOM **未验证候选**出现，但不是生产 pin。在把候选提升为 `verified` 之前，不要把它们当作正式兼容声明。面向 `0.1.5-rc.1` 的客户端 inject 已不再要求 `@deepseek-ai/dsh-client-runtime`（该包在候选宿主上不存在）；缺失的可选 inject 仍为 soft diagnostic。OAuth provider profile 会初始化空的 `modelErrors` map，避免候选宿主在模型解析时对 undefined 调用 `.get`（见 `#38`）。
+`0.1.2-alpha.*`、`0.1.5-rc.1` 与 `0.2.1-rc.2` 可作为 BOM **未验证候选**出现；构建 pin 仍是 `0.1.1-rc.2`。在把候选提升为 `verified` 之前，不要把它们当作已验证运行时声明。面向 `0.1.5-rc.1` 的客户端 inject 已不再要求 `@deepseek-ai/dsh-client-runtime`（该包在候选宿主上不存在）；缺失的可选 inject 仍为 soft diagnostic。OAuth provider profile 会初始化空的 `modelErrors` map，避免候选宿主在模型解析时对 undefined 调用 `.get`（见 `#38`）。
 
 ## 安装
 
 ```bash
 # 普通用户：当前 npm 发布版
-dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.6
+dsh plugin --profile web add dsh-coding-subscription-oauth@0.8.7
 
 # 开发 / 备用：从 GitHub
 dsh plugin --profile web add github:lninghaha/dsh-coding-subscription-oauth
@@ -44,7 +44,8 @@ dsh plugin --profile web add dsh-agy@0.1.2
 
 ## 升级注意事项
 
-- 本版按 DSH `0.1.1-rc.2` 的精确兼容矩阵发布；生产环境应锁定已验证的 BOM，不要用 `*` 或未验证的宽泛 peer range。候选宿主（如 `0.1.5-rc.1`）只记在 `candidates[]`，须经隔离冒烟后再考虑提升。
+- 本版安装门禁用 `engines.dsh` `>=0.1.1-rc.2 <0.3.0`；构建/冒烟仍锁定已验证 BOM `0.1.1-rc.2`。生产构建 pin 不要改成 `*`；候选宿主（如 `0.1.5-rc.1`、`0.2.1-rc.2`）只记在 `candidates[]`，须经隔离冒烟后再考虑提升为 verified。
+- 从 `0.8.6` 升级到 `0.8.7`：修复 DSH `0.2.1-rc.2` 安装被拒（`#51`）；无配置/凭据/路由破坏性迁移。
 - 从 `0.6.0` 升级到 `0.6.2` 后再重启：`0.6.0` 在严格 Cordis 注入检查下可能因读取尚未注入的可选服务而拖垮插件树。这个补丁不迁移或重置 OAuth 凭据、Gateway、模型/适配器 ID 与缓存。
 - 从 `0.6.3` 升级到 `0.6.4`：统一固定 `dsh-coding-oauth-core@0.1.2` 与 `undici@7.29.0`；无配置、凭据、数据或路由迁移。
 - 从 `0.7.1` 升级到 `0.8.0`：可选 OpenCode Go 兼容（`gateway.opencodeGo.enabled`，默认关）；无配置/凭据/路由迁移。
@@ -58,8 +59,8 @@ dsh plugin --profile web add dsh-agy@0.1.2
 - 从 `0.6.5` 升级到 `0.7.0`：AuthDocument v2 多账号与 Accounts UI；去掉 `@deepseek-ai/dsh-client-runtime` inject；BOM 记录未验证候选 `0.1.5-rc.1`（verified 仍为 `0.1.1-rc.2`）；无配置/凭据/路由破坏性迁移。
 - 从 `0.6.4` 升级到 `0.6.5`：Gateway key 的 reveal/rotate 仅限 `accessMode === "loopback"`（与 Settings UI 一致）；无配置、凭据、数据或路由迁移。npm 包不再附带 `src/`，运行时仍为生成的 `lib/`。
 - 宿主边界（无需操作者迁移）：客户端 classic-script 不再 inject `@deepseek-ai/dsh-client-runtime`；`ClientContext` 从 `@deepseek-ai/cordis` 解析。这与 Hub 在 `0.1.5-rc.1` 上的适配一致，避免陈旧 inject 诊断。
-- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.2` 可从 npm 解析，再安装 Subscription `0.8.6`（以及需要的 `dsh-hub-oauth-gateway@1.13.5`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
-- 共装 Hub 与 Subscription 时，先安装 `dsh-hub-oauth-gateway@1.13.5` 与 Subscription `0.8.6`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
+- 在同一个 **web profile** 中先保证 `dsh-coding-oauth-core@0.1.2` 可从 npm 解析，再安装 Subscription `0.8.7`（以及需要的 `dsh-hub-oauth-gateway@1.13.5`）。Core 只是共享 npm 依赖，不是单独的 DSH 插件，用户不需要执行 `dsh plugin add dsh-coding-oauth-core`。
+- 共装 Hub 与 Subscription 时，先安装 `dsh-hub-oauth-gateway@1.13.5` 与 Subscription `0.8.7`，完成后只重启一次现有 DSH Web 进程；Hub 提供完整用量中心，Subscription 显示紧凑状态入口。只升级 Subscription 仍可独立工作。
 - 升级会保留既有 Cordis id、OAuth 凭据文件、模型/适配器 ID、Gateway 配置和模型缓存；不要为了“清理旧版本”删除这些文件。若旧包名 `dsh-grok-build` 仍在 profile 中，只移除那条旧插件记录，再安装当前包，避免重复路由。
 - 回滚时恢复上一个插件版本并重启一次，保留凭据和配置；先查看兼容性诊断与失败原因，不要用清空凭据来代替回滚。
 - DSH Web 与本地 Gateway 继续只绑定 loopback。远程 Settings 只能走 SSH 隧道或满足 owner proof、精确 Origin 和 CSRF proof 的 HTTPS 反向代理；升级不会放宽到 `0.0.0.0`。

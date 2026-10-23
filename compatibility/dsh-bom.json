@@ -31,6 +31,11 @@
       "dshVersion": "0.1.5-rc.1",
       "releaseLine": "0.1.5-rc",
       "status": "unverified"
+    },
+    {
+      "id": "dsh-0.2.1-rc.2",
+      "dshVersion": "0.2.1-rc.2",
+      "status": "unverified"
     }
   ]
 }
