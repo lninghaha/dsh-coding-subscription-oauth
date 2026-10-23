@@ -38,7 +38,7 @@ jobs:
         run: |
           docker build \
             --target verify \
-            --build-arg NODE_VERSION=22.19.0 \
+            --build-arg NODE_VERSION=22.23.4 \
             --resource memory=3g \
             --resource cpu-quota=200000 \
             --tag test-dsh-coding-oauth:release-verify \
@@ -47,7 +47,7 @@ jobs:
         run: |
           docker build \
             --target rc2-compatibility \
-            --build-arg NODE_VERSION=22.19.0 \
+            --build-arg NODE_VERSION=22.23.4 \
             --resource memory=3g \
             --resource cpu-quota=200000 \
             --tag test-dsh-coding-oauth:release-rc2 \
@@ -93,7 +93,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.19.0"
+          node-version: "22.23.4"
           registry-url: "https://registry.npmjs.org"
 
       - name: Verify the maintainer-published npm version and channel dist-tag

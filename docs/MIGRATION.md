@@ -24,13 +24,13 @@ v0.4 的能力设置是兼容性新增：`coding-subscription-oauth` 设置区�
 共享开发主机只负责启动隔离构建；不要直接在宿主机运行安装、检查或构建命令，也不要 bind mount 源码、凭据、Docker socket 或其他项目目录。使用仓库跟踪的多阶段 Dockerfile：
 
 ```bash
-docker build --target check-next --build-arg NODE_VERSION=22.19.0 \
+docker build --target check-next --build-arg NODE_VERSION=22.23.4 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:check-next .
-docker build --target check --build-arg NODE_VERSION=22.19.0 \
+docker build --target check --build-arg NODE_VERSION=22.23.4 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:check .
-docker build --target verify --build-arg NODE_VERSION=22.19.0 \
+docker build --target verify --build-arg NODE_VERSION=22.23.4 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:verify .
 ```

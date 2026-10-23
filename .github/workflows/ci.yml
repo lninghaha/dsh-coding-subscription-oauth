@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [22.19.0, 24]
+        node: [22.23.4, 24.22.1]
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: "1"

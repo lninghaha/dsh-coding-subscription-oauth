@@ -52,7 +52,7 @@ fi
 docker build \
 	--network none \
 	--target web-preview \
-	--build-arg NODE_VERSION=22.19.0 \
+	--build-arg NODE_VERSION=22.23.4 \
 	--build-context "dsh-installed=$dsh_install_dir" \
 	--resource memory=3g \
 	--resource cpu-period=100000 \

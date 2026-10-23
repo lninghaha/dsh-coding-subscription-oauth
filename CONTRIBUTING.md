@@ -21,11 +21,11 @@ pnpm run check
 Optional Docker:
 
 ```bash
-docker build --target check --build-arg NODE_VERSION=22.19.0 \
+docker build --target check --build-arg NODE_VERSION=22.23.4 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:check .
 
-docker build --target verify --build-arg NODE_VERSION=22.19.0 \
+docker build --target verify --build-arg NODE_VERSION=22.23.4 \
   --resource memory=3g --resource cpu-quota=200000 \
   --tag test-dsh-coding-oauth:verify .
 ```
