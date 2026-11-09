@@ -55,6 +55,42 @@ describe("OAuth request providers", () => {
 		expect(auth?.auth.apiKey).toBeUndefined();
 	});
 
+	it("lists Kimi Pro models with subscription metadata and native request behavior", () => {
+		const models = KIMI_CODE_OAUTH_PROVIDER.providerFactory().getModels();
+		const byId = new Map(models.map((model) => [model.id, model]));
+		const k3 = byId.get("k3");
+		expect(k3).toBeDefined();
+
+		expect(models.map((model) => model.id)).toEqual(expect.arrayContaining(["k3", "k3.1-pro", "k3.1-pro-highspeed"]));
+		expect(byId.get("k3.1-pro")).toMatchObject({
+			provider: KIMI_PI_PROVIDER,
+			api: k3!.api,
+			baseUrl: k3!.baseUrl,
+			compat: k3!.compat,
+			name: "Kimi K3.1 Pro",
+			contextWindow: 262_144,
+			maxTokens: 131_072,
+			reasoning: true,
+			input: ["text", "image"],
+		});
+		expect(byId.get("k3.1-pro-highspeed")).toMatchObject({
+			provider: KIMI_PI_PROVIDER,
+			api: k3!.api,
+			baseUrl: k3!.baseUrl,
+			compat: k3!.compat,
+			name: "Kimi K3.1 Pro Highspeed 2x Usage Cost",
+			contextWindow: 1_048_576,
+			maxTokens: 131_072,
+			reasoning: true,
+			input: ["text", "image"],
+		});
+	});
+
+	it("filters supplemental Kimi models through an explicit model selection", () => {
+		const provider = KIMI_CODE_OAUTH_PROVIDER.requestProvider(["k3.1-pro"]);
+		expect(provider.getModels().map((model) => model.id)).toEqual(["k3.1-pro"]);
+	});
+
 	it("removes the Kimi apiKey carrier before the Anthropic SDK builds wire headers", async () => {
 		let requestHeaders: Headers | undefined;
 		vi.stubGlobal(
