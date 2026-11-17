@@ -1,15 +1,18 @@
 import { chmod, lstat, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { withFileLock } from "@deepseek-ai/dsh-atomic-write";
 import type { OAuthCredential } from "@earendil-works/pi-ai";
 import { afterEach, describe, expect, it } from "vitest";
 import { CODEX_PI_PROVIDER, XAI_PI_PROVIDER } from "../src/ids.ts";
 import { OAUTH_SOURCE_MAX_BYTES } from "../src/oauth-sources.ts";
 import {
+	DEFAULT_CREDENTIAL_LOCK_WAIT_MS,
 	GrokBuildCredentialStore,
 	OAUTH_MAX_ACCOUNTS,
 	OAuthCredentialFileStore,
 	oauthCredentialPath,
+	resolveCredentialLockWaitMs,
 } from "../src/store.ts";
 
 const files: string[] = [];
@@ -626,5 +629,72 @@ describe("OAuthCredentialFileStore AuthDocument v2", () => {
 		await store.delete("test-provider");
 		expect(await store.listAccounts()).toEqual([]);
 		await expect(readFile(path, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
+	it("waits beyond the atomic-write 2s floor while another writer holds the lock", async () => {
+		const previous = process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"];
+		process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"] = "8000";
+		try {
+			const { store, path } = await createStore();
+			await store.upsertAccount({
+				id: "acct-a",
+				credential: oauthCredential({ access: "access-a", refresh: "refresh-a" }),
+				makeActive: true,
+			});
+
+			const hold = withFileLock(path, async () => {
+				await new Promise((resolve) => setTimeout(resolve, 2500));
+			});
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			const write = store.modify("test-provider", async (current) => {
+				if (current?.type !== "oauth") throw new Error("expected oauth credential");
+				return { ...current, access: "access-after-wait" };
+			});
+
+			await expect(Promise.all([hold, write])).resolves.toBeDefined();
+			expect(await store.read("test-provider")).toMatchObject({ access: "access-after-wait" });
+		} finally {
+			if (previous === undefined) delete process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"];
+			else process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"] = previous;
+		}
+	}, 15_000);
+
+	it("times out when DSH_CREDENTIAL_LOCK_WAIT_MS is shorter than the holder", async () => {
+		const previous = process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"];
+		process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"] = "200";
+		try {
+			const { store, path } = await createStore();
+			await store.upsertAccount({
+				id: "acct-a",
+				credential: oauthCredential({ access: "access-a", refresh: "refresh-a" }),
+				makeActive: true,
+			});
+
+			const hold = withFileLock(path, async () => {
+				await new Promise((resolve) => setTimeout(resolve, 1500));
+			});
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			await expect(
+				store.modify("test-provider", async (current) => {
+					if (current?.type !== "oauth") throw new Error("expected oauth credential");
+					return { ...current, access: "should-not-write" };
+				}),
+			).rejects.toThrow(/timed out waiting for the writer lock/u);
+			await hold;
+			expect(await store.read("test-provider")).toMatchObject({ access: "access-a" });
+		} finally {
+			if (previous === undefined) delete process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"];
+			else process.env["DSH_CREDENTIAL_LOCK_WAIT_MS"] = previous;
+		}
+	}, 10_000);
+});
+
+describe("resolveCredentialLockWaitMs", () => {
+	it("defaults to 60s and accepts a non-negative override", () => {
+		expect(resolveCredentialLockWaitMs({})).toBe(DEFAULT_CREDENTIAL_LOCK_WAIT_MS);
+		expect(resolveCredentialLockWaitMs({ DSH_CREDENTIAL_LOCK_WAIT_MS: "45000" })).toBe(45_000);
+		expect(resolveCredentialLockWaitMs({ DSH_CREDENTIAL_LOCK_WAIT_MS: "0" })).toBe(0);
+		expect(resolveCredentialLockWaitMs({ DSH_CREDENTIAL_LOCK_WAIT_MS: "-1" })).toBe(DEFAULT_CREDENTIAL_LOCK_WAIT_MS);
+		expect(resolveCredentialLockWaitMs({ DSH_CREDENTIAL_LOCK_WAIT_MS: "nope" })).toBe(DEFAULT_CREDENTIAL_LOCK_WAIT_MS);
 	});
 });

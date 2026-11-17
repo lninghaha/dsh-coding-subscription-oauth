@@ -286,6 +286,27 @@ function validatedDocument(document: AuthDocumentV2, filename: string, label: st
 	return parseDocument(JSON.stringify(document), filename, label).document;
 }
 
+/**
+ * How long writers wait for the credential file lock. Token refresh may hold
+ * the lock across a network round trip; the atomic-write default (2s) is too
+ * short when several DSH sessions share one document. Override with
+ * `DSH_CREDENTIAL_LOCK_WAIT_MS` (non-negative finite milliseconds).
+ */
+export const DEFAULT_CREDENTIAL_LOCK_WAIT_MS = 60_000;
+
+/** Resolve {@link withFileLock} `waitMs` for credential documents. */
+export function resolveCredentialLockWaitMs(env: NodeJS.ProcessEnv = process.env): number {
+	const raw = env["DSH_CREDENTIAL_LOCK_WAIT_MS"];
+	if (raw === undefined || raw.trim() === "") return DEFAULT_CREDENTIAL_LOCK_WAIT_MS;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_CREDENTIAL_LOCK_WAIT_MS;
+	return Math.floor(parsed);
+}
+
+function credentialLockOptions(): { waitMs: number } {
+	return { waitMs: resolveCredentialLockWaitMs() };
+}
+
 /** Resolve one private OAuth document path beneath DSH_HOME. */
 export function oauthCredentialPath(basename: string, dshHome?: string): string {
 	if (
@@ -465,26 +486,30 @@ export class OAuthCredentialFileStore implements CredentialStore {
 		fn: (current: AuthDocumentV2 | undefined) => Promise<AuthDocumentV2 | undefined | typeof UNCHANGED>,
 	): Promise<AuthDocumentV2 | undefined> {
 		await mkdir(dirname(this.filename), { recursive: true, mode: 0o700 });
-		return withFileLock(this.filename, async () => {
-			const loaded = await this.loadDocument({
-				allowUnreadable: options.allowUnreadable,
-				persistMigration: false,
-			});
-			const current = loaded === undefined ? undefined : loaded.document;
-			const migratedFromV1 = loaded?.migratedFromV1 === true;
-			const next = await fn(current === undefined ? undefined : cloneDocument(current));
-			if (next === UNCHANGED) {
-				if (migratedFromV1 && current !== undefined) {
-					return this.writeDocument(current);
+		return withFileLock(
+			this.filename,
+			async () => {
+				const loaded = await this.loadDocument({
+					allowUnreadable: options.allowUnreadable,
+					persistMigration: false,
+				});
+				const current = loaded === undefined ? undefined : loaded.document;
+				const migratedFromV1 = loaded?.migratedFromV1 === true;
+				const next = await fn(current === undefined ? undefined : cloneDocument(current));
+				if (next === UNCHANGED) {
+					if (migratedFromV1 && current !== undefined) {
+						return this.writeDocument(current);
+					}
+					return current === undefined ? undefined : cloneDocument(current);
 				}
-				return current === undefined ? undefined : cloneDocument(current);
-			}
-			if (next === undefined) {
-				await rm(this.filename, { force: true });
-				return undefined;
-			}
-			return this.writeDocument(next);
-		});
+				if (next === undefined) {
+					await rm(this.filename, { force: true });
+					return undefined;
+				}
+				return this.writeDocument(next);
+			},
+			credentialLockOptions(),
+		);
 	}
 
 	async read(providerId: string): Promise<Credential | undefined> {
@@ -581,7 +606,7 @@ export class OAuthCredentialFileStore implements CredentialStore {
 	async delete(providerId: string): Promise<void> {
 		if (providerId !== this.providerId) return;
 		await mkdir(dirname(this.filename), { recursive: true, mode: 0o700 });
-		await withFileLock(this.filename, () => rm(this.filename, { force: true }));
+		await withFileLock(this.filename, () => rm(this.filename, { force: true }), credentialLockOptions());
 	}
 
 	/** Read-only account list for Settings / API. Never includes tokens. */
