@@ -15,6 +15,8 @@ import { safeMessage } from "./redact.ts";
 export const QWEN_OAUTH_CLIENT_ID = "qwen-code-cli";
 export const QWEN_OAUTH_SCOPE = "model:invoke profile:read";
 export const QWEN_OAUTH_DEFAULT_HOST = "https://auth.qwen.ai";
+/** Web origin that hosts the approval page; the auth host's own verification URI lands on the chat home. */
+export const QWEN_WEB_ORIGIN = "https://chat.qwen.ai";
 export const QWEN_DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 /** The official CLI refuses accounts below these plans. */
 export const QWEN_ALLOWED_PLANS: readonly string[] = ["plus", "pro"];
@@ -36,6 +38,20 @@ export function qwenOAuthHost(env: NodeJS.ProcessEnv = process.env): string {
 		throw new Error("QWEN_CODE_OAUTH_HOST must be https (http only on loopback)");
 	}
 	return url.origin;
+}
+
+/**
+ * Approval page for a device code, built exactly as the official CLI does
+ * (`getQwenSubscriptionAuthorizationUrl(userCode, "cli")`). The server-provided
+ * `verification_uri_complete` is not used: it opens https://chat.qwen.ai/ without the code.
+ */
+export function qwenAuthorizationUrl(userCode: string): string {
+	const url = new URL("/authorize", QWEN_WEB_ORIGIN);
+	url.searchParams.set("user_code", userCode);
+	url.searchParams.set("client", "cli");
+	url.searchParams.set("entry", "qwen_code");
+	url.searchParams.set("paywallScene", "cli");
+	return url.href;
 }
 
 /** Failure carrying only a stable OAuth code and HTTP status, never a response body. */
@@ -295,7 +311,7 @@ export const qwenCodeOAuth: OAuthAuth = {
 		interaction.notify({
 			type: "device_code",
 			userCode: device.userCode,
-			verificationUri: device.verificationUriComplete,
+			verificationUri: qwenAuthorizationUrl(device.userCode),
 			intervalSeconds: device.intervalSeconds,
 			expiresInSeconds: Math.max(1, Math.floor((device.expiresAt - Date.now()) / 1000)),
 		});
