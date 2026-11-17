@@ -14,8 +14,14 @@ export declare class OAuthProviderSession {
     readonly definition: OAuthProviderDefinition;
     readonly store: OAuthCredentialFileStore;
     readonly models: MutableModels;
-    private readonly catalog;
+    private readonly baseline;
+    private catalog;
     private readonly cacheFile;
+    private readonly liveCacheFile;
+    private liveRefreshedAt;
+    private liveInFlight;
+    /** Bumped on logout so an in-flight listing cannot repopulate a signed-out catalog. */
+    private liveGeneration;
     private selectedIds;
     private readonly cacheQueue;
     constructor(definition: OAuthProviderDefinition, onCatalogChange?: () => void, store?: OAuthCredentialFileStore, cacheFile?: string);
@@ -25,6 +31,13 @@ export declare class OAuthProviderSession {
     visibleModels(): Model<Api>[];
     provider(): Provider;
     loadCachedModels(): Promise<void>;
+    /** Live entries inherit transport fields from the baseline template, never from the network/cache. */
+    private materializeLive;
+    /**
+     * Replace the baseline catalog with the account's live model list. Best effort: any
+     * failure keeps the last good catalog and retries later. De-duplicated and TTL-gated.
+     */
+    refreshLiveModels(force?: boolean): Promise<void>;
     setSelectedModels(ids: readonly string[] | undefined): Promise<void>;
     status(): Promise<OAuthProviderStatus>;
     login(interaction: AuthInteraction, persist?: LoginPersistOptions): Promise<Credential>;

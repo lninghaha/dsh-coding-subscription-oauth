@@ -3,7 +3,7 @@
  * @module dsh-coding-subscription-oauth/oauth-providers
  */
 
-import type { Api, ApiKeyAuth, Provider } from "@earendil-works/pi-ai";
+import type { Api, ApiKeyAuth, Model, Provider } from "@earendil-works/pi-ai";
 import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
 import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
@@ -26,7 +26,7 @@ import {
 	QWEN_CODE_OAUTH_ROUTE,
 	QWEN_PI_PROVIDER,
 } from "./ids.ts";
-import { qwenCodeProvider } from "./qwen-provider.ts";
+import { fetchQwenModels, type LiveModelEntry, qwenCodeProvider } from "./qwen-provider.ts";
 
 export type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, "grok">;
 export type SubscriptionLoginMethod = "browser" | "device";
@@ -41,7 +41,10 @@ export interface OAuthProviderDefinition {
 	loginMethods: readonly SubscriptionLoginMethod[];
 	recommendedLoginMethod: SubscriptionLoginMethod;
 	providerFactory(): Provider<Api>;
-	requestProvider(selectedIds?: readonly string[]): Provider<Api>;
+	/** `catalog` overrides the static model list when the session holds a live one. */
+	requestProvider(selectedIds?: readonly string[], catalog?: readonly Model<Api>[]): Provider<Api>;
+	/** Optional live account model listing; the session replaces its baseline catalog with it. */
+	fetchLiveModels?(accessToken: string, signal: AbortSignal): Promise<readonly LiveModelEntry[]>;
 }
 
 function requestTokenAuth(name: string, bearerHeader: boolean): ApiKeyAuth {
@@ -61,13 +64,14 @@ function selectedProvider(
 	base: Provider<Api>,
 	selectedIds: readonly string[] | undefined,
 	apiKey: ApiKeyAuth | undefined,
+	catalog?: readonly Model<Api>[],
 ): Provider<Api> {
 	const selected = selectedIds === undefined ? undefined : new Set(selectedIds);
 	return {
 		...base,
 		auth: apiKey === undefined ? base.auth : { ...base.auth, apiKey },
 		getModels: () => {
-			const models = base.getModels();
+			const models = catalog ?? base.getModels();
 			return selected === undefined ? models : models.filter((model) => selected.has(model.id));
 		},
 	};
@@ -172,8 +176,9 @@ export const QWEN_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {
 	loginMethods: ["device"],
 	recommendedLoginMethod: "device",
 	providerFactory: createQwenProvider,
-	requestProvider: (selectedIds) =>
-		selectedProvider(createQwenProvider(), selectedIds, requestTokenAuth("Qwen Code OAuth token", false)),
+	requestProvider: (selectedIds, catalog) =>
+		selectedProvider(createQwenProvider(), selectedIds, requestTokenAuth("Qwen Code OAuth token", false), catalog),
+	fetchLiveModels: (accessToken, signal) => fetchQwenModels(accessToken, signal),
 };
 
 export const CLAUDE_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {

@@ -2,8 +2,9 @@
  * Native pi-ai OAuth providers and their stable Harness route aliases.
  * @module dsh-coding-subscription-oauth/oauth-providers
  */
-import type { Api, Provider } from "@earendil-works/pi-ai";
+import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 import { type CodingOAuthProviderSlug } from "./ids.js";
+import { type LiveModelEntry } from "./qwen-provider.js";
 export type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, "grok">;
 export type SubscriptionLoginMethod = "browser" | "device";
 export interface OAuthProviderDefinition {
@@ -16,7 +17,10 @@ export interface OAuthProviderDefinition {
     loginMethods: readonly SubscriptionLoginMethod[];
     recommendedLoginMethod: SubscriptionLoginMethod;
     providerFactory(): Provider<Api>;
-    requestProvider(selectedIds?: readonly string[]): Provider<Api>;
+    /** `catalog` overrides the static model list when the session holds a live one. */
+    requestProvider(selectedIds?: readonly string[], catalog?: readonly Model<Api>[]): Provider<Api>;
+    /** Optional live account model listing; the session replaces its baseline catalog with it. */
+    fetchLiveModels?(accessToken: string, signal: AbortSignal): Promise<readonly LiveModelEntry[]>;
 }
 export declare const CODEX_OAUTH_PROVIDER: OAuthProviderDefinition;
 export declare const KIMI_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
