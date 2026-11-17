@@ -20,7 +20,8 @@ export interface OAuthProviderDefinition {
 }
 export declare const CODEX_OAUTH_PROVIDER: OAuthProviderDefinition;
 export declare const KIMI_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
+export declare const QWEN_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
 export declare const CLAUDE_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;
-export declare const OAUTH_PROVIDER_DEFINITIONS: readonly [OAuthProviderDefinition, OAuthProviderDefinition, OAuthProviderDefinition];
+export declare const OAUTH_PROVIDER_DEFINITIONS: readonly [OAuthProviderDefinition, OAuthProviderDefinition, OAuthProviderDefinition, OAuthProviderDefinition];
 export declare function oauthProviderDefinition(slug: string): OAuthProviderDefinition | undefined;
 //# sourceMappingURL=oauth-providers.d.ts.map

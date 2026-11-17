@@ -3,10 +3,11 @@ import type { GoGatewayRoute } from "./go-gateway-route.ts";
 
 import type { GrokBuildSettingsKey } from "./locales.ts";
 
-export type ProviderSlug = "grok" | "codex" | "kimi" | "claude";
+export type ProviderSlug = "grok" | "codex" | "kimi" | "qwen" | "claude";
 export type LoginMethod = "pkce" | "device" | "browser";
 export type CatalogSource = "live" | "cache" | "fallback";
-export type SourceKind = ProviderSlug;
+/** CLI credential import is not offered for Qwen Code. */
+export type SourceKind = Exclude<ProviderSlug, "qwen">;
 export type SourceReason = "missing" | "unsafe" | "invalid" | "too_large";
 export type SourceConflict =
 	| "none"
@@ -90,6 +91,7 @@ export interface CodingOAuthStatus {
 		grok: GrokStatus;
 		codex: SubscriptionStatus;
 		kimi: SubscriptionStatus;
+		qwen: SubscriptionStatus;
 		claude: SubscriptionStatus;
 	};
 	antigravity: { installed: boolean; route: "agy"; management: "cli" };

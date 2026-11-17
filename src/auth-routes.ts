@@ -882,6 +882,7 @@ export interface CodingOAuthWebStatus {
 		grok: GrokBuildWebAuthStatus;
 		codex: SubscriptionWebAuthStatus;
 		kimi: SubscriptionWebAuthStatus;
+		qwen: SubscriptionWebAuthStatus;
 		claude: SubscriptionWebAuthStatus;
 	};
 	antigravity: {
@@ -905,8 +906,16 @@ function recordBody(body: unknown): Record<string, unknown> {
 
 function providerSlug(body: unknown): CodingOAuthProviderSlug {
 	const provider = recordBody(body)["provider"];
-	if (provider === "grok" || provider === "codex" || provider === "kimi" || provider === "claude") return provider;
-	throw new Error("provider must be one of grok, codex, kimi, or claude");
+	if (
+		provider === "grok" ||
+		provider === "codex" ||
+		provider === "kimi" ||
+		provider === "qwen" ||
+		provider === "claude"
+	) {
+		return provider;
+	}
+	throw new Error("provider must be one of grok, codex, kimi, qwen, or claude");
 }
 
 /** Register the unified Coding OAuth API plus the compatibility Grok routes. */
@@ -940,7 +949,7 @@ export function registerCodingOAuthRoutes(
 	registerGrokBuildAuthRoutes(ctx, grokSession, grok, ownerRequestPolicy);
 
 	const allStatus = async (accessMode: OwnerAccessMode): Promise<CodingOAuthWebStatus> => {
-		const [grokStatus, codex, kimi, claude] = await Promise.all([
+		const [grokStatus, codex, kimi, qwen, claude] = await Promise.all([
 			grok.status().catch(
 				async (error: unknown): Promise<GrokBuildWebAuthStatus> => ({
 					status: "error",
@@ -950,6 +959,7 @@ export function registerCodingOAuthRoutes(
 			),
 			subscription("codex").status(),
 			subscription("kimi").status(),
+			subscription("qwen").status(),
 			subscription("claude").status(),
 		]);
 		let antigravityInstalled = false;
@@ -962,7 +972,7 @@ export function registerCodingOAuthRoutes(
 			accessMode,
 			uiOwner: "standalone",
 			compatibility: compatibility?.(accessMode) ?? fallbackCompatibility(accessMode),
-			providers: { grok: grokStatus, codex, kimi, claude },
+			providers: { grok: grokStatus, codex, kimi, qwen, claude },
 			antigravity: {
 				installed: antigravityInstalled,
 				route: ANTIGRAVITY_ROUTE,

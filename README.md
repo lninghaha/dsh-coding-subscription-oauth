@@ -75,6 +75,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 | **xAI Grok Build** | `grok-build` | SuperGrok / X Premium OAuth | `xai` |
 | **OpenAI Codex** | `codex-oauth` · optional `codex-oauth-fast` | ChatGPT Plus/Pro OAuth | `openai` |
 | **Kimi Code** | `kimi-code-oauth` | Kimi Code OAuth | `kimi-coding` |
+| **Qwen Code** | `qwen-code-oauth` | Qwen Code (chat.qwen.ai) device-code OAuth with PKCE; models `coder-model`, `vision-model` via `portal.qwen.ai/v1` | — |
 | **Claude Code** | `claude-code-oauth` | Claude Pro/Max OAuth | — |
 | **Google Antigravity** | `agy` | `dsh-agy` Google OAuth | — |
 
@@ -176,6 +177,7 @@ DSH Web remains loopback-only. Remote Settings must travel through an SSH tunnel
 | Grok | auth code · device code · model selection |
 | Codex | device code (recommended on remote DSH) · browser PKCE |
 | Kimi | device code |
+| Qwen | device code + PKCE (login only; no CLI pull) |
 | Claude | browser PKCE (remote browser can paste the full localhost redirect URL) |
 | Antigravity | `dsh-agy` install status + profile-local CLI commands |
 
@@ -221,7 +223,7 @@ On the **Gateway** tab, copy the OpenAI base URL (for example, `http://127.0.0.1
 dsh-coding-oauth login [--pkce] | import | status | logout
 
 # newer providers
-dsh-coding-oauth login codex --device-auth | codex --browser | kimi | claude
+dsh-coding-oauth login codex --device-auth | codex --browser | kimi | qwen | claude
 dsh-coding-oauth status all
 dsh-coding-oauth logout codex
 

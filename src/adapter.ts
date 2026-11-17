@@ -20,6 +20,8 @@ import {
 	GROK_BUILD_STREAM_IDLE_TIMEOUT_MS,
 	KIMI_CODE_OAUTH_ROUTE,
 	KIMI_PI_PROVIDER,
+	QWEN_CODE_OAUTH_ROUTE,
+	QWEN_PI_PROVIDER,
 	XAI_PI_PROVIDER,
 } from "./ids.ts";
 import type { OAuthProviderSession } from "./oauth-session.ts";
@@ -228,6 +230,7 @@ export function createCodingOAuthAdapter(
 		[CODEX_OAUTH_ROUTE, CODEX_PI_PROVIDER],
 		[KIMI_CODE_OAUTH_ROUTE, KIMI_PI_PROVIDER],
 		[CLAUDE_CODE_OAUTH_ROUTE, CLAUDE_PI_PROVIDER],
+		[QWEN_CODE_OAUTH_ROUTE, QWEN_PI_PROVIDER],
 	]);
 	if (codexFast !== undefined && codexSession !== undefined) {
 		aliases.set(CODEX_OAUTH_FAST_ROUTE, CODEX_OAUTH_FAST_ROUTE);

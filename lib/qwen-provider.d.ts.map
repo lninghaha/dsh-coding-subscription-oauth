@@ -1,0 +1,1 @@
+{"version":3,"file":"qwen-provider.d.ts","sourceRoot":"","sources":["../../src/qwen-provider.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,OAAO,KAAK,EAAE,KAAK,EAAE,QAAQ,EAAE,MAAM,uBAAuB,CAAC;AAM7D,yEAAyE;AACzE,eAAO,MAAM,oBAAoB,8BAA8B,CAAC;AA0BhE,8FAA8F;AAC9F,eAAO,MAAM,gBAAgB,EAAE,SAAS,KAAK,CAAC,oBAAoB,CAAC,EAGlE,CAAC;AAEF,wBAAgB,gBAAgB,IAAI,QAAQ,CAS3C"}

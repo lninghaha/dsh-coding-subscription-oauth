@@ -789,7 +789,8 @@ export function GrokBuildSettings({ t, close, initialTab }: GrokBuildSettingsPro
 							}));
 						}}
 						onPreviewSource={(slug) => {
-							void previewSource(slug);
+							// Qwen Code has no CLI import source, so its card never offers this action.
+							if (slug !== "qwen") void previewSource(slug);
 						}}
 						onSaveModels={saveModels}
 						onSetDefaultAccount={(slug, accountId) => {

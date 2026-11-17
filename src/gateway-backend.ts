@@ -224,7 +224,8 @@ function stringifyToolArguments(value: unknown): string {
 
 function resolveReasoning(value: string | undefined, ownedBy: string): ThinkingLevel | undefined {
 	if (value === undefined || !isThinkingLevel(value)) return undefined;
-	if (ownedBy === "kimi-code-oauth" || ownedBy === "claude-code-oauth") return undefined;
+	if (ownedBy === "kimi-code-oauth" || ownedBy === "claude-code-oauth" || ownedBy === "qwen-code-oauth")
+		return undefined;
 	return value as ThinkingLevel;
 }
 

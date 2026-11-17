@@ -109,6 +109,9 @@ export const en = {
 	kimiTitle: "Kimi Code",
 	kimiDescription:
 		"Kimi Code membership through auth.kimi.com and api.kimi.com/coding; this is not the Moonshot API-key platform.",
+	qwenTitle: "Qwen Code",
+	qwenDescription:
+		"Qwen Code account through chat.qwen.ai and the portal.qwen.ai OpenAI-compatible endpoint; this is not the DashScope API-key platform.",
 	claudeTitle: "Claude Code",
 	claudeDescription: "Claude Pro/Max OAuth with Claude Code scopes and automatic refresh.",
 	antigravityTitle: "Google Antigravity",
@@ -499,6 +502,9 @@ export const zh: { [Key in GrokBuildSettingsKey]: string } = {
 	codexDescription: "使用 ChatGPT Plus/Pro 的 Codex 权益；远程 DSH 主机推荐设备码登录。",
 	kimiTitle: "Kimi Code",
 	kimiDescription: "通过 auth.kimi.com 与 api.kimi.com/coding 使用 Kimi Code 会员；不是 Moonshot API-key 开放平台。",
+	qwenTitle: "Qwen Code",
+	qwenDescription:
+		"通过 chat.qwen.ai 与 portal.qwen.ai（OpenAI 兼容端点）使用 Qwen Code 账户；不是 DashScope API-key 平台。",
 	claudeTitle: "Claude Code",
 	claudeDescription: "Claude Pro/Max OAuth，包含 Claude Code scope 和自动刷新。",
 	antigravityTitle: "Google Antigravity",

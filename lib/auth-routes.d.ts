@@ -163,6 +163,7 @@ export interface CodingOAuthWebStatus {
         grok: GrokBuildWebAuthStatus;
         codex: SubscriptionWebAuthStatus;
         kimi: SubscriptionWebAuthStatus;
+        qwen: SubscriptionWebAuthStatus;
         claude: SubscriptionWebAuthStatus;
     };
     antigravity: {

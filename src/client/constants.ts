@@ -198,6 +198,15 @@ export const PROVIDERS: readonly ProviderCardDefinition[] = [
 		remoteRecommended: "device",
 	},
 	{
+		slug: "qwen",
+		route: "qwen-code-oauth",
+		titleKey: "qwenTitle",
+		descriptionKey: "qwenDescription",
+		methods: ["device"],
+		recommended: "device",
+		remoteRecommended: "device",
+	},
+	{
 		slug: "claude",
 		route: "claude-code-oauth",
 		titleKey: "claudeTitle",

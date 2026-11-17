@@ -72,7 +72,7 @@ it("opens the local bridge rather than Claude directly after the login challenge
 			antigravity: { installed: false, route: "agy" }, opencodeGo: { active: false, lastCall: "no-call", updatedAt: null },
 			compatibility: { coreAbi: "dsh-coding-oauth-core/v1", dshVersion: "0.1.1-rc.2", status: "healthy", diagnostics: [] },
 			providers: {
-				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" },
+				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" }, qwen: { status: "signed-out" },
 				claude: { provider: "claude", route: "claude-code-oauth", displayName: "Claude", loginMethods: ["browser"], recommendedLoginMethod: "browser", models: [], available: [], selected: [],
 					...(signedIn ? { status: "signed-in", accounts: [], activeAccountId: "fixture" }
 						: signingIn ? { status: "signing-in", method: "browser", url: authUrl } : { status: "signed-out" }),
@@ -111,7 +111,7 @@ it("uses the bridge for confirmed reauthorization of the selected remote Claude 
 			antigravity: { installed: false, route: "agy" }, opencodeGo: { active: false, lastCall: "no-call", updatedAt: null },
 			compatibility: { coreAbi: "dsh-coding-oauth-core/v1", dshVersion: "0.1.1-rc.2", status: "healthy", diagnostics: [] },
 			providers: {
-				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" },
+				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" }, qwen: { status: "signed-out" },
 				claude: { provider: "claude", route: "claude-code-oauth", displayName: "Claude", loginMethods: ["browser"], recommendedLoginMethod: "browser", models: [], available: [], selected: [],
 					...(signingIn ? { status: "signing-in", method: "browser", url: authUrl }
 						: { status: "signed-in", accounts: [{ id: "selected-account", expires: 2_000_000_000_000 }], activeAccountId: "selected-account" }),
@@ -144,7 +144,7 @@ it("binds a pasted callback to the pending Claude attempt shown in Settings", as
 			antigravity: { installed: false, route: "agy" }, opencodeGo: { active: false, lastCall: "no-call", updatedAt: null },
 			compatibility: { coreAbi: "dsh-coding-oauth-core/v1", dshVersion: "0.1.1-rc.2", status: "healthy", diagnostics: [] },
 			providers: {
-				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" },
+				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" }, qwen: { status: "signed-out" },
 				claude: { provider: "claude", route: "claude-code-oauth", displayName: "Claude", loginMethods: ["browser"], recommendedLoginMethod: "browser", models: [], available: [], selected: [],
 					status: "signing-in", method: "browser", url: authUrl, loginAttemptId: "displayed-attempt",
 				},

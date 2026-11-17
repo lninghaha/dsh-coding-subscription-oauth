@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Added
+
+- Qwen Code subscription OAuth on the `qwen-code-oauth` route: RFC 8628 device authorization with PKCE against `chat.qwen.ai`, automatic refresh, OpenAI-compatible inference through `portal.qwen.ai/v1`, `dsh-coding-oauth login qwen`, and a Settings card. pi-ai has no Qwen subscription flow, so it is implemented in this package. Qwen identifiers and the widened provider/route unions live in `src/ids.ts` until `dsh-coding-oauth-core` publishes them. CLI credential pull is not offered for Qwen. The flow was built from the public Qwen Code client contract and tested against a mock server only; verify a real sign-in before release.
+
 ## v0.8.7 - 2026-10-23
 
 ### Fixed
