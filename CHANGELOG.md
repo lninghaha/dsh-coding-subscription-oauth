@@ -4,6 +4,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+### Fixed
+
+- Add Kimi Code subscription catalog entries for `k3.1-pro` (262K context) and `k3.1-pro-highspeed` (1M context), preserving native pi-ai request behavior and avoiding duplicate entries when pi-ai supplies them (`#54`).
+
 ## v0.8.7 - 2026-10-23
 
 ### Fixed

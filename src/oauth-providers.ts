@@ -95,8 +95,36 @@ function asProvider(factory: () => Provider): () => Provider<Api> {
 }
 
 const createCodexProvider = asProvider(openaiCodexProvider);
-const createKimiProvider = asProvider(kimiCodingProvider);
 const createClaudeProvider = asProvider(anthropicProvider);
+
+/** Kimi subscription models missing from pi-ai's bundled catalog; inherit K3's request behavior. */
+const KIMI_MODEL_SUPPLEMENTS = [
+	{ id: "k3.1-pro", name: "Kimi K3.1 Pro", contextWindow: 262_144, maxTokens: 131_072 },
+	{
+		id: "k3.1-pro-highspeed",
+		name: "Kimi K3.1 Pro Highspeed 2x Usage Cost",
+		contextWindow: 1_048_576,
+		maxTokens: 131_072,
+	},
+] as const;
+
+const createKimiProvider = (): Provider<Api> => {
+	const base = asProvider(kimiCodingProvider)();
+	return {
+		...base,
+		getModels: () => {
+			const models = base.getModels();
+			const template = models.find((model) => model.id === "k3") ?? models[0];
+			if (template === undefined) return models;
+			const knownIds = new Set(models.map((model) => model.id));
+			const supplements = KIMI_MODEL_SUPPLEMENTS.filter((model) => !knownIds.has(model.id)).map((model) => ({
+				...template,
+				...model,
+			}));
+			return [...models, ...supplements];
+		},
+	};
+};
 
 export const CODEX_OAUTH_PROVIDER: OAuthProviderDefinition = {
 	slug: "codex",
