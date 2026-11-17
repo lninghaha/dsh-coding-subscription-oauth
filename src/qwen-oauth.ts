@@ -1,28 +1,28 @@
 /**
- * Qwen Code (chat.qwen.ai) OAuth: RFC 8628 device authorization grant with PKCE.
+ * Qwen Code subscription OAuth: RFC 8628 device authorization grant against
+ * auth.qwen.ai, mirroring the official Qwen Code CLI (`QwenSubscriptionOAuthClient`).
  *
- * pi-ai ships no Qwen subscription flow, so it is implemented here against the
- * public Qwen Code client. The access token authenticates OpenAI-compatible
- * requests to the portal API as `Authorization: Bearer`.
+ * pi-ai ships no Qwen subscription flow, so it is implemented here. The device
+ * grant is a public client (`qwen-code-cli`) with no PKCE and no client secret.
+ * The access token authenticates OpenAI-compatible requests to
+ * https://api.qwen.ai/compatible-mode/v1 as `Authorization: Bearer`.
  * @module dsh-coding-subscription-oauth/qwen-oauth
  */
 
-import { createHash, randomBytes } from "node:crypto";
 import type { OAuthAuth, OAuthCredential } from "@earendil-works/pi-ai";
 import { safeMessage } from "./redact.ts";
 
-/** Public Qwen Code client id (no secret; PKCE protects the exchange). */
-export const QWEN_OAUTH_CLIENT_ID = "f0304373b74a44d2b584a3fb70ca9e56";
-export const QWEN_OAUTH_SCOPE = "openid profile email model.completion";
-export const QWEN_OAUTH_DEFAULT_HOST = "https://chat.qwen.ai";
+export const QWEN_OAUTH_CLIENT_ID = "qwen-code-cli";
+export const QWEN_OAUTH_SCOPE = "model:invoke profile:read";
+export const QWEN_OAUTH_DEFAULT_HOST = "https://auth.qwen.ai";
 export const QWEN_DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+/** The official CLI refuses accounts below these plans. */
+export const QWEN_ALLOWED_PLANS: readonly string[] = ["plus", "pro"];
 
-const DEFAULT_POLL_INTERVAL_SECONDS = 2;
-const DEFAULT_DEVICE_TTL_SECONDS = 15 * 60;
-const MIN_INTERVAL_MS = 1_000;
-const SLOW_DOWN_STEP_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const RESPONSE_MAX_BYTES = 64 * 1024;
+const SLOW_DOWN_STEP_MS = 5_000;
+const MIN_INTERVAL_MS = 1_000;
 const REFRESH_MAX_RETRIES = 3;
 const CANCEL_MESSAGE = "Qwen Code login cancelled";
 
@@ -38,10 +38,15 @@ export function qwenOAuthHost(env: NodeJS.ProcessEnv = process.env): string {
 	return url.origin;
 }
 
-export function generateQwenPkce(): { verifier: string; challenge: string } {
-	const verifier = randomBytes(32).toString("base64url");
-	const challenge = createHash("sha256").update(verifier).digest("base64url");
-	return { verifier, challenge };
+/** Failure carrying only a stable OAuth code and HTTP status, never a response body. */
+class QwenHttpError extends Error {
+	constructor(
+		readonly code: string,
+		readonly status: number | undefined,
+		readonly retryAfterMs?: number,
+	) {
+		super(status === undefined ? code : `${code} (status ${status})`);
+	}
 }
 
 function trustedHttpUrl(value: unknown): string | undefined {
@@ -54,33 +59,14 @@ function trustedHttpUrl(value: unknown): string | undefined {
 	}
 }
 
-async function readJson(response: Response): Promise<Record<string, unknown> | undefined> {
-	try {
-		const text = await response.text();
-		if (text.length > RESPONSE_MAX_BYTES) return undefined;
-		const value: unknown = JSON.parse(text);
-		return typeof value === "object" && value !== null && !Array.isArray(value)
-			? (value as Record<string, unknown>)
-			: undefined;
-	} catch {
-		return undefined;
-	}
+function retryAfterMs(value: string | null): number | undefined {
+	if (value === null || value.length === 0) return undefined;
+	const seconds = Number(value);
+	const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(value) - Date.now();
+	return Number.isFinite(delay) ? Math.max(0, delay) : undefined;
 }
 
-function requestSignal(signal: AbortSignal): AbortSignal {
-	return AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), signal]);
-}
-
-function formPost(url: string, fields: Record<string, string>, signal: AbortSignal): Promise<Response> {
-	return fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-		body: new URLSearchParams(fields).toString(),
-		signal: requestSignal(signal),
-	});
-}
-
-function sleep(ms: number, signal: AbortSignal, message: string): Promise<void> {
+function wait(ms: number, signal: AbortSignal, message: string): Promise<void> {
 	return new Promise((resolve, reject) => {
 		if (signal.aborted) return reject(new Error(message));
 		const onAbort = (): void => {
@@ -95,74 +81,107 @@ function sleep(ms: number, signal: AbortSignal, message: string): Promise<void> 
 	});
 }
 
+async function request(
+	host: string,
+	path: string,
+	signal: AbortSignal,
+	form?: Record<string, string>,
+	accessToken?: string,
+): Promise<Record<string, unknown>> {
+	let response: Response;
+	try {
+		response = await fetch(`${host}/api/oauth/${path}`, {
+			method: form === undefined ? "GET" : "POST",
+			headers: {
+				Accept: "application/json",
+				...(form === undefined ? {} : { "Content-Type": "application/x-www-form-urlencoded" }),
+				...(accessToken === undefined ? {} : { Authorization: `Bearer ${accessToken}` }),
+			},
+			...(form === undefined ? {} : { body: new URLSearchParams(form).toString() }),
+			signal: AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), signal]),
+			redirect: "error",
+		});
+	} catch (error) {
+		if (signal.aborted) throw error;
+		const code = error instanceof Error && error.name === "TimeoutError" ? "request_timeout" : "network_error";
+		throw new QwenHttpError(code, undefined);
+	}
+	let data: unknown;
+	try {
+		const text = await response.text();
+		data = text.length > RESPONSE_MAX_BYTES ? undefined : JSON.parse(text);
+	} catch {
+		data = undefined;
+	}
+	const record =
+		typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
+	if (!response.ok) {
+		const code = typeof record?.["error"] === "string" ? record["error"] : "invalid_response";
+		throw new QwenHttpError(code, response.status, retryAfterMs(response.headers.get("Retry-After")));
+	}
+	if (record === undefined) throw new QwenHttpError("invalid_response", response.status);
+	return record;
+}
+
 export interface QwenDeviceAuthorization {
 	deviceCode: string;
 	userCode: string;
 	verificationUri: string;
 	verificationUriComplete: string;
 	intervalSeconds: number;
-	expiresInSeconds: number;
+	expiresAt: number;
 }
 
 export async function startQwenDeviceAuthorization(
 	host: string,
-	challenge: string,
 	signal: AbortSignal,
 ): Promise<QwenDeviceAuthorization> {
-	const response = await formPost(
-		`${host}/api/v1/oauth2/device/code`,
-		{
-			client_id: QWEN_OAUTH_CLIENT_ID,
-			scope: QWEN_OAUTH_SCOPE,
-			code_challenge: challenge,
-			code_challenge_method: "S256",
-		},
-		signal,
-	);
-	const json = await readJson(response);
-	if (!response.ok || json === undefined) {
-		throw new Error(`Qwen Code device authorization failed with status ${response.status}`);
-	}
-	const verificationUri = trustedHttpUrl(json["verification_uri"]);
-	const complete = trustedHttpUrl(json["verification_uri_complete"]) ?? verificationUri;
+	const issuedAt = Date.now();
+	const data = await request(host, "device/code", signal, {
+		client_id: QWEN_OAUTH_CLIENT_ID,
+		scope: QWEN_OAUTH_SCOPE,
+	});
+	const verificationUri = trustedHttpUrl(data["verification_uri"]);
+	const complete = trustedHttpUrl(data["verification_uri_complete"]);
+	const interval = data["interval"];
+	const expires = data["expires_in"];
 	if (
-		typeof json["device_code"] !== "string" ||
-		typeof json["user_code"] !== "string" ||
+		typeof data["device_code"] !== "string" ||
+		data["device_code"].length === 0 ||
+		typeof data["user_code"] !== "string" ||
+		data["user_code"].length === 0 ||
 		verificationUri === undefined ||
-		complete === undefined
+		complete === undefined ||
+		typeof interval !== "number" ||
+		!Number.isFinite(interval) ||
+		interval <= 0 ||
+		typeof expires !== "number" ||
+		!Number.isFinite(expires) ||
+		expires <= 0
 	) {
 		throw new Error("Invalid Qwen Code device authorization response");
 	}
-	const interval = json["interval"];
-	const expires = json["expires_in"];
 	return {
-		deviceCode: json["device_code"],
-		userCode: json["user_code"],
+		deviceCode: data["device_code"],
+		userCode: data["user_code"],
 		verificationUri,
 		verificationUriComplete: complete,
-		intervalSeconds:
-			typeof interval === "number" && Number.isFinite(interval) && interval > 0
-				? interval
-				: DEFAULT_POLL_INTERVAL_SECONDS,
-		expiresInSeconds:
-			typeof expires === "number" && Number.isFinite(expires) && expires > 0 ? expires : DEFAULT_DEVICE_TTL_SECONDS,
+		intervalSeconds: interval,
+		expiresAt: issuedAt + expires * 1000,
 	};
 }
 
 /** Token documents carry secrets: failures name only the operation, never the body. */
-function parseTokens(
-	json: Record<string, unknown> | undefined,
-	operation: string,
-	fallbackRefresh?: string,
-): OAuthCredential {
-	const access = json?.["access_token"];
-	const refresh = json?.["refresh_token"] ?? fallbackRefresh;
-	const expiresIn = json?.["expires_in"];
+function parseTokens(data: Record<string, unknown>, operation: string): OAuthCredential {
+	const access = data["access_token"];
+	const refresh = data["refresh_token"];
+	const expiresIn = data["expires_in"];
 	if (
 		typeof access !== "string" ||
 		access.length === 0 ||
 		typeof refresh !== "string" ||
 		refresh.length === 0 ||
+		data["token_type"] !== "Bearer" ||
 		typeof expiresIn !== "number" ||
 		!Number.isFinite(expiresIn) ||
 		expiresIn <= 0
@@ -175,81 +194,93 @@ function parseTokens(
 async function pollForToken(
 	host: string,
 	device: QwenDeviceAuthorization,
-	verifier: string,
 	signal: AbortSignal,
 ): Promise<OAuthCredential> {
-	const deadline = Date.now() + device.expiresInSeconds * 1000;
 	let intervalMs = Math.max(MIN_INTERVAL_MS, Math.floor(device.intervalSeconds * 1000));
-	let slowedDown = false;
-	await sleep(Math.min(intervalMs, deadline - Date.now()), signal, CANCEL_MESSAGE);
-	while (Date.now() < deadline) {
-		if (signal.aborted) throw new Error(CANCEL_MESSAGE);
-		const response = await formPost(
-			`${host}/api/v1/oauth2/token`,
-			{
+	let delayMs = intervalMs;
+	const expired = (): Error => new Error("Qwen Code device authorization expired. Please restart login.");
+	while (true) {
+		const remaining = device.expiresAt - Date.now();
+		if (remaining <= 0) throw expired();
+		await wait(Math.min(delayMs, remaining), signal, CANCEL_MESSAGE);
+		if (Date.now() >= device.expiresAt) throw expired();
+		try {
+			const data = await request(host, "token", signal, {
 				grant_type: QWEN_DEVICE_GRANT,
 				client_id: QWEN_OAUTH_CLIENT_ID,
 				device_code: device.deviceCode,
-				code_verifier: verifier,
-			},
-			signal,
-		);
-		if (response.status >= 500) {
-			throw new Error(`Qwen Code device token request failed with status ${response.status}`);
+			});
+			return parseTokens(data, "poll");
+		} catch (error) {
+			if (signal.aborted) throw new Error(CANCEL_MESSAGE);
+			if (!(error instanceof QwenHttpError)) throw error;
+			if (error.status === 400 && error.code === "authorization_pending") {
+				delayMs = intervalMs;
+			} else if (error.status === 400 && error.code === "slow_down") {
+				intervalMs += SLOW_DOWN_STEP_MS;
+				delayMs = intervalMs;
+			} else if (error.code === "expired_token") {
+				throw expired();
+			} else if (error.code === "access_denied") {
+				throw new Error("Qwen Code login was denied.");
+			} else if (
+				error.status === 429 ||
+				(error.status !== undefined && error.status >= 500) ||
+				error.code === "network_error" ||
+				error.code === "request_timeout"
+			) {
+				// Transient: back off like the official CLI, honouring Retry-After.
+				delayMs = Math.max(intervalMs, delayMs * 2, error.retryAfterMs ?? 0);
+			} else {
+				throw new Error(`Qwen Code device token request failed: ${error.message}`);
+			}
 		}
-		const json = await readJson(response);
-		if (response.ok && typeof json?.["access_token"] === "string") return parseTokens(json, "poll");
-		const error = json?.["error"];
-		if (error === "slow_down") {
-			slowedDown = true;
-			intervalMs += SLOW_DOWN_STEP_MS;
-		} else if (error === "expired_token") {
-			throw new Error("Qwen Code device authorization expired. Please restart login.");
-		} else if (error === "access_denied") {
-			throw new Error("Qwen Code login was denied.");
-		} else if (error !== "authorization_pending") {
-			throw new Error(
-				`Qwen Code device token request failed (status ${response.status})${typeof error === "string" ? `: ${error}` : ""}`,
-			);
-		}
-		const remaining = deadline - Date.now();
-		if (remaining <= 0) break;
-		await sleep(Math.min(intervalMs, remaining), signal, CANCEL_MESSAGE);
 	}
-	throw new Error(
-		slowedDown
-			? "Qwen Code device flow timed out after slow_down responses; check the system clock and retry."
-			: "Qwen Code device flow timed out",
-	);
+}
+
+/** The official CLI only activates Plus/Pro memberships; reject others before storing a credential. */
+async function assertSupportedPlan(host: string, accessToken: string, signal: AbortSignal): Promise<void> {
+	const info = await request(host, "userinfo", signal, undefined, accessToken);
+	const plan = typeof info["member_type"] === "string" ? info["member_type"].toLowerCase() : undefined;
+	if (plan === undefined || !QWEN_ALLOWED_PLANS.includes(plan)) {
+		throw new Error("An active Qwen Plus or Pro subscription is required.");
+	}
+}
+
+async function revokeBestEffort(host: string, token: string, signal: AbortSignal): Promise<void> {
+	try {
+		await request(host, "revoke", signal, {
+			client_id: QWEN_OAUTH_CLIENT_ID,
+			token,
+			token_type_hint: "refresh_token",
+		});
+	} catch {
+		// The credential was never stored; a failed revoke leaves nothing to clean locally.
+	}
 }
 
 async function refreshQwenToken(host: string, refreshToken: string, signal: AbortSignal): Promise<OAuthCredential> {
 	let last: Error | undefined;
 	for (let attempt = 0; attempt <= REFRESH_MAX_RETRIES; attempt += 1) {
-		if (attempt > 0) await sleep(1_000 * 2 ** (attempt - 1), signal, "Qwen Code token refresh aborted");
-		let response: Response;
+		if (attempt > 0) await wait(1_000 * 2 ** (attempt - 1), signal, "Qwen Code token refresh aborted");
 		try {
-			response = await formPost(
-				`${host}/api/v1/oauth2/token`,
-				{ grant_type: "refresh_token", refresh_token: refreshToken, client_id: QWEN_OAUTH_CLIENT_ID },
-				signal,
-			);
+			const data = await request(host, "token", signal, {
+				grant_type: "refresh_token",
+				client_id: QWEN_OAUTH_CLIENT_ID,
+				refresh_token: refreshToken,
+			});
+			return parseTokens(data, "refresh");
 		} catch (error) {
 			if (signal.aborted) throw error;
-			last = new Error(`Qwen Code token refresh request failed: ${safeMessage(error)}`);
-			continue;
-		}
-		const json = await readJson(response);
-		if (response.ok) {
-			// Qwen may rotate or omit the refresh token; keep the working one when it is omitted.
-			return parseTokens(json, "refresh", refreshToken);
-		}
-		if (response.status === 400 || response.status === 401 || response.status === 403) {
+			if (!(error instanceof QwenHttpError)) throw error;
 			// Dead credential: Models clears it and prompts for a fresh login.
-			throw new Error(`Qwen Code token refresh unauthorized (status ${response.status})`);
+			if (error.status === 400 || error.status === 401 || error.status === 403) {
+				throw new Error(`Qwen Code token refresh unauthorized (${error.message})`);
+			}
+			last = new Error(`Qwen Code token refresh failed: ${safeMessage(error)}`);
+			const transient = error.status === undefined || error.status === 429 || error.status >= 500;
+			if (!transient) break;
 		}
-		last = new Error(`Qwen Code token refresh failed with status ${response.status}`);
-		if (response.status !== 429 && response.status < 500) break;
 	}
 	throw last ?? new Error("Qwen Code token refresh failed");
 }
@@ -260,16 +291,22 @@ export const qwenCodeOAuth: OAuthAuth = {
 	loginLabel: "Sign in with Qwen",
 	async login(interaction) {
 		const host = qwenOAuthHost();
-		const { verifier, challenge } = generateQwenPkce();
-		const device = await startQwenDeviceAuthorization(host, challenge, interaction.signal);
+		const device = await startQwenDeviceAuthorization(host, interaction.signal);
 		interaction.notify({
 			type: "device_code",
 			userCode: device.userCode,
 			verificationUri: device.verificationUriComplete,
 			intervalSeconds: device.intervalSeconds,
-			expiresInSeconds: device.expiresInSeconds,
+			expiresInSeconds: Math.max(1, Math.floor((device.expiresAt - Date.now()) / 1000)),
 		});
-		return pollForToken(host, device, verifier, interaction.signal);
+		const credential = await pollForToken(host, device, interaction.signal);
+		try {
+			await assertSupportedPlan(host, credential.access, interaction.signal);
+		} catch (error) {
+			await revokeBestEffort(host, credential.refresh, interaction.signal);
+			throw error;
+		}
+		return credential;
 	},
 	refresh: (credential, signal) => refreshQwenToken(qwenOAuthHost(), credential.refresh, signal),
 	async toAuth(credential) {

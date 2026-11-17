@@ -75,7 +75,7 @@ Grok Build device login, live `/v1/models-v2` and Responses streaming are verifi
 | **xAI Grok Build** | `grok-build` | SuperGrok / X Premium OAuth | `xai` |
 | **OpenAI Codex** | `codex-oauth` · optional `codex-oauth-fast` | ChatGPT Plus/Pro OAuth | `openai` |
 | **Kimi Code** | `kimi-code-oauth` | Kimi Code OAuth | `kimi-coding` |
-| **Qwen Code** | `qwen-code-oauth` | Qwen Code (chat.qwen.ai) device-code OAuth with PKCE; models `coder-model`, `vision-model` via `portal.qwen.ai/v1` | — |
+| **Qwen Code** | `qwen-code-oauth` | Qwen Plus/Pro device-code OAuth (`auth.qwen.ai`, as in the official Qwen Code CLI); inference via `api.qwen.ai/compatible-mode/v1` | — |
 | **Claude Code** | `claude-code-oauth` | Claude Pro/Max OAuth | — |
 | **Google Antigravity** | `agy` | `dsh-agy` Google OAuth | — |
 
@@ -177,7 +177,7 @@ DSH Web remains loopback-only. Remote Settings must travel through an SSH tunnel
 | Grok | auth code · device code · model selection |
 | Codex | device code (recommended on remote DSH) · browser PKCE |
 | Kimi | device code |
-| Qwen | device code + PKCE (login only; no CLI pull) |
+| Qwen | device code (login only; no CLI pull; Plus/Pro required) |
 | Claude | browser PKCE (remote browser can paste the full localhost redirect URL) |
 | Antigravity | `dsh-agy` install status + profile-local CLI commands |
 
