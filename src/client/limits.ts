@@ -35,6 +35,27 @@ export function lastSubscriptionProvider(nodes: unknown): LimitsProvider | undef
 	return undefined;
 }
 
+/**
+ * Provider of the session's most recent model request, from the trajectory seat's `requests`
+ * (`prompt.config` is known when the request starts; `providerMetadata` once it completes).
+ * Primitive result keeps selector hooks referentially stable.
+ */
+export function lastRequestProvider(requests: unknown): LimitsProvider | undefined {
+	if (!Array.isArray(requests)) return undefined;
+	for (let index = requests.length - 1; index >= 0; index -= 1) {
+		const request: unknown = requests[index];
+		if (!isRecord(request)) continue;
+		const prompt = request["prompt"];
+		const config = isRecord(prompt) ? prompt["config"] : undefined;
+		for (const identity of [config, request["providerMetadata"]]) {
+			if (isRecord(identity) && typeof identity["provider"] === "string") {
+				return ROUTE_PROVIDER[identity["provider"]];
+			}
+		}
+	}
+	return undefined;
+}
+
 /** A change in this key means a turn consumed tokens, so limits are worth refreshing. */
 export function usageFingerprint(tokenUsage: unknown): string {
 	if (!isRecord(tokenUsage)) return "";

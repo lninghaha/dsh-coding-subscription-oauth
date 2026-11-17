@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LimitsDock, registerLimitsDock } from "../src/client/LimitsDock.tsx";
 import { en } from "../src/client/locales.ts";
 import {
+	lastRequestProvider,
 	lastSubscriptionProvider,
 	formatResetIn,
 	formatWindowSeconds,
@@ -39,6 +40,18 @@ describe("limit helpers", () => {
 		expect(usageFingerprint({ uncachedInputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheWriteTokens: 4 })).toBe("10");
 	});
 
+	it("derives the active provider from the latest model request (trajectory requests)", () => {
+		const request = (provider: string, via: "config" | "meta" = "config") =>
+			via === "config"
+				? { purpose: "assistant", prompt: { config: { provider, model: "m" } } }
+				: { purpose: "assistant", providerMetadata: { provider, model: "m" } };
+		expect(lastRequestProvider([request("codex-oauth"), request("qwen-code-oauth")])).toBe("qwen");
+		expect(lastRequestProvider([request("kimi-code-oauth", "meta")])).toBe("kimi");
+		expect(lastRequestProvider([request("kimi-code-oauth"), request("deepseek")])).toBeUndefined();
+		expect(lastRequestProvider([{ purpose: "assistant" }, "junk"])).toBeUndefined();
+		expect(lastRequestProvider(undefined)).toBeUndefined();
+	});
+
 	it("parses responses defensively and formats windows and countdowns", () => {
 		const view = parseLimitsResponse({
 			providers: [{ provider: "claude", status: "ok", fetchedAt: 1, windows: [{ id: "a", usedPercent: 140 }, { id: 2 }] }],
@@ -55,6 +68,8 @@ describe("limit helpers", () => {
 /** Fake DSH selector seats: `useSession` selects over `{ nodes }`, `useChat` over `{ legacy: { nodes } }`. */
 const nodesFor = (provider: string) => [{ kind: "assistant", provenance: { provider, model: "m" } }];
 const session = (provider: string) => (select: (s: unknown) => unknown) => select({ nodes: nodesFor(provider) });
+const trajectory = (provider: string) => (select: (s: unknown) => unknown) =>
+	select({ requests: [{ prompt: { config: { provider, model: "m" } } }] });
 const chat = (provider: string) => (select: (s: unknown) => unknown) => select({ legacy: { nodes: nodesFor(provider) } });
 
 function mockLimits(body: unknown) {
@@ -94,6 +109,22 @@ describe("LimitsDock", () => {
 		const url = String((fetchMock.mock.calls[0] as unknown[])[0]);
 		expect(url).toContain("provider=claude");
 		expect(screen.getAllByRole("progressbar")).toHaveLength(2);
+	});
+
+	it("prefers the trajectory seat, as DSH's nodes carry no provenance", async () => {
+		const fetchMock = mockLimits({
+			providers: [{ provider: "kimi", status: "ok", fetchedAt: 1, windows: [{ id: "kimi-summary", usedPercent: 10, windowSeconds: 604_800 }] }],
+		});
+		render(
+			createElement(LimitsDock, {
+				t,
+				useTrajectory: trajectory("kimi-code-oauth"),
+				useChat: chat("codex-oauth"),
+				useSession: () => undefined,
+			}),
+		);
+		await screen.findByText("10%");
+		expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain("provider=kimi");
 	});
 
 	it("renders nothing and makes no request when the provider is unknown or the host lacks the seats", () => {

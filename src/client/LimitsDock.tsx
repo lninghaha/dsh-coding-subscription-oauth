@@ -9,6 +9,7 @@ import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import {
 	formatResetIn,
 	formatWindowSeconds,
+	lastRequestProvider,
 	lastSubscriptionProvider,
 	parseLimitsResponse,
 	usageFingerprint,
@@ -112,32 +113,33 @@ interface LimitsDockProps {
 	readonly t: T;
 	/** Session standard-kit seats; their presence varies by DSH version, so they are probed, never assumed. */
 	readonly useProjection?: unknown;
-	/** Newer DSH: conversation snapshot selector (`s.nodes`). */
-	readonly useSession?: unknown;
-	/** Older DSH: chat selector (`s.legacy.nodes`). */
+	/** Trajectory snapshot (`requests[]`): the most reliable source of the active provider. */
+	readonly useTrajectory?: unknown;
+	/** Chat snapshot (`legacy.nodes`): fallback for DSH builds whose nodes carry provenance. */
 	readonly useChat?: unknown;
+	/** Session snapshot (`nodes`): fallback for DSH builds whose session snapshot carries nodes. */
+	readonly useSession?: unknown;
 }
 
-type Selector = <R>(select: (snapshot: never) => R) => R;
-const noSelector: Selector = <R,>(select: (snapshot: never) => R): R => select(undefined as never);
+type SnapshotHook = <R>(select: (snapshot: never) => R) => R;
+
+/** Read one optional DSH snapshot seat; an absent seat selects over `undefined` (its presence never changes). */
+function useSeat<R>(hook: unknown, select: (snapshot: Record<string, unknown> | undefined) => R): R {
+	const selector = (snapshot: never): R => select(snapshot as Record<string, unknown> | undefined);
+	return typeof hook === "function" ? (hook as SnapshotHook)(selector) : select(undefined);
+}
 
 export function LimitsDock(props: LimitsDockProps) {
 	const { t } = props;
 	const useProjection =
 		typeof props.useProjection === "function" ? (props.useProjection as (name: string) => unknown) : undefined;
 	const usage = useProjection?.("tokenUsage");
-	// Seat presence is fixed for a mounted dock, so the conditional hook choice below is stable.
-	const useSnapshot: Selector =
-		typeof props.useSession === "function"
-			? (props.useSession as Selector)
-			: typeof props.useChat === "function"
-				? (props.useChat as Selector)
-				: noSelector;
-	const viaChat = typeof props.useSession !== "function" && typeof props.useChat === "function";
-	const provider = useSnapshot((snapshot: never) => {
-		const source = snapshot as unknown as { nodes?: unknown; legacy?: { nodes?: unknown } } | undefined;
-		return lastSubscriptionProvider(viaChat ? source?.legacy?.nodes : source?.nodes);
-	});
+	const fromTrajectory = useSeat(props.useTrajectory, (snapshot) => lastRequestProvider(snapshot?.["requests"]));
+	const fromChat = useSeat(props.useChat, (snapshot) =>
+		lastSubscriptionProvider((snapshot?.["legacy"] as { nodes?: unknown } | undefined)?.nodes),
+	);
+	const fromSession = useSeat(props.useSession, (snapshot) => lastSubscriptionProvider(snapshot?.["nodes"]));
+	const provider = fromTrajectory ?? fromChat ?? fromSession;
 	const fingerprint = usageFingerprint(usage);
 	const [view, setView] = useState<ProviderLimitsView | undefined>();
 

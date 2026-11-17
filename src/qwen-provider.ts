@@ -28,8 +28,13 @@ export function isTieredEffortQwenModel(id: string): boolean {
 	);
 }
 
-/** Effort tiers for the tiered family; `minimal` is unsupported and left out of the selector. */
+/**
+ * Effort tiers for the tiered family. `minimal` and `off` are unsupported and stay out of the selector:
+ * the wire value that disables thinking for these models is unknown, and an "Off" that silently did
+ * nothing would be worse than none.
+ */
 const TIERED_THINKING_LEVELS: ThinkingLevelMap = {
+	off: null,
 	minimal: null,
 	low: "low",
 	medium: "medium",

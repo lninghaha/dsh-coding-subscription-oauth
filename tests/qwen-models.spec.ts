@@ -168,7 +168,7 @@ describe("Qwen live model list", () => {
 		);
 		const tiered = byId.get("qwen4-max");
 		expect(tiered?.reasoning).toBe(true);
-		expect(tiered?.thinkingLevelMap).toMatchObject({ low: "low", high: "high", max: "max", minimal: null });
+		expect(tiered?.thinkingLevelMap).toMatchObject({ low: "low", high: "high", max: "max", minimal: null, off: null });
 		expect((tiered?.compat as { thinkingFormat?: string; supportsReasoningEffort?: boolean }) ?? {}).toMatchObject({
 			thinkingFormat: "openai",
 			supportsReasoningEffort: true,
