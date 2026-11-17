@@ -15,7 +15,7 @@ const semverOptions = { includePrerelease: true };
 assert.equal(manifest.name, "dsh-coding-subscription-oauth");
 assert.notEqual(manifest.private, true, "release package must not be private");
 assert.match(manifest.version, /^\d+\.\d+\.\d+/, "release manifest must use semver");
-assert.equal(manifest.version, "0.8.7");
+assert.equal(manifest.version, "0.8.8");
 assert.equal(manifest.dependencies?.["dsh-coding-oauth-core"], "0.1.2");
 assert.equal(manifest.dependencies?.undici, "7.29.0");
 assert.equal(manifest.devDependencies?.undici, "7.29.0");
