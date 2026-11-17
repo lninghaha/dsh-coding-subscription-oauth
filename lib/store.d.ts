@@ -47,6 +47,15 @@ export declare function isValidAccountId(value: unknown): value is AccountId;
  * operator id so multiple anonymous logins do not collide on `legacy`.
  */
 export declare function resolveAccountIdForCredential(credential: OAuthCredential): AccountId;
+/**
+ * How long writers wait for the credential file lock. Token refresh may hold
+ * the lock across a network round trip; the atomic-write default (2s) is too
+ * short when several DSH sessions share one document. Override with
+ * `DSH_CREDENTIAL_LOCK_WAIT_MS` (non-negative finite milliseconds).
+ */
+export declare const DEFAULT_CREDENTIAL_LOCK_WAIT_MS = 60000;
+/** Resolve {@link withFileLock} `waitMs` for credential documents. */
+export declare function resolveCredentialLockWaitMs(env?: NodeJS.ProcessEnv): number;
 /** Resolve one private OAuth document path beneath DSH_HOME. */
 export declare function oauthCredentialPath(basename: string, dshHome?: string): string;
 /** Resolve the legacy Grok Build OAuth document path. */
