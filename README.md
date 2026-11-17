@@ -178,6 +178,8 @@ DSH Web remains loopback-only. Remote Settings must travel through an SSH tunnel
 | Codex | device code (recommended on remote DSH) · browser PKCE |
 | Kimi | device code |
 | Qwen | device code (login only; no CLI pull; Plus/Pro required) |
+
+**Limit gauges.** After a turn on a subscription route, a compact strip under the chat input shows that provider's usage windows (Codex, Claude, Kimi; Qwen shows its plan only). Codex gauges require the existing *Codex usage* capability.
 | Claude | browser PKCE (remote browser can paste the full localhost redirect URL) |
 | Antigravity | `dsh-agy` install status + profile-local CLI commands |
 

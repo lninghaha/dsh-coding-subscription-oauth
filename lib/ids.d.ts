@@ -5,6 +5,8 @@ export { ANTIGRAVITY_ROUTE, CAPABILITY_SETTINGS_NAMESPACE, CAPABILITY_SETTINGS_P
 /** Multi-account mutations (peer core contracts do not list these yet). */
 export declare const CODING_OAUTH_API_BASE: "/plugins/dsh-grok-build";
 export declare const CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH: "/plugins/dsh-grok-build/oauth/accounts/set-active";
+/** Per-provider subscription limit gauges (secret-free projection). */
+export declare const CODING_OAUTH_LIMITS_PATH: "/plugins/dsh-grok-build/oauth/limits";
 export declare const CODING_OAUTH_ACCOUNTS_REMOVE_PATH: "/plugins/dsh-grok-build/oauth/accounts/remove";
 /**
  * Qwen Code is owned by this package: dsh-coding-oauth-core@0.1.2 predates it, so its

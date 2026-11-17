@@ -39,6 +39,7 @@ export const LOGIN_CANCEL_PATH = CODING_OAUTH_LOGIN_CANCEL_PATH;
 export const LOGOUT_PATH = CODING_OAUTH_LOGOUT_PATH;
 export const MODELS_PATH = CODING_OAUTH_MODELS_PATH;
 export const ACCOUNTS_SET_ACTIVE_PATH = "/plugins/dsh-grok-build/oauth/accounts/set-active";
+export const LIMITS_PATH = "/plugins/dsh-grok-build/oauth/limits";
 export const ACCOUNTS_REMOVE_PATH = "/plugins/dsh-grok-build/oauth/accounts/remove";
 export const SOURCES_PATH = OAUTH_IMPORT_SOURCES_PATH;
 export const SOURCES_PREVIEW_PATH = OAUTH_IMPORT_PREVIEW_PATH;

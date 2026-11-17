@@ -62,6 +62,8 @@ export {
 /** Multi-account mutations (peer core contracts do not list these yet). */
 export const CODING_OAUTH_API_BASE = "/plugins/dsh-grok-build" as const;
 export const CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/set-active` as const;
+/** Per-provider subscription limit gauges (secret-free projection). */
+export const CODING_OAUTH_LIMITS_PATH = `${CODING_OAUTH_API_BASE}/oauth/limits` as const;
 export const CODING_OAUTH_ACCOUNTS_REMOVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/remove` as const;
 
 /**

@@ -29,7 +29,8 @@ describe("Cordis webServer lifecycle", () => {
 		await fiber;
 		expect(webServer?.paths.size).toBeGreaterThan(0);
 		const initialPaths = [...webServer!.paths].sort();
-		expect(initialPaths).toHaveLength(25);
+		expect(initialPaths).toHaveLength(26);
+		expect(initialPaths).toContain("/plugins/dsh-grok-build/oauth/limits");
 		await serviceFiber.dispose();
 		expect(webServer!.paths.size).toBe(0);
 		let replacement: TestWebServer | undefined;
@@ -39,7 +40,7 @@ describe("Cordis webServer lifecycle", () => {
 		await replacementFiber;
 		await fiber;
 		expect([...replacement!.paths].sort()).toEqual(initialPaths);
-		expect(replacement!.paths).toHaveLength(25);
+		expect(replacement!.paths).toHaveLength(26);
 		expect(root.registry.get(apply)?.fibers.length).toBe(1);
 		await replacementFiber.dispose();
 		expect(replacement?.paths.size).toBe(0);

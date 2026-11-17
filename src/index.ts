@@ -65,6 +65,8 @@ import {
 	XAI_PI_PROVIDER,
 } from "./ids.ts";
 import { registerImagineRoutes } from "./imagine-routes.ts";
+import { createLimitsReader } from "./limits.ts";
+import { registerLimitsRoutes } from "./limits-routes.ts";
 import { MediaStore } from "./media-store.ts";
 import {
 	type OAuthImportDestinationStore,
@@ -627,6 +629,14 @@ async function applyOwned(ctx: Context, config: Config): Promise<void> {
 		credentialInfo: () => describeImagineCredential(ctx.get("credentials") as CredentialProvider | undefined),
 		ownerRequestPolicy,
 	});
+	registerLimitsRoutes(
+		ctx,
+		createLimitsReader({
+			sessions: subscriptions,
+			codex: { read: () => usage.read(), enabled: () => capabilityRoutesController.current().codexUsage === true },
+		}),
+		ownerRequestPolicy,
+	);
 	registerGatewayRoutes(ctx, gateway, ownerRequestPolicy);
 	registerCodingOAuthRoutes(
 		ctx,

@@ -14,6 +14,7 @@ import { STATUS_PATH } from "./constants.ts";
 import { createDshClientAdapter } from "./dshClientAdapter.ts";
 import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import { GrokBuildSettings } from "./GrokBuildSettings.tsx";
+import { registerLimitsDock } from "./LimitsDock.tsx";
 import type { GrokBuildSettingsKey } from "./locales.ts";
 import { en, zh } from "./locales.ts";
 import type { CodingOAuthStatus, SettingsTabId } from "./types.ts";
@@ -198,6 +199,7 @@ export function apply(ctx: ClientContext): void {
 					},
 					register: (slots) => {
 						const disposeToolviews = registerCodexImageToolviews(slots, t);
+						const disposeLimits = registerLimitsDock(slots, t);
 						const disposeSettings = slots.inject("settings.section", () => {
 							try {
 								const release = slots.register(
@@ -222,6 +224,7 @@ export function apply(ctx: ClientContext): void {
 						});
 						return () => {
 							disposeToolviews();
+							disposeLimits();
 							disposeSettings();
 						};
 					},

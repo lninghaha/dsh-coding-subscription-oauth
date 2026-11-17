@@ -263,6 +263,18 @@ async function assertSupportedPlan(host: string, accessToken: string, signal: Ab
 	}
 }
 
+/** Plan name (`member_type`, lower-cased) for a signed-in account; undefined when not reported. */
+export async function fetchQwenPlan(
+	accessToken: string,
+	signal: AbortSignal,
+	host = qwenOAuthHost(),
+): Promise<string | undefined> {
+	const info = await request(host, "userinfo", signal, undefined, accessToken);
+	return typeof info["member_type"] === "string" && info["member_type"].length > 0
+		? info["member_type"].toLowerCase()
+		: undefined;
+}
+
 async function revokeBestEffort(host: string, token: string, signal: AbortSignal): Promise<void> {
 	try {
 		await request(host, "revoke", signal, {

@@ -34,5 +34,7 @@ export interface QwenDeviceAuthorization {
     expiresAt: number;
 }
 export declare function startQwenDeviceAuthorization(host: string, signal: AbortSignal): Promise<QwenDeviceAuthorization>;
+/** Plan name (`member_type`, lower-cased) for a signed-in account; undefined when not reported. */
+export declare function fetchQwenPlan(accessToken: string, signal: AbortSignal, host?: string): Promise<string | undefined>;
 export declare const qwenCodeOAuth: OAuthAuth;
 //# sourceMappingURL=qwen-oauth.d.ts.map

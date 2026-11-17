@@ -9,7 +9,7 @@ export interface ProgressBarProps {
 	meta?: string;
 }
 
-function barColor(percent: number): string {
+export function barColor(percent: number): string {
 	if (percent >= 90) return "var(--dsw-alias-state-error-primary, #d92d20)";
 	if (percent >= 75) return "var(--dsw-alias-state-warn-primary, #e06c00)";
 	// Prefer info fill over brand-primary: dark theme inverts brand-primary to near-white.

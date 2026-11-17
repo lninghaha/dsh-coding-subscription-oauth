@@ -228,3 +228,22 @@ export type GrokBuildSettingsProps = Partial<GrokBuildSettingsInjected> & {
 	close?: (() => void) | undefined;
 	initialTab?: SettingsTabId;
 };
+
+export type LimitsProvider = "codex" | "claude" | "kimi" | "qwen" | "grok";
+
+export interface LimitsWindowView {
+	readonly id: string;
+	readonly name?: string;
+	readonly usedPercent: number;
+	readonly windowSeconds?: number;
+	/** Epoch seconds. */
+	readonly resetsAt?: number;
+}
+
+export interface ProviderLimitsView {
+	readonly provider: LimitsProvider;
+	readonly status: "ok" | "no-data" | "signed-out" | "disabled" | "error";
+	readonly windows: readonly LimitsWindowView[];
+	readonly plan?: string;
+	readonly fetchedAt: number;
+}

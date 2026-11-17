@@ -6,6 +6,10 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ### Added
 
+- Subscription-limit gauges under the chat input (DSH `conversation.composer.dock` slot) for the provider behind the model the session last used. New secret-free `GET /plugins/dsh-grok-build/oauth/limits[?provider=<slug>]` (loopback owner only, 60s cache, forced refresh capped at one vendor call per 15s). Sources: Codex `wham/usage` (still behind the existing Codex usage capability), Claude `api.anthropic.com/api/oauth/usage` (5h / weekly / Opus / Sonnet), Kimi `api.kimi.com/coding/v1/usages` (weekly + windowed limits). Qwen exposes no quota endpoint, so it shows only its plan; Grok reports no data. Failures show a stable code, never invented numbers. The Claude endpoint is undocumented and none of these were tested against live accounts. The active provider is read from DSH's `tokenUsage` projection, so the strip appears after the first turn and stays hidden on DSH builds without that seat or slot.
+
+### Added
+
 - Qwen Code subscription OAuth on the `qwen-code-oauth` route: RFC 8628 device authorization against `auth.qwen.ai` mirroring the official Qwen Code CLI subscription flow (client `qwen-code-cli`, Plus/Pro plan check via userinfo), automatic refresh, OpenAI-compatible inference through `api.qwen.ai/compatible-mode/v1` with the account's models listed live from `GET /models` after sign-in (cached, refreshed in the background; static `qwen3.8-max` baseline until then), `dsh-coding-oauth login qwen`, and a Settings card. pi-ai has no Qwen subscription flow, so it is implemented in this package. Qwen identifiers and the widened provider/route unions live in `src/ids.ts` until `dsh-coding-oauth-core` publishes them. CLI credential pull is not offered for Qwen. The flow follows the Qwen Code source but is tested against a mock server only; verify a real sign-in before release.
 
 ### Fixed
