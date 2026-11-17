@@ -20,7 +20,7 @@ import { GrokBuildSession } from "./session.ts";
 import { grokBuildAuthPath } from "./store.ts";
 
 export type CliAction = "login" | "logout" | "status" | "import";
-export type CliProvider = "all" | "grok" | "codex" | "kimi" | "claude";
+export type CliProvider = "all" | "grok" | "codex" | "kimi" | "qwen" | "claude";
 
 function openBrowser(rawUrl: string): void {
 	const url = new URL(rawUrl);
@@ -95,11 +95,12 @@ function printHelp(): void {
 			"Usage: dsh-coding-oauth <login|logout|status|import> [provider] [options]",
 			"(legacy command name: dsh-grok-build)",
 			"",
-			"Providers: grok (default), codex, kimi, claude; status also accepts all.",
+			"Providers: grok (default), codex, kimi, qwen, claude; status also accepts all.",
 			"",
 			"  login grok [--pkce|--device-auth]",
 			"  login codex [--device-auth|--browser]  (device code is the default)",
 			"  login kimi                              (device code)",
+			"  login qwen                              (device code)",
 			"  login claude [--browser]                (PKCE + redirect paste fallback)",
 			"  import [grok]                            import ~/.grok/auth.json only",
 			"  logout [provider]",
@@ -115,13 +116,13 @@ function printHelp(): void {
 function parseProvider(raw: string | undefined, action: CliAction): CliProvider {
 	if (raw === undefined || raw.startsWith("--")) return "grok";
 	if (raw === "all" && action === "status") return raw;
-	if (raw === "grok" || raw === "codex" || raw === "kimi" || raw === "claude") return raw;
+	if (raw === "grok" || raw === "codex" || raw === "kimi" || raw === "qwen" || raw === "claude") return raw;
 	throw new Error(`unknown provider ${JSON.stringify(raw)}`);
 }
 
 function loginMethod(provider: CliProvider, flags: readonly string[]): SubscriptionLoginMethod | undefined {
 	if (provider === "codex") return flags.includes("--browser") ? "browser" : "device";
-	if (provider === "kimi") return "device";
+	if (provider === "kimi" || provider === "qwen") return "device";
 	if (provider === "claude") return "browser";
 	return undefined;
 }
@@ -130,7 +131,7 @@ function allowedFlags(action: CliAction, provider: CliProvider): readonly string
 	if (action !== "login") return [];
 	if (provider === "grok") return ["--pkce", "--device-auth"];
 	if (provider === "codex") return ["--device-auth", "--browser"];
-	if (provider === "kimi") return ["--device-auth"];
+	if (provider === "kimi" || provider === "qwen") return ["--device-auth"];
 	if (provider === "claude") return ["--browser"];
 	return [];
 }
@@ -295,6 +296,7 @@ export async function run(argv: readonly string[]): Promise<number> {
 					grokStatus(),
 					subscriptionStatus("codex"),
 					subscriptionStatus("kimi"),
+					subscriptionStatus("qwen"),
 					subscriptionStatus("claude"),
 				]);
 				await printGatewayWarning();

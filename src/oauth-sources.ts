@@ -64,7 +64,8 @@ function isApprovedGrokIssuerValue(value: string): boolean {
 	}
 }
 
-export type OAuthSourceKind = CodingOAuthProviderSlug;
+/** CLI credential import covers the CLIs we parse; Qwen Code is login-only for now. */
+export type OAuthSourceKind = Exclude<CodingOAuthProviderSlug, "qwen">;
 
 export const OAUTH_SOURCE_KINDS = ["grok", "codex", "kimi", "claude"] as const satisfies readonly OAuthSourceKind[];
 

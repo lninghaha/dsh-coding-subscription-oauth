@@ -21,7 +21,12 @@ import {
 	KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME,
 	KIMI_CODE_OAUTH_ROUTE,
 	KIMI_PI_PROVIDER,
+	QWEN_CODE_OAUTH_AUTH_FILENAME,
+	QWEN_CODE_OAUTH_MODELS_CACHE_FILENAME,
+	QWEN_CODE_OAUTH_ROUTE,
+	QWEN_PI_PROVIDER,
 } from "./ids.ts";
+import { qwenCodeProvider } from "./qwen-provider.ts";
 
 export type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, "grok">;
 export type SubscriptionLoginMethod = "browser" | "device";
@@ -95,6 +100,7 @@ function asProvider(factory: () => Provider): () => Provider<Api> {
 }
 
 const createCodexProvider = asProvider(openaiCodexProvider);
+const createQwenProvider = asProvider(qwenCodeProvider);
 const createClaudeProvider = asProvider(anthropicProvider);
 
 /** Kimi subscription models missing from pi-ai's bundled catalog; inherit K3's request behavior. */
@@ -156,6 +162,20 @@ export const KIMI_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {
 		),
 };
 
+export const QWEN_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {
+	slug: "qwen",
+	route: QWEN_CODE_OAUTH_ROUTE,
+	nativeProviderId: QWEN_PI_PROVIDER,
+	displayName: "Qwen Code (subscription)",
+	authFilename: QWEN_CODE_OAUTH_AUTH_FILENAME,
+	modelsCacheFilename: QWEN_CODE_OAUTH_MODELS_CACHE_FILENAME,
+	loginMethods: ["device"],
+	recommendedLoginMethod: "device",
+	providerFactory: createQwenProvider,
+	requestProvider: (selectedIds) =>
+		selectedProvider(createQwenProvider(), selectedIds, requestTokenAuth("Qwen Code OAuth token", false)),
+};
+
 export const CLAUDE_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {
 	slug: "claude",
 	route: CLAUDE_CODE_OAUTH_ROUTE,
@@ -173,6 +193,7 @@ export const OAUTH_PROVIDER_DEFINITIONS = [
 	CODEX_OAUTH_PROVIDER,
 	KIMI_CODE_OAUTH_PROVIDER,
 	CLAUDE_CODE_OAUTH_PROVIDER,
+	QWEN_CODE_OAUTH_PROVIDER,
 ] as const;
 
 export function oauthProviderDefinition(slug: string): OAuthProviderDefinition | undefined {

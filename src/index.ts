@@ -170,6 +170,10 @@ export {
 	KIMI_CODE_OAUTH_MODELS_CACHE_FILENAME,
 	KIMI_CODE_OAUTH_ROUTE,
 	KIMI_PI_PROVIDER,
+	QWEN_CODE_OAUTH_AUTH_FILENAME,
+	QWEN_CODE_OAUTH_MODELS_CACHE_FILENAME,
+	QWEN_CODE_OAUTH_ROUTE,
+	QWEN_PI_PROVIDER,
 	XAI_PI_PROVIDER,
 } from "./ids.ts";
 export type { GrokBuildOAuthErrorCode, GrokBuildOAuthParams, PkceLoginCallbacks } from "./oauth.ts";
@@ -194,6 +198,7 @@ export {
 	KIMI_CODE_OAUTH_PROVIDER,
 	OAUTH_PROVIDER_DEFINITIONS,
 	oauthProviderDefinition,
+	QWEN_CODE_OAUTH_PROVIDER,
 } from "./oauth-providers.ts";
 export type { OAuthProviderStatus } from "./oauth-session.ts";
 export { OAuthProviderSession, oauthModelsCachePath } from "./oauth-session.ts";

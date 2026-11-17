@@ -24,7 +24,7 @@ it("posts the newly pasted callback through the full settings UI without waiting
 			opencodeGo: { active: false, lastCall: "no-call", updatedAt: null },
 			compatibility: { coreAbi: "dsh-coding-oauth-core/v1", dshVersion: "0.1.1-rc.2", status: "healthy", diagnostics: [] },
 			providers: {
-				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" },
+				grok: { status: "signed-out", grokImportAvailable: false }, codex: { status: "signed-out" }, kimi: { status: "signed-out" }, qwen: { status: "signed-out" },
 				claude: { provider: "claude", route: "claude-code-oauth", displayName: "Claude", loginMethods: ["browser"], recommendedLoginMethod: "browser", models: [], available: [], selected: [],
 					...(submitted ? { status: "signed-in", accounts: [], activeAccountId: "fixture" } : {
 						status: "signing-in", method: "browser", url: "https://claude.ai/oauth/authorize?state=pending-state&redirect_uri=http%3A%2F%2Flocalhost%3A53692%2Fcallback",

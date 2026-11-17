@@ -11,7 +11,8 @@ export declare const OAUTH_SOURCE_MAX_BYTES: number;
 export declare const OAUTH_IMPORT_PREVIEW_TTL_MS: number;
 /** Bound credential-bearing preview material retained by one process. */
 export declare const OAUTH_IMPORT_MAX_PREVIEW_TICKETS = 32;
-export type OAuthSourceKind = CodingOAuthProviderSlug;
+/** CLI credential import covers the CLIs we parse; Qwen Code is login-only for now. */
+export type OAuthSourceKind = Exclude<CodingOAuthProviderSlug, "qwen">;
 export declare const OAUTH_SOURCE_KINDS: readonly ["grok", "codex", "kimi", "claude"];
 export type OAuthImportConflict = "none" | "same_credential" | "same_account" | "different_account" | "unknown_account" | "unreadable_destination" | "unsafe_destination";
 export type OAuthImportPreviewAction = "import" | "reuse" | "overwrite" | "blocked";

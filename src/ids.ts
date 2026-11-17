@@ -1,10 +1,12 @@
 /** Compatibility facade for stable identifiers owned by dsh-coding-oauth-core. */
 
-export type {
-	CodingOAuthOptionalRoute,
-	CodingOAuthProviderSlug,
-	CodingOAuthRoute,
+import {
+	CODING_OAUTH_ROUTES as CORE_CODING_OAUTH_ROUTES,
+	type CodingOAuthProviderSlug as CoreCodingOAuthProviderSlug,
+	type CodingOAuthRoute as CoreCodingOAuthRoute,
 } from "dsh-coding-oauth-core";
+
+export type { CodingOAuthOptionalRoute } from "dsh-coding-oauth-core";
 export {
 	ANTIGRAVITY_ROUTE,
 	CAPABILITY_SETTINGS_NAMESPACE,
@@ -26,7 +28,6 @@ export {
 	CODING_OAUTH_MANAGEMENT_PATHS,
 	CODING_OAUTH_MODELS_PATH,
 	CODING_OAUTH_OPTIONAL_ROUTES,
-	CODING_OAUTH_ROUTES,
 	CODING_OAUTH_STATE_SCHEMA_VERSION,
 	CODING_OAUTH_STATUS_PATH,
 	DEFAULT_GROK_BUILD_MODEL,
@@ -62,3 +63,16 @@ export {
 export const CODING_OAUTH_API_BASE = "/plugins/dsh-grok-build" as const;
 export const CODING_OAUTH_ACCOUNTS_SET_ACTIVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/set-active` as const;
 export const CODING_OAUTH_ACCOUNTS_REMOVE_PATH = `${CODING_OAUTH_API_BASE}/oauth/accounts/remove` as const;
+
+/**
+ * Qwen Code is owned by this package: dsh-coding-oauth-core@0.1.2 predates it, so its
+ * identifiers and the widened slug/route unions live here until core publishes them.
+ */
+export const QWEN_PI_PROVIDER = "qwen-code";
+export const QWEN_CODE_OAUTH_ROUTE = "qwen-code-oauth";
+export const QWEN_CODE_OAUTH_AUTH_FILENAME = ".qwen-code-oauth-auth.json";
+export const QWEN_CODE_OAUTH_MODELS_CACHE_FILENAME = ".qwen-code-oauth-models.json";
+
+export type CodingOAuthProviderSlug = CoreCodingOAuthProviderSlug | "qwen";
+export type CodingOAuthRoute = CoreCodingOAuthRoute | typeof QWEN_CODE_OAUTH_ROUTE;
+export const CODING_OAUTH_ROUTES: readonly CodingOAuthRoute[] = [...CORE_CODING_OAUTH_ROUTES, QWEN_CODE_OAUTH_ROUTE];
