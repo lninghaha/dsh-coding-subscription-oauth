@@ -21,6 +21,8 @@ export interface OAuthProviderDefinition {
     requestProvider(selectedIds?: readonly string[], catalog?: readonly Model<Api>[]): Provider<Api>;
     /** Optional live account model listing; the session replaces its baseline catalog with it. */
     fetchLiveModels?(accessToken: string, signal: AbortSignal): Promise<readonly LiveModelEntry[]>;
+    /** Build a catalog model from a live descriptor; defaults to inheriting the baseline template. */
+    liveModel?(entry: LiveModelEntry): Model<Api>;
 }
 export declare const CODEX_OAUTH_PROVIDER: OAuthProviderDefinition;
 export declare const KIMI_CODE_OAUTH_PROVIDER: OAuthProviderDefinition;

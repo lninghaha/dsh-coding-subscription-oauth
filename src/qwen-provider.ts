@@ -3,7 +3,7 @@
  * @module dsh-coding-subscription-oauth/qwen-provider
  */
 
-import type { Model, Provider } from "@earendil-works/pi-ai";
+import type { Model, Provider, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { createProvider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { QWEN_PI_PROVIDER } from "./ids.ts";
@@ -14,6 +14,30 @@ export const QWEN_SUBSCRIPTION_BASE_URL = "https://api.qwen.ai/compatible-mode/v
 
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } as const;
 
+/**
+ * Qwen Code's rule for the tiered `reasoning_effort` contract: `qwen3.8-max`, the invitation-only
+ * `qwen-latest-series-invite-*` previews, and every `qwen4*` variant (prefix intentionally unanchored).
+ * Other Qwen models only expose an on/off switch, so they get no effort selector here.
+ */
+export function isTieredEffortQwenModel(id: string): boolean {
+	const normalized = id.toLowerCase();
+	return (
+		normalized.startsWith("qwen3.8-max") ||
+		normalized.startsWith("qwen-latest-series-invite-") ||
+		normalized.startsWith("qwen4")
+	);
+}
+
+/** Effort tiers for the tiered family; `minimal` is unsupported and left out of the selector. */
+const TIERED_THINKING_LEVELS: ThinkingLevelMap = {
+	minimal: null,
+	low: "low",
+	medium: "medium",
+	high: "high",
+	xhigh: "xhigh",
+	max: "max",
+};
+
 function qwenModel(
 	id: string,
 	name: string,
@@ -21,19 +45,26 @@ function qwenModel(
 	contextWindow: number,
 	maxTokens: number,
 ): Model<"openai-completions"> {
+	const tiered = isTieredEffortQwenModel(id);
 	return {
 		id,
 		name,
 		api: "openai-completions",
 		provider: QWEN_PI_PROVIDER,
 		baseUrl: QWEN_SUBSCRIPTION_BASE_URL,
-		reasoning: false,
+		reasoning: tiered,
+		...(tiered ? { thinkingLevelMap: TIERED_THINKING_LEVELS } : {}),
 		input,
 		cost: ZERO_COST,
 		contextWindow,
 		maxTokens,
 		headers: { "User-Agent": `QwenCode/unknown (${process.platform}; ${process.arch})` },
-		compat: { supportsDeveloperRole: false, supportsStore: false, supportsReasoningEffort: false },
+		compat: {
+			supportsDeveloperRole: false,
+			supportsStore: false,
+			supportsReasoningEffort: tiered,
+			...(tiered ? { thinkingFormat: "openai" as const } : {}),
+		},
 	};
 }
 
@@ -61,6 +92,11 @@ const MODELS_RESPONSE_MAX_BYTES = 1024 * 1024;
 const MODELS_TIMEOUT_MS = 5_000;
 /** Same id rule as the official CLI: no commas or control/separator characters. */
 const MODEL_ID_PATTERN = /^[^,\p{C}\p{Zl}\p{Zp}]+$/u;
+
+/** Build a live model from its descriptor, with reasoning traits derived from its id. */
+export function qwenModelFromEntry(entry: LiveModelEntry): Model<"openai-completions"> {
+	return qwenModel(entry.id, entry.name, entry.input, entry.contextWindow, entry.maxTokens);
+}
 
 /** Parse `GET /models`: `{ data: [{ id, input_modalities?, context_window_tokens? }] }`. */
 export function parseQwenModelsResponse(body: unknown): LiveModelEntry[] {

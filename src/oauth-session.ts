@@ -183,6 +183,8 @@ export class OAuthProviderSession {
 
 	/** Live entries inherit transport fields from the baseline template, never from the network/cache. */
 	private materializeLive(entries: readonly LiveModelEntry[]): Model<Api>[] {
+		const build = this.definition.liveModel;
+		if (build !== undefined) return entries.map((entry) => build(entry));
 		const template = this.baseline[0];
 		if (template === undefined) return [...this.baseline];
 		return entries.map((entry) => ({ ...template, ...entry }) as Model<Api>);

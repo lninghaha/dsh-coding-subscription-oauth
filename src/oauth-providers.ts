@@ -26,7 +26,7 @@ import {
 	QWEN_CODE_OAUTH_ROUTE,
 	QWEN_PI_PROVIDER,
 } from "./ids.ts";
-import { fetchQwenModels, type LiveModelEntry, qwenCodeProvider } from "./qwen-provider.ts";
+import { fetchQwenModels, type LiveModelEntry, qwenCodeProvider, qwenModelFromEntry } from "./qwen-provider.ts";
 
 export type SubscriptionProviderSlug = Exclude<CodingOAuthProviderSlug, "grok">;
 export type SubscriptionLoginMethod = "browser" | "device";
@@ -45,6 +45,8 @@ export interface OAuthProviderDefinition {
 	requestProvider(selectedIds?: readonly string[], catalog?: readonly Model<Api>[]): Provider<Api>;
 	/** Optional live account model listing; the session replaces its baseline catalog with it. */
 	fetchLiveModels?(accessToken: string, signal: AbortSignal): Promise<readonly LiveModelEntry[]>;
+	/** Build a catalog model from a live descriptor; defaults to inheriting the baseline template. */
+	liveModel?(entry: LiveModelEntry): Model<Api>;
 }
 
 function requestTokenAuth(name: string, bearerHeader: boolean): ApiKeyAuth {
@@ -179,6 +181,7 @@ export const QWEN_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {
 	requestProvider: (selectedIds, catalog) =>
 		selectedProvider(createQwenProvider(), selectedIds, requestTokenAuth("Qwen Code OAuth token", false), catalog),
 	fetchLiveModels: (accessToken, signal) => fetchQwenModels(accessToken, signal),
+	liveModel: (entry) => qwenModelFromEntry(entry) as Model<Api>,
 };
 
 export const CLAUDE_CODE_OAUTH_PROVIDER: OAuthProviderDefinition = {

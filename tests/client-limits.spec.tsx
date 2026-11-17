@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LimitsDock, registerLimitsDock } from "../src/client/LimitsDock.tsx";
 import { en } from "../src/client/locales.ts";
 import {
-	activeLimitsProvider,
+	lastSubscriptionProvider,
 	formatResetIn,
 	formatWindowSeconds,
 	parseLimitsResponse,
@@ -21,21 +21,22 @@ const t = (key: keyof typeof en, params?: Record<string, unknown>) =>
 	en[key].replace(/\{(\w+)\}/gu, (_m, name: string) => String(params?.[name] ?? ""));
 
 describe("limit helpers", () => {
-	it("derives the active provider from the most recent subscription route", () => {
+	it("derives the active provider from the latest assistant message identity", () => {
+		const assistant = (provider: string, key: "provenance" | "requestConfig" = "provenance") => ({
+			kind: "assistant",
+			[key]: { provider, model: "m" },
+		});
 		expect(
-			activeLimitsProvider({
-				routes: [
-					{ provider: "codex-oauth", model: "gpt" },
-					{ provider: "deepseek", model: "x" },
-					{ provider: "qwen-code-oauth", model: "q" },
-					{ provider: "deepseek", model: "y" },
-				],
-			}),
+			lastSubscriptionProvider([assistant("codex-oauth"), { kind: "user" }, assistant("qwen-code-oauth"), { kind: "tool" }]),
 		).toBe("qwen");
-		expect(activeLimitsProvider({ routes: [{ provider: "codex-oauth-fast" }] })).toBe("codex");
-		expect(activeLimitsProvider({ routes: [{ provider: "deepseek" }] })).toBeUndefined();
-		expect(activeLimitsProvider(undefined)).toBeUndefined();
+		expect(lastSubscriptionProvider([assistant("claude-code-oauth", "requestConfig")])).toBe("claude");
+		expect(lastSubscriptionProvider([assistant("codex-oauth-fast")])).toBe("codex");
+		// The latest assistant message decides, even when it is not a subscription route.
+		expect(lastSubscriptionProvider([assistant("kimi-code-oauth"), assistant("deepseek")])).toBeUndefined();
+		expect(lastSubscriptionProvider([{ kind: "user" }])).toBeUndefined();
+		expect(lastSubscriptionProvider(undefined)).toBeUndefined();
 		expect(usageFingerprint({ totalTokens: 12 })).toBe("12");
+		expect(usageFingerprint({ uncachedInputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheWriteTokens: 4 })).toBe("10");
 	});
 
 	it("parses responses defensively and formats windows and countdowns", () => {
@@ -50,6 +51,11 @@ describe("limit helpers", () => {
 		expect(formatResetIn(1, 10_000_000)).toBeUndefined();
 	});
 });
+
+/** Fake DSH selector seats: `useSession` selects over `{ nodes }`, `useChat` over `{ legacy: { nodes } }`. */
+const nodesFor = (provider: string) => [{ kind: "assistant", provenance: { provider, model: "m" } }];
+const session = (provider: string) => (select: (s: unknown) => unknown) => select({ nodes: nodesFor(provider) });
+const chat = (provider: string) => (select: (s: unknown) => unknown) => select({ legacy: { nodes: nodesFor(provider) } });
 
 function mockLimits(body: unknown) {
 	const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 }));
@@ -76,7 +82,8 @@ describe("LimitsDock", () => {
 		render(
 			createElement(LimitsDock, {
 				t,
-				useProjection: () => ({ totalTokens: 5, routes: [{ provider: "claude-code-oauth", model: "m" }] }),
+				useProjection: () => ({ totalTokens: 5 }),
+				useSession: session("claude-code-oauth"),
 			}),
 		);
 		await screen.findByText("42%");
@@ -89,9 +96,9 @@ describe("LimitsDock", () => {
 		expect(screen.getAllByRole("progressbar")).toHaveLength(2);
 	});
 
-	it("renders nothing and makes no request when the provider is unknown or the host lacks the seat", () => {
+	it("renders nothing and makes no request when the provider is unknown or the host lacks the seats", () => {
 		const fetchMock = mockLimits({ providers: [] });
-		const none = render(createElement(LimitsDock, { t, useProjection: () => ({ routes: [{ provider: "deepseek" }] }) }));
+		const none = render(createElement(LimitsDock, { t, useSession: session("deepseek") }));
 		expect(none.container.innerHTML).toBe("");
 		const missing = render(createElement(LimitsDock, { t }));
 		expect(missing.container.innerHTML).toBe("");
@@ -100,11 +107,11 @@ describe("LimitsDock", () => {
 
 	it("shows a plan-only note for Qwen and a hint when Codex usage is disabled", async () => {
 		mockLimits({ providers: [{ provider: "qwen", status: "no-data", plan: "pro", windows: [], fetchedAt: 1 }] });
-		render(createElement(LimitsDock, { t, useProjection: () => ({ routes: [{ provider: "qwen-code-oauth" }] }) }));
+		render(createElement(LimitsDock, { t, useSession: session("qwen-code-oauth") }));
 		await screen.findByText(/Qwen Code PRO/u);
 		cleanup();
 		mockLimits({ providers: [{ provider: "codex", status: "disabled", windows: [], fetchedAt: 1 }] });
-		render(createElement(LimitsDock, { t, useProjection: () => ({ routes: [{ provider: "codex-oauth" }] }) }));
+		render(createElement(LimitsDock, { t, useChat: chat("codex-oauth") }));
 		await waitFor(() => expect(screen.getByText(/enable Codex usage/u)).toBeTruthy());
 	});
 

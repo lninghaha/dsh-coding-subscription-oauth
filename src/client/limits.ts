@@ -16,16 +16,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Provider behind the session's most recent subscription route, read from the
- * `tokenUsage` projection (`routes: [{ provider, model }]`). Unknown/absent → undefined.
+ * Provider behind the session's most recent assistant message, read from the conversation
+ * nodes (`provenance` = completed request identity, else `requestConfig`). Returns a primitive
+ * so selector hooks stay referentially stable. Unknown/non-subscription → undefined.
  */
-export function activeLimitsProvider(tokenUsage: unknown): LimitsProvider | undefined {
-	if (!isRecord(tokenUsage) || !Array.isArray(tokenUsage["routes"])) return undefined;
-	for (let index = tokenUsage["routes"].length - 1; index >= 0; index -= 1) {
-		const route: unknown = tokenUsage["routes"][index];
-		if (!isRecord(route) || typeof route["provider"] !== "string") continue;
-		const provider = ROUTE_PROVIDER[route["provider"]];
-		if (provider !== undefined) return provider;
+export function lastSubscriptionProvider(nodes: unknown): LimitsProvider | undefined {
+	if (!Array.isArray(nodes)) return undefined;
+	for (let index = nodes.length - 1; index >= 0; index -= 1) {
+		const node: unknown = nodes[index];
+		if (!isRecord(node) || node["kind"] !== "assistant") continue;
+		for (const key of ["provenance", "requestConfig"] as const) {
+			const identity = node[key];
+			if (!isRecord(identity) || typeof identity["provider"] !== "string") continue;
+			// The latest assistant message decides, even when it is not a subscription route.
+			return ROUTE_PROVIDER[identity["provider"]];
+		}
 	}
 	return undefined;
 }
@@ -33,8 +38,12 @@ export function activeLimitsProvider(tokenUsage: unknown): LimitsProvider | unde
 /** A change in this key means a turn consumed tokens, so limits are worth refreshing. */
 export function usageFingerprint(tokenUsage: unknown): string {
 	if (!isRecord(tokenUsage)) return "";
-	const total = tokenUsage["totalTokens"] ?? tokenUsage["outputTokens"];
-	return typeof total === "number" ? String(total) : "";
+	if (typeof tokenUsage["totalTokens"] === "number") return String(tokenUsage["totalTokens"]);
+	const parts = ["uncachedInputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"].map(
+		(key) => tokenUsage[key],
+	);
+	const numbers = parts.filter((value): value is number => typeof value === "number");
+	return numbers.length === 0 ? "" : String(numbers.reduce((sum, value) => sum + value, 0));
 }
 
 export function parseLimitsResponse(value: unknown): ProviderLimitsView | undefined {

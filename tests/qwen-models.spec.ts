@@ -6,7 +6,13 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { type OAuthProviderDefinition, QWEN_CODE_OAUTH_PROVIDER } from "../src/oauth-providers.ts";
 import { OAuthProviderSession } from "../src/oauth-session.ts";
-import { fetchQwenModels, type LiveModelEntry, parseQwenModelsResponse } from "../src/qwen-provider.ts";
+import {
+	fetchQwenModels,
+	isTieredEffortQwenModel,
+	type LiveModelEntry,
+	parseQwenModelsResponse,
+	QWEN_CODE_MODELS,
+} from "../src/qwen-provider.ts";
 import { OAuthCredentialFileStore } from "../src/store.ts";
 
 const LIVE: LiveModelEntry[] = [
@@ -143,5 +149,41 @@ describe("Qwen live model list", () => {
 		release?.();
 		await pending;
 		expect(session.availableModels().map((model) => model.id)).toEqual(["qwen3.8-max"]);
+	});
+
+	it("gives tiered Qwen models an effort selector and keeps plain models without one", async () => {
+		const entries: LiveModelEntry[] = [
+			{ id: "qwen4-max", name: "qwen4-max", input: ["text"], contextWindow: 1_000_000, maxTokens: 65_536 },
+			{ id: "qwen3.8-max-preview", name: "x", input: ["text"], contextWindow: 262_144, maxTokens: 65_536 },
+			{ id: "qwen-plus", name: "qwen-plus", input: ["text"], contextWindow: 131_072, maxTokens: 32_768 },
+		];
+		const { session } = await makeSession(async () => entries);
+		vi.spyOn(session, "resolveAccessToken").mockResolvedValue("qwen-access");
+		await session.refreshLiveModels(true);
+		const byId = new Map(
+			session
+				.provider()
+				.getModels()
+				.map((model) => [model.id, model]),
+		);
+		const tiered = byId.get("qwen4-max");
+		expect(tiered?.reasoning).toBe(true);
+		expect(tiered?.thinkingLevelMap).toMatchObject({ low: "low", high: "high", max: "max", minimal: null });
+		expect((tiered?.compat as { thinkingFormat?: string; supportsReasoningEffort?: boolean }) ?? {}).toMatchObject({
+			thinkingFormat: "openai",
+			supportsReasoningEffort: true,
+		});
+		expect(byId.get("qwen3.8-max-preview")?.reasoning).toBe(true);
+		// Traits must not leak from the first catalog model onto plain ones.
+		expect(byId.get("qwen-plus")?.reasoning).toBe(false);
+		expect(byId.get("qwen-plus")?.thinkingLevelMap).toBeUndefined();
+	});
+
+	it("applies Qwen Code's tiered-family rule to ids and to the baseline", () => {
+		for (const id of ["qwen3.8-max", "QWEN4-Turbo", "qwen-latest-series-invite-1"]) {
+			expect(isTieredEffortQwenModel(id)).toBe(true);
+		}
+		for (const id of ["qwen3.7-plus", "coder-model", "qwen-plus"]) expect(isTieredEffortQwenModel(id)).toBe(false);
+		expect(QWEN_CODE_MODELS[0]?.reasoning).toBe(true);
 	});
 });

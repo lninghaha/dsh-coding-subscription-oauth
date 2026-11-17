@@ -7,9 +7,9 @@ import { LIMITS_PATH } from "./constants.ts";
 import type { SlotsApi } from "./dshClientAdapter.ts";
 import type { GrokBuildSettingsInjected } from "./GrokBuildSettings.tsx";
 import {
-	activeLimitsProvider,
 	formatResetIn,
 	formatWindowSeconds,
+	lastSubscriptionProvider,
 	parseLimitsResponse,
 	usageFingerprint,
 } from "./limits.ts";
@@ -110,16 +110,34 @@ function message(view: ProviderLimitsView, t: T): string | undefined {
 
 interface LimitsDockProps {
 	readonly t: T;
-	/** Session standard kit seat; shape varies by DSH version, so it is probed, never assumed. */
+	/** Session standard-kit seats; their presence varies by DSH version, so they are probed, never assumed. */
 	readonly useProjection?: unknown;
+	/** Newer DSH: conversation snapshot selector (`s.nodes`). */
+	readonly useSession?: unknown;
+	/** Older DSH: chat selector (`s.legacy.nodes`). */
+	readonly useChat?: unknown;
 }
+
+type Selector = <R>(select: (snapshot: never) => R) => R;
+const noSelector: Selector = <R,>(select: (snapshot: never) => R): R => select(undefined as never);
 
 export function LimitsDock(props: LimitsDockProps) {
 	const { t } = props;
 	const useProjection =
 		typeof props.useProjection === "function" ? (props.useProjection as (name: string) => unknown) : undefined;
 	const usage = useProjection?.("tokenUsage");
-	const provider = activeLimitsProvider(usage);
+	// Seat presence is fixed for a mounted dock, so the conditional hook choice below is stable.
+	const useSnapshot: Selector =
+		typeof props.useSession === "function"
+			? (props.useSession as Selector)
+			: typeof props.useChat === "function"
+				? (props.useChat as Selector)
+				: noSelector;
+	const viaChat = typeof props.useSession !== "function" && typeof props.useChat === "function";
+	const provider = useSnapshot((snapshot: never) => {
+		const source = snapshot as unknown as { nodes?: unknown; legacy?: { nodes?: unknown } } | undefined;
+		return lastSubscriptionProvider(viaChat ? source?.legacy?.nodes : source?.nodes);
+	});
 	const fingerprint = usageFingerprint(usage);
 	const [view, setView] = useState<ProviderLimitsView | undefined>();
 
