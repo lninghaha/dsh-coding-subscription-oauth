@@ -4,9 +4,12 @@ All notable changes to `dsh-coding-subscription-oauth` are documented here, foll
 
 ## Unreleased
 
+## v0.8.8 - 2026-11-17
+
 ### Fixed
 
-- Add Kimi Code subscription catalog entries for `k3.1-pro` (262K context) and `k3.1-pro-highspeed` (1M context), preserving native pi-ai request behavior and avoiding duplicate entries when pi-ai supplies them (`#54`).
+- Add Kimi Code subscription catalog entries for `k3.1-pro` (262K context) and `k3.1-pro-highspeed` (1M context), preserving native pi-ai request behavior and avoiding duplicate entries when pi-ai supplies them (`#54`, `#55`).
+- Wait up to 60s (override with `DSH_CREDENTIAL_LOCK_WAIT_MS`) for the credential writer lock so concurrent sessions no longer fail with `atomic-write: timed out waiting for the writer lock` during token refresh (`#56`, `#57`).
 
 ## v0.8.7 - 2026-10-23
 
