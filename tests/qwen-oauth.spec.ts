@@ -91,7 +91,8 @@ describe("Qwen Code subscription OAuth", () => {
 			expect.objectContaining({
 				type: "device_code",
 				userCode: "ABCD-1234",
-				verificationUri: DEVICE.verification_uri_complete,
+				verificationUri:
+					"https://chat.qwen.ai/authorize?user_code=ABCD-1234&client=cli&entry=qwen_code&paywallScene=cli",
 			}),
 		);
 		const [start, poll, , userinfo] = requests;
