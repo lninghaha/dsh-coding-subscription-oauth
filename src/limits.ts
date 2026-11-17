@@ -5,7 +5,8 @@
  * - codex:  GET https://chatgpt.com/backend-api/wham/usage (existing opt-in reader)
  * - claude: GET https://api.anthropic.com/api/oauth/usage (5h / weekly utilization)
  * - kimi:   GET https://api.kimi.com/coding/v1/usages (weekly summary + windowed limits)
- * - qwen:   no quota endpoint exists; only the plan from userinfo is reported
+ * - qwen:   sg-entitlement.qwen.com agent/usage (the chat.qwen.ai usage page's own request,
+ *           best effort: shape unverified, may reject the OAuth token) + plan from userinfo
  * - grok:   no limit endpoint is known; reported as "no-data"
  *
  * Failures never invent numbers: they yield status "error" with a stable code only.
@@ -55,6 +56,24 @@ const SEVEN_DAYS = 7 * 86_400;
 
 export const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 export const KIMI_USAGES_URL = "https://api.kimi.com/coding/v1/usages";
+/** Request the chat.qwen.ai "usage & billing" page makes; the query mirrors its fixed params. */
+export function qwenEntitlementUsageUrl(timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
+	const query = new URLSearchParams({
+		biz_id: "ai_qwen",
+		chat_client: "h5",
+		device: "pc",
+		fr: "pc",
+		pr: "qwen-i18n",
+		la: "en-US",
+		tz: timeZone,
+		wv: "0.3.46",
+	});
+	return `https://sg-entitlement.qwen.com/api/entitlement/agent/usage?${query.toString()}`;
+}
+const QWEN_ENTITLEMENT_HEADERS = {
+	Origin: "https://chat.qwen.ai",
+	Referer: "https://chat.qwen.ai/settings/usage-billing",
+} as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -167,6 +186,109 @@ export function parseKimiUsage(body: unknown): LimitWindow[] {
 	return windows;
 }
 
+const USED_KEYS = ["used", "usage", "usedAmount", "consumed", "usedQuota", "usedCredits"] as const;
+const TOTAL_KEYS = ["total", "limit", "quota", "max", "totalQuota", "totalAmount", "allowance"] as const;
+const REMAINING_KEYS = ["remaining", "left", "remain", "balance", "remainingQuota", "remainingAmount"] as const;
+const NAME_KEYS = ["name", "title", "label", "type", "scene", "feature", "key"] as const;
+const PERIOD_KEYS = ["period", "cycle", "window", "interval", "unit", "timeUnit"] as const;
+const RESET_KEYS = [
+	"resetTime",
+	"nextResetTime",
+	"resetAt",
+	"reset_at",
+	"refreshTime",
+	"expireTime",
+	"expiredAt",
+	"endTime",
+	"endDate",
+] as const;
+const QWEN_MAX_WINDOWS = 8;
+
+function firstNumber(record: Record<string, unknown>, keys: readonly string[]): number | undefined {
+	for (const key of keys) {
+		const value = record[key];
+		if (typeof value === "number" && Number.isFinite(value)) return value;
+		if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/u.test(value.trim())) return Number(value);
+	}
+	return undefined;
+}
+
+function firstString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {
+	for (const key of keys) {
+		const value = record[key];
+		if (typeof value === "string" && value.length > 0 && value.length <= 64) return value;
+	}
+	return undefined;
+}
+
+function periodSeconds(text: string | undefined): number | undefined {
+	if (text === undefined) return undefined;
+	const value = text.toLowerCase();
+	if (/(^|[^a-z])(5h|five_hour|hour5)/u.test(value)) return FIVE_HOURS;
+	if (/week/u.test(value)) return SEVEN_DAYS;
+	if (/day|daily/u.test(value)) return 86_400;
+	if (/month/u.test(value)) return 30 * 86_400;
+	return undefined;
+}
+
+function resetEpochSeconds(record: Record<string, unknown>): number | undefined {
+	for (const key of RESET_KEYS) {
+		const value = record[key];
+		if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+			return Math.floor(value > 1e11 ? value / 1000 : value);
+		}
+		const iso = epochSecondsFromIso(value);
+		if (iso !== undefined) return iso;
+	}
+	return undefined;
+}
+
+/**
+ * Qwen entitlement `agent/usage`. The `data` shape is not documented anywhere public, so this
+ * is deliberately tolerant: it walks `data` and keeps objects that carry a usable total plus
+ * either `used` or `remaining`. Returns [] (never garbage) when nothing matches.
+ */
+export function parseQwenEntitlement(body: unknown): LimitWindow[] {
+	if (!isRecord(body)) throw new Error("malformed");
+	if (body["success"] === false || (typeof body["httpCode"] === "number" && body["httpCode"] >= 400)) {
+		const rawCode = typeof body["errorCode"] === "string" ? body["errorCode"] : "";
+		throw new LimitsHttpError(
+			/^[A-Z0-9_]{1,40}$/u.test(rawCode) ? rawCode : `http_${String(body["httpCode"] ?? "error")}`,
+		);
+	}
+	const windows: LimitWindow[] = [];
+	const visit = (value: unknown, path: string, depth: number): void => {
+		if (windows.length >= QWEN_MAX_WINDOWS || depth > 4) return;
+		if (Array.isArray(value)) {
+			value.slice(0, 16).forEach((item, index) => {
+				visit(item, `${path}.${String(index)}`, depth + 1);
+			});
+			return;
+		}
+		if (!isRecord(value)) return;
+		const total = firstNumber(value, TOTAL_KEYS);
+		const used = firstNumber(value, USED_KEYS);
+		const remaining = firstNumber(value, REMAINING_KEYS);
+		const spent = used ?? (remaining !== undefined && total !== undefined ? total - remaining : undefined);
+		if (total !== undefined && total > 0 && spent !== undefined) {
+			const name = firstString(value, NAME_KEYS);
+			const windowSeconds = periodSeconds(firstString(value, PERIOD_KEYS) ?? name);
+			const resetsAt = resetEpochSeconds(value);
+			windows.push({
+				id: `qwen-${String(windows.length)}`,
+				...(name === undefined ? {} : { name }),
+				usedPercent: clampPercent((spent / total) * 100),
+				...(windowSeconds === undefined ? {} : { windowSeconds }),
+				...(resetsAt === undefined ? {} : { resetsAt }),
+			});
+			return;
+		}
+		for (const [key, child] of Object.entries(value)) visit(child, `${path}.${key}`, depth + 1);
+	};
+	visit(body["data"], "data", 0);
+	return windows;
+}
+
 /** Project the existing Codex reader output onto the shared gauge shape. */
 export function codexWindows(usage: CodexUsage): LimitWindow[] {
 	return usage.rateLimits.flatMap((limit) =>
@@ -275,8 +397,23 @@ export function createLimitsReader(options: LimitsReaderOptions): LimitsReader {
 			if (provider === "kimi") {
 				return done("ok", { windows: parseKimiUsage(await getJson(fetchImpl, KIMI_USAGES_URL, bearer, signal)) });
 			}
-			const plan = await fetchQwenPlan(token, signal);
-			return done("no-data", plan === undefined ? {} : { plan });
+			const plan = await fetchQwenPlan(token, signal).catch(() => undefined);
+			const planExtra = plan === undefined ? {} : { plan };
+			try {
+				const body = await getJson(
+					fetchImpl,
+					qwenEntitlementUsageUrl(),
+					{ ...bearer, ...QWEN_ENTITLEMENT_HEADERS },
+					signal,
+				);
+				const windows = parseQwenEntitlement(body);
+				return windows.length > 0 ? done("ok", { windows, ...planExtra }) : done("no-data", planExtra);
+			} catch (error) {
+				// The usage page's endpoint may reject an OAuth (non web-session) token: keep the plan
+				// and report why, instead of a scary hard failure.
+				const code = error instanceof LimitsHttpError ? error.code : "failed";
+				return done("no-data", { ...planExtra, code });
+			}
 		} catch (error) {
 			if (error instanceof LimitsHttpError && error.code === "http_401") {
 				await session.invalidateAccessToken().catch(() => undefined);

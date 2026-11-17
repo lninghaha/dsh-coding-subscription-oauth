@@ -97,6 +97,10 @@ function message(view: ProviderLimitsView, t: T): string | undefined {
 	if (view.status === "disabled") return t("limitsCodexDisabled", { provider });
 	if (view.status === "error") return t("limitsError", { provider });
 	if (view.status === "no-data") {
+		if (view.code !== undefined) {
+			const plan = view.plan === undefined ? "" : `${t("limitsPlan", { provider, plan: view.plan.toUpperCase() })} · `;
+			return `${plan}${t("limitsRejected", { provider, code: view.code })}`;
+		}
 		return view.plan === undefined
 			? t("limitsNoData", { provider })
 			: `${t("limitsPlan", { provider, plan: view.plan.toUpperCase() })} · ${t("limitsNoData", { provider })}`;

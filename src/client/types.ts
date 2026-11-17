@@ -245,5 +245,6 @@ export interface ProviderLimitsView {
 	readonly status: "ok" | "no-data" | "signed-out" | "disabled" | "error";
 	readonly windows: readonly LimitsWindowView[];
 	readonly plan?: string;
+	readonly code?: string;
 	readonly fetchedAt: number;
 }

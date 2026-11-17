@@ -5,7 +5,8 @@
  * - codex:  GET https://chatgpt.com/backend-api/wham/usage (existing opt-in reader)
  * - claude: GET https://api.anthropic.com/api/oauth/usage (5h / weekly utilization)
  * - kimi:   GET https://api.kimi.com/coding/v1/usages (weekly summary + windowed limits)
- * - qwen:   no quota endpoint exists; only the plan from userinfo is reported
+ * - qwen:   sg-entitlement.qwen.com agent/usage (the chat.qwen.ai usage page's own request,
+ *           best effort: shape unverified, may reject the OAuth token) + plan from userinfo
  * - grok:   no limit endpoint is known; reported as "no-data"
  *
  * Failures never invent numbers: they yield status "error" with a stable code only.
@@ -38,10 +39,18 @@ export interface ProviderLimits {
 export type LimitFetch = (input: string, init?: RequestInit) => Promise<Response>;
 export declare const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 export declare const KIMI_USAGES_URL = "https://api.kimi.com/coding/v1/usages";
+/** Request the chat.qwen.ai "usage & billing" page makes; the query mirrors its fixed params. */
+export declare function qwenEntitlementUsageUrl(timeZone?: string): string;
 /** Claude `/api/oauth/usage`: `{ five_hour: { utilization, resets_at }, seven_day: {...}, ... }`. */
 export declare function parseClaudeUsage(body: unknown): LimitWindow[];
 /** Kimi `/usages`: weekly `usage` summary plus `limits[]` with `{ window, detail }`. */
 export declare function parseKimiUsage(body: unknown): LimitWindow[];
+/**
+ * Qwen entitlement `agent/usage`. The `data` shape is not documented anywhere public, so this
+ * is deliberately tolerant: it walks `data` and keeps objects that carry a usable total plus
+ * either `used` or `remaining`. Returns [] (never garbage) when nothing matches.
+ */
+export declare function parseQwenEntitlement(body: unknown): LimitWindow[];
 /** Project the existing Codex reader output onto the shared gauge shape. */
 export declare function codexWindows(usage: CodexUsage): LimitWindow[];
 export interface LimitsReaderOptions {

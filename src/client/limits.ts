@@ -60,6 +60,7 @@ export function parseLimitsResponse(value: unknown): ProviderLimitsView | undefi
 		status: entry["status"] as ProviderLimitsView["status"],
 		windows,
 		...(typeof entry["plan"] === "string" ? { plan: entry["plan"] } : {}),
+		...(typeof entry["code"] === "string" ? { code: entry["code"] } : {}),
 		fetchedAt: typeof entry["fetchedAt"] === "number" ? entry["fetchedAt"] : 0,
 	};
 }

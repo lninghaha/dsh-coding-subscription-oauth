@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CodexUsage } from "../src/codex-usage.ts";
-import { codexWindows, createLimitsReader, type LimitFetch, parseClaudeUsage, parseKimiUsage } from "../src/limits.ts";
+import {
+	codexWindows,
+	createLimitsReader,
+	type LimitFetch,
+	parseClaudeUsage,
+	parseKimiUsage,
+	parseQwenEntitlement,
+	qwenEntitlementUsageUrl,
+} from "../src/limits.ts";
 import type { OAuthProviderSession } from "../src/oauth-session.ts";
 
 function fakeSession(slug: string, authenticated = true, token: string | undefined = "tok") {
@@ -139,13 +147,84 @@ describe("limits reader", () => {
 		expect(read).toHaveBeenCalledOnce();
 	});
 
-	it("reports Grok as no-data and Qwen as plan-only", async () => {
-		const fetchImpl = vi.fn<LimitFetch>(async () => json({ sub: "u", member_type: "Pro" }));
+	it("reports Grok as no-data", async () => {
+		const reader = createLimitsReader({ sessions: [], fetchImpl: vi.fn<LimitFetch>() });
+		expect(await reader.read("grok")).toMatchObject({ status: "no-data", windows: [] });
+	});
+
+	it("reads Qwen usage from the entitlement endpoint with the page's origin and keeps the plan", async () => {
+		const calls: string[] = [];
+		const fetchImpl = vi.fn<LimitFetch>(async (url) => {
+			calls.push(url);
+			return json({
+				success: true,
+				httpCode: 200,
+				data: { quotas: [{ title: "Weekly credits", total: 200, used: 50, resetTime: 1_800_000_000_000 }] },
+			});
+		});
 		vi.stubEnv("QWEN_CODE_OAUTH_HOST", "http://127.0.0.1:9");
 		const reader = createLimitsReader({ sessions: [fakeSession("qwen")], fetchImpl });
-		expect(await reader.read("grok")).toMatchObject({ status: "no-data", windows: [] });
-		// Qwen plan lookup uses the real fetch against the (unreachable) test host → stable error code.
-		expect(await reader.read("qwen")).toMatchObject({ provider: "qwen", windows: [] });
+		const result = await reader.read("qwen");
 		vi.unstubAllEnvs();
+		expect(result).toMatchObject({
+			status: "ok",
+			windows: [{ name: "Weekly credits", usedPercent: 25, windowSeconds: 604_800, resetsAt: 1_800_000_000 }],
+		});
+		expect(calls[0]).toContain("https://sg-entitlement.qwen.com/api/entitlement/agent/usage?biz_id=ai_qwen");
+		const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+		expect(init.headers).toMatchObject({
+			Authorization: "Bearer tok",
+			Origin: "https://chat.qwen.ai",
+			Referer: "https://chat.qwen.ai/settings/usage-billing",
+		});
+	});
+
+	it("degrades Qwen to no-data with a stable code when the endpoint rejects the token", async () => {
+		const fetchImpl = vi.fn<LimitFetch>(async () =>
+			json({ success: false, httpCode: 401, errorCode: "NOT_LOGIN", errorMsg: "User not logged in", traceId: "t" }),
+		);
+		vi.stubEnv("QWEN_CODE_OAUTH_HOST", "http://127.0.0.1:9");
+		const reader = createLimitsReader({ sessions: [fakeSession("qwen")], fetchImpl });
+		const result = await reader.read("qwen");
+		vi.unstubAllEnvs();
+		expect(result).toMatchObject({ status: "no-data", code: "NOT_LOGIN", windows: [] });
+		expect(JSON.stringify(result)).not.toContain("User not logged in");
+	});
+});
+
+describe("Qwen entitlement parser", () => {
+	it("extracts used/total and remaining/total entries and ignores everything else", () => {
+		const windows = parseQwenEntitlement({
+			success: true,
+			data: {
+				plan: "pro",
+				daily: { name: "daily", total: 100, remaining: 40, expireTime: "2026-11-18T00:00:00Z" },
+				nested: { list: [{ type: "monthly", limit: "1000", used: "250" }, { total: 0, used: 0 }, { foo: 1 }] },
+			},
+		});
+		expect(windows).toEqual([
+			{
+				id: "qwen-0",
+				name: "daily",
+				usedPercent: 60,
+				windowSeconds: 86_400,
+				resetsAt: Date.parse("2026-11-18T00:00:00Z") / 1000,
+			},
+			{ id: "qwen-1", name: "monthly", usedPercent: 25, windowSeconds: 2_592_000 },
+		]);
+		expect(parseQwenEntitlement({ success: true, data: { hello: "world" } })).toEqual([]);
+		expect(() => parseQwenEntitlement({ success: false, httpCode: 401, errorCode: "NOT_LOGIN" })).toThrow("NOT_LOGIN");
+		expect(() => parseQwenEntitlement({ success: false, httpCode: 500, errorCode: "bad code!" })).toThrow("http_500");
+	});
+
+	it("builds the same query the usage page sends", () => {
+		const url = new URL(qwenEntitlementUsageUrl("America/New_York"));
+		expect(url.origin + url.pathname).toBe("https://sg-entitlement.qwen.com/api/entitlement/agent/usage");
+		expect(Object.fromEntries(url.searchParams)).toMatchObject({
+			biz_id: "ai_qwen",
+			chat_client: "h5",
+			pr: "qwen-i18n",
+			tz: "America/New_York",
+		});
 	});
 });
